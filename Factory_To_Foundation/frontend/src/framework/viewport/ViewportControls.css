@@ -1,0 +1,23 @@
+.viewport-controls {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    z-index: 10;
+}
+
+.viewport-controls-button {
+    border-radius: var(--ff-radius);
+    border: 1px solid var(--ff-panel-border);
+    background: var(--ff-panel-bg);
+    padding: 0.4rem 0.75rem;
+
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--ff-text-secondary);
+
+    cursor: pointer;
+}
+
+.viewport-controls-button:hover {
+    background: var(--ff-chrome-bg);
+}

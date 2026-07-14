@@ -1,0 +1,23 @@
+.ff-panel-card {
+    background: var(--ff-panel-bg);
+    border: var(--ff-border-width) solid var(--ff-panel-border);
+    border-radius: var(--ff-radius);
+}
+
+.ff-panel-card-header {
+    padding: 0.6rem 0.9rem;
+    border-bottom: var(--ff-border-width) solid var(--ff-panel-border);
+    background: var(--ff-chrome-bg);
+}
+
+.ff-panel-card-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ff-text-secondary);
+}
+
+.ff-panel-card-body {
+    padding: 0.9rem;
+}

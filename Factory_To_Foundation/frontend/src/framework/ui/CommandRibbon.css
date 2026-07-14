@@ -1,0 +1,40 @@
+.command-ribbon {
+    height: 40px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 0.75rem;
+
+    background: var(--ff-chrome-bg);
+    border-bottom: var(--ff-border-width) solid var(--ff-chrome-border);
+}
+
+.command-ribbon-menus {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+}
+
+.command-ribbon-right {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.command-ribbon-page-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--ff-text-secondary);
+    cursor: default;
+}
+
+.command-ribbon-avatar {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    background: var(--ff-text-muted);
+    cursor: default;
+}

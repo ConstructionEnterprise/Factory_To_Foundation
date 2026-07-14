@@ -1,0 +1,27 @@
+.entity-canvas-root {
+    position: absolute;
+    inset: 0;
+}
+
+.entity-canvas-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    transform-origin: 0 0;
+    will-change: transform;
+}
+
+.entity-canvas-edges {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    overflow: visible;
+    pointer-events: none;
+}
+
+.entity-canvas-edge {
+    stroke: #cbd5e1;
+    stroke-width: 2;
+}

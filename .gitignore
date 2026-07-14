@@ -1,0 +1,17 @@
+# Logs (bridge_out.log/bridge_err.log etc. from manual runs)
+*.log
+
+# Dependencies / build output (frontend has its own, more complete .gitignore too)
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Local-only Claude Code settings (per-machine permission allowlist, not shared project config)
+.claude/settings.local.json

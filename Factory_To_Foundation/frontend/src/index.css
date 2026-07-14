@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/**
+ * Factory » Foundation design tokens.
+ *
+ * Direction: light theme, Revit/Blender's flat & restrained discipline —
+ * not a SaaS dashboard. Muted gray chrome separates panels from content;
+ * orange is the ONE accent color, reserved for active/selected state and
+ * primary actions. Tier/status colors keep their meaning but are muted
+ * so they don't compete with the accent. Flat panels (thin 1px borders,
+ * no shadow, minimal corner radius) instead of floating cards.
+ */
+:root {
+  /* Chrome vs. content — the separation cue Revit's gray ribbon provides */
+  --ff-chrome-bg: #eceef1;
+  --ff-chrome-border: #d4d8de;
+  --ff-content-bg: #f4f5f7;
+  --ff-panel-bg: #ffffff;
+  --ff-panel-border: #d8dbe0;
+
+  /* Text */
+  --ff-text-primary: #1f2328;
+  --ff-text-secondary: #5b6472;
+  --ff-text-muted: #8b93a1;
+
+  /* The one accent */
+  --ff-accent: #d9631e;
+  --ff-accent-hover: #c1551a;
+  --ff-accent-soft: #fdece1;
+
+  /* Muted tier palette (Genealogy) — desaturated, not Tailwind-500 rainbow */
+  --ff-tier-material: #5b7fa6;
+  --ff-tier-framing-package: #6f6f9e;
+  --ff-tier-component: #5f8f68;
+  --ff-tier-subassembly: #b17a45;
+  --ff-tier-module: #8a6a9e;
+  --ff-tier-building: #4f8f92;
+  --ff-tier-project: #7a828d;
+
+  /* Muted status palette — semantic, shared across Factory/Robotics/Logistics/Construction/Assets */
+  --ff-status-positive: #5f9668;
+  --ff-status-warning: #b98a3f;
+  --ff-status-critical: #b0574c;
+  --ff-status-neutral: #8b93a1;
+
+  /* Flat surface language */
+  --ff-radius: 0.3rem;
+  --ff-border-width: 1px;
+}

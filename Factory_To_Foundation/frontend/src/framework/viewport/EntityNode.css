@@ -1,0 +1,41 @@
+.entity-node {
+    position: absolute;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.15rem;
+
+    padding: 0.5rem 0.75rem;
+
+    border-radius: var(--ff-radius);
+    border-width: 1.5px;
+    border-style: solid;
+    background: var(--ff-panel-bg);
+
+    cursor: pointer;
+    text-align: left;
+
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.entity-node:hover {
+    background: var(--ff-chrome-bg);
+}
+
+.entity-node--active {
+    outline: 2px solid var(--ff-accent);
+    outline-offset: 1px;
+}
+
+.entity-node-title {
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--ff-text-primary);
+}
+
+.entity-node-subtitle {
+    font-size: 0.65rem;
+    color: var(--ff-text-muted);
+}

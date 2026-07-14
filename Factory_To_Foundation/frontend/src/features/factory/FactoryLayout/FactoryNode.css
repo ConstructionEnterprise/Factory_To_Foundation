@@ -1,0 +1,71 @@
+.factory-node {
+    position: absolute;
+    z-index: 1;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.15rem;
+
+    padding: 0.5rem 0.75rem 0.5rem 0.9rem;
+
+    border-radius: var(--ff-radius);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--ff-panel-border);
+    background: var(--ff-panel-bg);
+
+    /* Left-edge status strip — more scannable at a glance than a thin
+       border + small dot alone (agreed Factory UX polish item). */
+    border-left-width: 4px;
+
+    text-align: left;
+    cursor: pointer;
+
+    transition: background-color 0.15s ease;
+}
+
+.factory-node:hover {
+    background: var(--ff-chrome-bg);
+}
+
+.factory-node--active {
+    outline: 2px solid var(--ff-accent);
+    outline-offset: 1px;
+}
+
+.factory-node-title {
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--ff-text-primary);
+}
+
+.factory-node-subtitle {
+    font-size: 0.65rem;
+    color: var(--ff-text-muted);
+}
+
+.factory-node-status-dot {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.6rem;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+}
+
+.factory-node--running { border-left-color: var(--ff-status-positive); }
+.factory-node--running .factory-node-status-dot { background: var(--ff-status-positive); }
+
+.factory-node--idle { border-left-color: var(--ff-status-warning); }
+.factory-node--idle .factory-node-status-dot { background: var(--ff-status-warning); }
+
+.factory-node--down { border-left-color: var(--ff-status-critical); }
+.factory-node--down .factory-node-status-dot { background: var(--ff-status-critical); }
+
+/* Manifest-confirmed real subsystem, zero live state.json fields behind
+   it yet (the real rail/ATC case) — visually distinct from idle, never
+   implying a status value that wasn't actually observed. */
+.factory-node--unknown { border-left-color: var(--ff-text-muted); }
+.factory-node--unknown .factory-node-status-dot { background: var(--ff-text-muted); }

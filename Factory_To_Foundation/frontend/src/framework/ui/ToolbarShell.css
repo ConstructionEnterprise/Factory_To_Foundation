@@ -1,0 +1,40 @@
+.ff-toolbar-shell {
+    background: var(--ff-panel-bg);
+    border: var(--ff-border-width) solid var(--ff-panel-border);
+    border-radius: var(--ff-radius);
+    padding: 0.6rem;
+}
+
+.ff-toolbar-input,
+.ff-toolbar-select {
+    border: 1px solid var(--ff-panel-border);
+    border-radius: 0.2rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.78rem;
+    color: var(--ff-text-primary);
+    background: var(--ff-panel-bg);
+    outline: none;
+}
+
+.ff-toolbar-input {
+    width: 18rem;
+}
+
+.ff-toolbar-input:focus,
+.ff-toolbar-select:focus {
+    border-color: var(--ff-accent);
+}
+
+.ff-toolbar-button {
+    border: 1px solid var(--ff-panel-border);
+    border-radius: 0.2rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.78rem;
+    color: var(--ff-text-secondary);
+    background: var(--ff-panel-bg);
+    cursor: pointer;
+}
+
+.ff-toolbar-button:hover {
+    background: var(--ff-chrome-bg);
+}

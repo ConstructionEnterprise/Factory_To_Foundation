@@ -1,0 +1,27 @@
+.graph-canvas-root {
+    position: absolute;
+    inset: 0;
+}
+
+.graph-canvas-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    transform-origin: 0 0;
+    will-change: transform;
+}
+
+.graph-edges {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    overflow: visible;
+    pointer-events: none;
+}
+
+.graph-edge {
+    stroke: #cbd5e1;
+    stroke-width: 2;
+}
