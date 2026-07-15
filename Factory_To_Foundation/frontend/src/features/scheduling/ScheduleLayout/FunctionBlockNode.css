@@ -1,0 +1,72 @@
+.fb-node {
+    position: absolute;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.15rem;
+
+    padding: 0.5rem 0.75rem;
+
+    border-radius: var(--ff-radius);
+    border: 1px solid var(--ff-panel-border);
+    background: var(--ff-panel-bg);
+
+    text-align: left;
+    cursor: pointer;
+
+    transition: background-color 0.15s ease;
+}
+
+.fb-node:hover {
+    background: var(--ff-chrome-bg);
+}
+
+.fb-node--active {
+    outline: 2px solid var(--ff-accent);
+    outline-offset: 1px;
+}
+
+.fb-node-title {
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--ff-text-primary);
+}
+
+.fb-node-subtitle {
+    font-size: 0.65rem;
+    color: var(--ff-text-muted);
+}
+
+/* Pins — real attachment points, not just text, so the diagram reads as
+   a wired FBD rather than a generic flowchart. */
+.fb-node-pin {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: var(--ff-accent);
+    border: 1px solid var(--ff-panel-bg);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.fb-node-pin--input { left: -4px; }
+.fb-node-pin--output { right: -4px; }
+
+.fb-node-pin-label {
+    position: absolute;
+    max-width: calc(50% - 0.5rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 0.58rem;
+    color: var(--ff-text-muted);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.fb-node-pin-label--input { left: 0.5rem; text-align: left; }
+.fb-node-pin-label--output { right: 0.5rem; text-align: right; }

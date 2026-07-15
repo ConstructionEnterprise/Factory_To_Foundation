@@ -19,7 +19,13 @@ export default function ScheduleBrowse() {
             feature: "scheduling",
             objectType: node.subtitle,
             objectId: node.id,
-            payload: { name: node.title, description: node.description, ownedBy: node.ownedBy },
+            payload: {
+              name: node.title,
+              description: node.description,
+              ownedBy: node.ownedBy,
+              inputs: node.inputs,
+              outputs: node.outputs,
+            },
           });
         }}
       />

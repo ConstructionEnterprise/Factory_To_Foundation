@@ -1,6 +1,10 @@
 import { useSelection } from "@/context/SelectionContext";
 import { DetailRow, PanelCard } from "@/framework/ui";
 
+function formatPorts(ports: { label: string; type: string }[]): string {
+  return ports.length ? ports.map((p) => `${p.label} (${p.type})`).join(", ") : "None";
+}
+
 export default function ScheduleInspector() {
   const { selected } = useSelection();
   const sel = selected?.feature === "scheduling" ? selected : undefined;
@@ -18,6 +22,8 @@ export default function ScheduleInspector() {
 
       <div className="mt-6 space-y-1">
         <DetailRow label="Owned By" value={sel?.payload.ownedBy ?? "--"} />
+        <DetailRow label="Inputs" value={sel ? formatPorts(sel.payload.inputs) : "--"} />
+        <DetailRow label="Outputs" value={sel ? formatPorts(sel.payload.outputs) : "--"} />
       </div>
 
       {sel && (

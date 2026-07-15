@@ -53,6 +53,9 @@ export type SchedulePayload = {
   name: string;
   description: string;
   ownedBy: string;
+  /** Real function-block ports (Phase 1 — structural only, nothing executes). Empty for a block with none on that side (e.g. Inbound Material has no inputs). */
+  inputs: { label: string; type: string }[];
+  outputs: { label: string; type: string }[];
 };
 
 export type AssetsPayload = {

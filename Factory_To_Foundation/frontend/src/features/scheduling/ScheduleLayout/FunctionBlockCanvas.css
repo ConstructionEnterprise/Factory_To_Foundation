@@ -1,0 +1,28 @@
+.fb-canvas-root {
+    position: absolute;
+    inset: 0;
+}
+
+.fb-canvas-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    transform-origin: 0 0;
+    will-change: transform;
+}
+
+.fb-canvas-wires {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    overflow: visible;
+    pointer-events: none;
+}
+
+.fb-canvas-wire {
+    stroke: var(--ff-accent);
+    stroke-width: 2;
+    opacity: 0.55;
+}
