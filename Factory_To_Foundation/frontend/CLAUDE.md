@@ -122,8 +122,6 @@ All tokens live in `src/index.css` under `:root`:
 --ff-status-positive / -warning / -critical / -neutral  /* shared status palette, used everywhere status exists */
 --ff-radius: 0.3rem                      /* the one corner radius, used everywhere */
 --ff-border-width: 1px
-```
-
 **What changed structurally, not just cosmetically:**
 - Every `shadow-sm` + `rounded-xl` "floating card" replaced with flat 1px-bordered panels.
 - Selection state changed from a glowing box-shadow ring to a 2px accent outline.
