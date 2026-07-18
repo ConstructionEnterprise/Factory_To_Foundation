@@ -5,6 +5,7 @@ export { default as KpiList } from "./KpiList";
 export { default as PanelCard } from "./PanelCard";
 export { default as PageHeader } from "./PageHeader";
 export { default as FeaturePage } from "./FeaturePage";
+export { default as SimplePage } from "./SimplePage";
 export { default as Legend } from "./Legend";
 export { default as DetailRow } from "./DetailRow";
 export { default as CollapsibleSection } from "./CollapsibleSection";

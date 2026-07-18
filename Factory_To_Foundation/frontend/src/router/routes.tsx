@@ -22,7 +22,12 @@ import ConstructionPage from "@/pages/construction/ConstructionPage";
 import ManufacturingPage from "@/pages/manufacturing/ManufacturingPage";
 import SchedulingPage from "@/pages/scheduling/SchedulingPage";
 import AssetsPage from "@/pages/assets/AssetsPage";
-import ComingSoonPage from "@/pages/ComingSoonPage";
+import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
+import AdministrationPage from "@/pages/administration/AdministrationPage";
+import ReportsPage from "@/pages/reports/ReportsPage";
+// ComingSoonPage (src/pages/ComingSoonPage.tsx) is no longer used by any
+// route now that Analytics/Administration/Reports are real pages — left
+// on disk, not deleted, for whatever feature is unbuilt next.
 
 export type AppRoute = {
   path: string;
@@ -42,10 +47,11 @@ export type AppRoute = {
  * order.
  *
  * Manufacturing, Factory, Robotics, Logistics, Construction, Genealogy,
- * Scheduling, and Assets are built. Analytics, Administration, and
- * Reports remain ComingSoonPage — their original spec has no viewport
- * (dashboard/settings/document-library shapes, not spatial object
- * browsing), so they're deliberately not forced into the Browse/
+ * Scheduling, and Assets are built on FeaturePage's Browse/Viewport/
+ * Selected Workspace shape. Analytics, Administration, and Reports are
+ * also built now, but on SimplePage instead — their original spec has no
+ * viewport (dashboard/settings/document-library shapes, not spatial
+ * object browsing), so they're deliberately not forced into the Browse/
  * Viewport/Selected pattern the others share.
  */
 export const appRoutes: AppRoute[] = [
@@ -95,20 +101,13 @@ export const appRoutes: AppRoute[] = [
     path: "/administration",
     label: "Administration",
     icon: ShieldCheck,
-    element: (
-      <ComingSoonPage
-        title="Administration"
-        subtitle="Enterprise Administration"
-      />
-    ),
+    element: <AdministrationPage />,
   },
   {
     path: "/analytics",
     label: "Analytics",
     icon: BarChart3,
-    element: (
-      <ComingSoonPage title="Analytics" subtitle="Business Intelligence" />
-    ),
+    element: <AnalyticsPage />,
   },
   {
     path: "/assets",
@@ -120,8 +119,6 @@ export const appRoutes: AppRoute[] = [
     path: "/reports",
     label: "Reports",
     icon: FileText,
-    element: (
-      <ComingSoonPage title="Reports" subtitle="Enterprise Reporting" />
-    ),
+    element: <ReportsPage />,
   },
 ];
