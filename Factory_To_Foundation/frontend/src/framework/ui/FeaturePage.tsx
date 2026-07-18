@@ -13,6 +13,14 @@ type FeaturePageProps = {
   kpis?: ReactNode;
   /** Rendered inside a "Filters" dropdown, if provided. */
   toolbar?: ReactNode;
+  /**
+   * Additional page-specific ribbon dropdowns beyond the standard
+   * Metrics/Filters pair, appended in order after them — e.g. Factory's
+   * "Instructions" menu. The generic third-menu-type extension point
+   * discussed early in the project, built only once a real consumer
+   * needed it rather than speculatively.
+   */
+  extraMenus?: RibbonMenu[];
   left: ReactNode;
   center: ReactNode;
   right: ReactNode;
@@ -31,6 +39,7 @@ export default function FeaturePage({
   pageSubtitle,
   kpis,
   toolbar,
+  extraMenus,
   left,
   center,
   right,
@@ -39,6 +48,7 @@ export default function FeaturePage({
 
   if (kpis) menus.push({ label: "Metrics", content: kpis });
   if (toolbar) menus.push({ label: "Filters", content: toolbar });
+  if (extraMenus) menus.push(...extraMenus);
 
   return (
     <div className="flex flex-col h-full bg-[var(--ff-content-bg)]">

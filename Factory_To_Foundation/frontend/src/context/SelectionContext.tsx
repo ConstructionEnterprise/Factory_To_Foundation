@@ -47,7 +47,33 @@ export type ConstructionPayload = {
   punchListCount: string;
 };
 
-export type ManufacturingPayload = { name: string; sourceFile: string };
+// Both variants share `name` so panels that don't need to branch (a plain
+// header) can read it unconditionally; everything else is real per-kind
+// data — a unit's SF/level, or the building's real PROJECT_SPEC.
+export type ManufacturingUnitSelection = {
+  kind: "unit";
+  name: string;
+  objectName: string;
+  level: number;
+  typeLabel: string;
+  subtypeCode: string;
+  squareFootage?: number;
+  /** Set when this unit's real geometry contradicts the confirmed unit-distribution spec. */
+  flag?: string;
+  /** Set by ManufacturingBrowse when a Shop Drawing sheet (not the Objects tree or a 3D click) drove this selection — GeometryViewport reads this once, on selection change, to default into plan view. Absent means "leave the viewport's current mode alone / default to 3D isolation." */
+  preferredView?: "plan";
+};
+
+export type ManufacturingBuildingSelection = {
+  kind: "building";
+  name: string;
+  // Loosely typed here to avoid this context module depending on the
+  // manufacturing feature's PROJECT_SPEC shape; ManufacturingInspector
+  // narrows it with the real type it owns.
+  projectSpec: Record<string, unknown> | undefined;
+};
+
+export type ManufacturingPayload = ManufacturingUnitSelection | ManufacturingBuildingSelection;
 
 export type SchedulePayload = {
   name: string;

@@ -1,16 +1,17 @@
 import { FeaturePage } from "@/framework/ui";
 
 import {
+  GeometryViewport,
   ManufacturingBrowse,
   ManufacturingInspector,
   ManufacturingToolbar,
-  ManufacturingViewport,
 } from "@/features/manufacturing";
 
 /**
- * No Metrics dropdown here — there's no real geometry-ingestion data
- * yet to summarize into KPIs, and inventing numbers for an empty
- * pipeline would misrepresent the page's actual state.
+ * No Metrics dropdown here — real decomposed geometry is ingested now
+ * (see GeometryViewport/gardenLoftsModel.ts), but nothing has been
+ * scoped into KPI-shaped numbers yet; inventing a rollup would
+ * misrepresent the page's actual state.
  */
 export default function ManufacturingPage() {
   return (
@@ -19,7 +20,7 @@ export default function ManufacturingPage() {
       pageSubtitle="Geometry Ingestion & Module Assembly"
       toolbar={<ManufacturingToolbar />}
       left={<ManufacturingBrowse />}
-      center={<ManufacturingViewport />}
+      center={<GeometryViewport />}
       right={<ManufacturingInspector />}
     />
   );

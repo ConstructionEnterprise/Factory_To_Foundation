@@ -3,6 +3,7 @@ import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 import {
   FactoryBrowse,
   FactoryInspector,
+  FactoryInstructions,
   FactoryLayout,
   FactoryToolbar,
 } from "@/features/factory";
@@ -23,6 +24,7 @@ export default function FactoryPage() {
       pageSubtitle="Digital Twin Manufacturing Operations"
       kpis={<KpiList kpis={factoryKpis} />}
       toolbar={<FactoryToolbar />}
+      extraMenus={[{ label: "Instructions", content: <FactoryInstructions /> }]}
       left={<FactoryBrowse />}
       center={<FactoryLayout />}
       right={<FactoryInspector />}
