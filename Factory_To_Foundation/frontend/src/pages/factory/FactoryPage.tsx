@@ -2,9 +2,9 @@ import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 
 import {
   FactoryBrowse,
+  FactoryGeometryViewport,
   FactoryInspector,
   FactoryInstructions,
-  FactoryLayout,
   FactoryToolbar,
 } from "@/features/factory";
 
@@ -26,7 +26,7 @@ export default function FactoryPage() {
       toolbar={<FactoryToolbar />}
       extraMenus={[{ label: "Instructions", content: <FactoryInstructions /> }]}
       left={<FactoryBrowse />}
-      center={<FactoryLayout />}
+      center={<FactoryGeometryViewport />}
       right={<FactoryInspector />}
     />
   );
