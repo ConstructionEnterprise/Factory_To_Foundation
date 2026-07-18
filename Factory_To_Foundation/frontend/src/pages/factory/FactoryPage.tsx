@@ -1,12 +1,6 @@
 import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 
-import {
-  FactoryBrowse,
-  FactoryGeometryViewport,
-  FactoryInspector,
-  FactoryInstructions,
-  FactoryToolbar,
-} from "@/features/factory";
+import { FactoryInstructions, FactoryToolbar, FactoryWorkspace } from "@/features/factory";
 
 const factoryKpis: KpiDefinition[] = [
   { title: "Active Lines", value: "2 / 2" },
@@ -25,9 +19,7 @@ export default function FactoryPage() {
       kpis={<KpiList kpis={factoryKpis} />}
       toolbar={<FactoryToolbar />}
       extraMenus={[{ label: "Instructions", content: <FactoryInstructions /> }]}
-      left={<FactoryBrowse />}
-      center={<FactoryGeometryViewport />}
-      right={<FactoryInspector />}
+      workspace={<FactoryWorkspace />}
     />
   );
 }

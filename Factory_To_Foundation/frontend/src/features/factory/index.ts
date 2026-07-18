@@ -3,3 +3,5 @@ export { default as FactoryGeometryViewport } from "./FactoryGeometryViewport";
 export { default as FactoryInspector } from "./FactoryInspector";
 export { default as FactoryToolbar } from "./FactoryToolbar";
 export { default as FactoryInstructions } from "./FactoryInstructions";
+export { default as FactoryGanttChart } from "./FactoryGanttChart";
+export { default as FactoryWorkspace } from "./FactoryWorkspace";

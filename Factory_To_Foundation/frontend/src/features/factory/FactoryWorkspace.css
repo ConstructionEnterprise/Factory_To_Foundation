@@ -1,0 +1,42 @@
+.factory-workspace {
+    width: 100%;
+    height: 100%;
+}
+
+/* Horizontal drag handle — resizes vertically-stacked panels (the new
+   Viewport+Inspector / Gantt Chart split). Same visual language as
+   framework/workspace/Workspace.css's `.resize-handle`, just rotated:
+   row-resize cursor, a horizontal grip dot instead of a vertical one. */
+.resize-handle-horizontal {
+    height: 6px;
+    background: transparent;
+    position: relative;
+    transition: background-color 0.15s ease;
+    cursor: row-resize;
+}
+
+.resize-handle-horizontal:hover {
+    background: var(--ff-chrome-bg);
+}
+
+.resize-handle-horizontal::after {
+    content: "";
+
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    transform: translate(-50%, -50%);
+
+    width: 32px;
+    height: 2px;
+
+    border-radius: 999px;
+
+    background: var(--ff-panel-border);
+}
+
+.resize-handle-horizontal:hover::after {
+    background: var(--ff-accent);
+}

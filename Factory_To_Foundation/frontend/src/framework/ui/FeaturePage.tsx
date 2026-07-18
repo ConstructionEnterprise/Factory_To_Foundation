@@ -21,9 +21,20 @@ type FeaturePageProps = {
    * needed it rather than speculatively.
    */
   extraMenus?: RibbonMenu[];
-  left: ReactNode;
-  center: ReactNode;
-  right: ReactNode;
+  /**
+   * A fully custom workspace layout, for a feature whose panel shape
+   * doesn't fit the shared three-panel `Workspace` (e.g. Factory's Gantt
+   * chart pass added a fourth, spanning panel — see
+   * `features/factory/FactoryWorkspace.tsx`). When provided, this renders
+   * instead of `left`/`center`/`right` entirely — supply either this OR
+   * the three-panel props, never both. Additive extension point, same
+   * pattern as `extraMenus`: `Workspace` itself stays untouched, only a
+   * real second shape earned this override.
+   */
+  workspace?: ReactNode;
+  left?: ReactNode;
+  center?: ReactNode;
+  right?: ReactNode;
 };
 
 /**
@@ -40,6 +51,7 @@ export default function FeaturePage({
   kpis,
   toolbar,
   extraMenus,
+  workspace,
   left,
   center,
   right,
@@ -60,7 +72,7 @@ export default function FeaturePage({
 
       <main className="flex-1 overflow-auto p-8">
         <div className="h-[900px]">
-          <Workspace left={left} center={center} right={right} />
+          {workspace ?? <Workspace left={left} center={center} right={right} />}
         </div>
       </main>
     </div>

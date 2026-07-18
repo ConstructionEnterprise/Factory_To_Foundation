@@ -52,6 +52,17 @@ export type InstructionStep = {
   relatedObjectId?: string;
   /** Always "planned" in this version — never "executing"/"complete", which would imply real execution. */
   status: "planned";
+  /**
+   * ILLUSTRATIVE ONLY — a reasonable round estimate per step type (30s for
+   * robot framing/fastening, 15s for roller transfer, 20s for tilt
+   * reorientation, 15s for gantry pickup/place), not measured or derived
+   * from any real timing data. Nothing in the twin exposes real per-step
+   * duration. Kept as round numbers, not falsely-precise ones — precision
+   * here would misrepresent them as real. Same honesty standard as
+   * `action` above; always render alongside the same "Planning Draft"
+   * disclosure.
+   */
+  estimatedDurationSec: number;
 };
 
 export type InstructionSet = {

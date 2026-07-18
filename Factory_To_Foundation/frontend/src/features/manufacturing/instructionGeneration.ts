@@ -34,6 +34,8 @@ type PhaseStep = {
   manifestId: (side: "A" | "B") => string;
   realPhase: string;
   describe: (side: "A" | "B") => string;
+  /** ILLUSTRATIVE ONLY — see InstructionStep.estimatedDurationSec. A reasonable round per-phase-type estimate, not measured/real. */
+  estimatedDurationSec: number;
 };
 
 const PHASE_STEPS: PhaseStep[] = [
@@ -45,6 +47,7 @@ const PHASE_STEPS: PhaseStep[] = [
     realPhase: "RAIL_WORKING",
     describe: (side) =>
       `Framing & fastening pass — rail-mounted robot ${side}1 works the panel using its currently-mounted tool (sourced from its home ATC).`,
+    estimatedDurationSec: 30,
   },
   {
     fromTier: "framing-package",
@@ -53,6 +56,7 @@ const PHASE_STEPS: PhaseStep[] = [
     manifestId: () => "roller",
     realPhase: "ROLLER_TRANSFER",
     describe: () => "Transfer panel to the next station via the roller transfer table.",
+    estimatedDurationSec: 15,
   },
   {
     fromTier: "component",
@@ -61,6 +65,7 @@ const PHASE_STEPS: PhaseStep[] = [
     manifestId: () => "tilt",
     realPhase: "TILT_RAISING",
     describe: () => "Reorient panel from flat to vertical via the tilt table.",
+    estimatedDurationSec: 20,
   },
   {
     fromTier: "subassembly",
@@ -69,6 +74,7 @@ const PHASE_STEPS: PhaseStep[] = [
     manifestId: () => "gantry",
     realPhase: "GANTRY_PICKUP",
     describe: () => "Lift and place the completed panel via the overhead gantry (phases GANTRY_PICKUP -> RETURNING -> COMPLETE).",
+    estimatedDurationSec: 15,
   },
 ];
 
@@ -135,6 +141,7 @@ export function generateInstructionSet(
       action: `[${tierNote}] ${phase.describe(side)} (${unitNote}; real phase: ${phase.realPhase})`,
       relatedObjectId: target.unitTypeLabel ? target.sourceObjectId : undefined,
       status: "planned",
+      estimatedDurationSec: phase.estimatedDurationSec,
     });
   }
 
