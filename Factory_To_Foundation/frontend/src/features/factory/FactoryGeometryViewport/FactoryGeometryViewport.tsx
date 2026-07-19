@@ -649,7 +649,7 @@ export default function FactoryGeometryViewport() {
   const selectedId = selected?.feature === "factory" ? selected.objectId : undefined;
 
   return (
-    <PanelCard title="Factory Digital Twin" className="h-[560px]" bodyClassName="flex flex-col flex-1">
+    <PanelCard title="Factory Digital Twin" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex flex-wrap items-center gap-6 px-6 py-4 border-b border-gray-100">
         <Legend color="var(--ff-status-positive)" label="Running" />
         <Legend color="var(--ff-status-warning)" label="Idle" />

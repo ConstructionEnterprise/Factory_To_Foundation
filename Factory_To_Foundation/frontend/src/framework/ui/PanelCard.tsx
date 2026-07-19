@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import "./PanelCard.css";
 
 type PanelCardProps = {
-  /** Rendered in the header row, uppercased via CSS — pass normal case. */
-  title: string;
+  /** Rendered in the header row, uppercased via CSS — pass normal case. Omit entirely to render no header row at all. */
+  title?: string;
   /** Optional controls rendered alongside the title (e.g. a small action button). */
   toolbar?: ReactNode;
   children: ReactNode;
@@ -36,13 +36,15 @@ export default function PanelCard({
     <div
       className={`ff-panel-card flex flex-col${className ? ` ${className}` : ""}`}
     >
-      <div className="ff-panel-card-header flex items-center justify-between">
-        <h3 className="ff-panel-card-title">
-          {title}
-        </h3>
+      {title && (
+        <div className="ff-panel-card-header flex items-center justify-between">
+          <h3 className="ff-panel-card-title">
+            {title}
+          </h3>
 
-        {toolbar}
-      </div>
+          {toolbar}
+        </div>
+      )}
 
       <div className={bodyClassName ?? DEFAULT_BODY_CLASS}>
         {children}

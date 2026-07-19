@@ -25,7 +25,7 @@ export default function FactoryGanttChart() {
 
   if (!instructionSet || instructionSet.steps.length === 0) {
     return (
-      <PanelCard title="Gantt Chart" className="h-full" bodyClassName="flex-1 overflow-auto p-3">
+      <PanelCard className="h-full" bodyClassName="flex-1 overflow-auto p-3">
         <p className="text-sm" style={{ color: "var(--ff-text-muted)" }}>
           No instructions yet — generate them from Manufacturing.
         </p>
@@ -48,7 +48,7 @@ export default function FactoryGanttChart() {
   if (ticks[ticks.length - 1] !== totalDurationSec) ticks.push(totalDurationSec);
 
   return (
-    <PanelCard title="Gantt Chart" className="h-full" bodyClassName="flex flex-col flex-1 overflow-auto p-3">
+    <PanelCard className="h-full" bodyClassName="flex flex-col flex-1 overflow-auto p-3">
       <div
         className="mb-3 rounded-[0.2rem] p-2 text-xs font-semibold"
         style={{ background: "var(--ff-status-warning)", color: "white" }}

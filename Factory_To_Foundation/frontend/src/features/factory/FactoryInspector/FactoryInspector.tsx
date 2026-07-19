@@ -22,7 +22,7 @@ export default function FactoryInspector() {
   return (
     <PanelCard
       title="Selected Machine"
-      className="h-[560px]"
+      className="h-full"
       bodyClassName="flex-1 overflow-auto p-5"
     >
 
