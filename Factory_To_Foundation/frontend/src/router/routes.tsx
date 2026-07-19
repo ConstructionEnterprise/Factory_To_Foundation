@@ -98,10 +98,10 @@ export const appRoutes: AppRoute[] = [
     element: <SchedulingPage />,
   },
   {
-    path: "/administration",
-    label: "Administration",
-    icon: ShieldCheck,
-    element: <AdministrationPage />,
+    path: "/assets",
+    label: "Assets",
+    icon: Package,
+    element: <AssetsPage />,
   },
   {
     path: "/analytics",
@@ -110,15 +110,15 @@ export const appRoutes: AppRoute[] = [
     element: <AnalyticsPage />,
   },
   {
-    path: "/assets",
-    label: "Assets",
-    icon: Package,
-    element: <AssetsPage />,
-  },
-  {
     path: "/reports",
     label: "Reports",
     icon: FileText,
     element: <ReportsPage />,
+  },
+  {
+    path: "/administration",
+    label: "Administration",
+    icon: ShieldCheck,
+    element: <AdministrationPage />,
   },
 ];

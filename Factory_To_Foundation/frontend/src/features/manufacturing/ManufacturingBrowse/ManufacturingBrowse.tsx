@@ -285,7 +285,7 @@ export default function ManufacturingBrowse() {
   );
 
   return (
-    <PanelCard title="Browse Geometry" toolbar={toggle} className="h-[560px]">
+    <PanelCard title="Browse Models" toolbar={toggle} className="h-[560px]">
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center text-sm text-gray-400">Loading geometry…</div>

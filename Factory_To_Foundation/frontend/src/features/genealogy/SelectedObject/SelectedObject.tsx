@@ -24,12 +24,6 @@ export default function SelectedObject() {
       bodyClassName="flex-1 overflow-auto p-5"
     >
 
-      {/* Preview */}
-
-      <div className="h-36 flex items-center justify-center" style={{ background: "var(--ff-content-bg)", border: "1px solid var(--ff-panel-border)", borderRadius: "var(--ff-radius)", color: "var(--ff-text-muted)" }}>
-        Preview Image
-      </div>
-
       {/* Object Name */}
 
       <div className="mt-5">

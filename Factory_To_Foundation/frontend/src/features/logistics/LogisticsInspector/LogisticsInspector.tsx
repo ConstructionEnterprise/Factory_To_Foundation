@@ -1,5 +1,5 @@
 import { useSelection } from "@/context/SelectionContext";
-import { DetailRow, PanelCard, PreviewBox, StatusBadge, type StatusTone } from "@/framework/ui";
+import { DetailRow, PanelCard, StatusBadge, type StatusTone } from "@/framework/ui";
 
 import { formatLogisticsStatus } from "../logisticsData";
 
@@ -15,8 +15,6 @@ export default function LogisticsInspector() {
 
   return (
     <PanelCard title="Selected Asset" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
-      <PreviewBox />
-
       <div className="mt-4">
         <h2 className="text-xl font-bold" style={{ color: "var(--ff-text-primary)" }}>{sel?.payload.name ?? "Nothing Selected"}</h2>
         <p className="mt-1 font-semibold" style={{ color: "var(--ff-accent)" }}>{sel?.objectType ?? "Select an asset"}</p>

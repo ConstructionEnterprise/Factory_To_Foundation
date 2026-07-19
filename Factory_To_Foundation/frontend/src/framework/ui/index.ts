@@ -17,4 +17,3 @@ export type { BrowseListItem } from "./BrowseList";
 export { ToolbarShell, ToolbarInput, ToolbarSelect, ToolbarButton } from "./ToolbarShell";
 export { default as StatusBadge } from "./StatusBadge";
 export type { StatusTone } from "./StatusBadge";
-export { default as PreviewBox } from "./PreviewBox";

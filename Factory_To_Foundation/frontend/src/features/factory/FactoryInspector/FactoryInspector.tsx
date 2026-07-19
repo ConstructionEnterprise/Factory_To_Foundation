@@ -1,5 +1,5 @@
 import { useSelection } from "@/context/SelectionContext";
-import { DetailRow, PanelCard, PreviewBox, StatusBadge, type StatusTone } from "@/framework/ui";
+import { DetailRow, PanelCard, StatusBadge, type StatusTone } from "@/framework/ui";
 
 import { formatFactoryStatus } from "../twinTranslator";
 import { useTwinManifest } from "../useTwinManifest";
@@ -41,8 +41,6 @@ export default function FactoryInspector() {
           {connected ? "Live Twin Data" : "Sample Data — Twin Offline"}
         </span>
       </div>
-
-      <PreviewBox />
 
       {/* Name */}
 

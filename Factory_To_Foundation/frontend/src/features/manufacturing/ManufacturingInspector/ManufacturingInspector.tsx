@@ -1,6 +1,6 @@
 import { useSelection } from "@/context/SelectionContext";
 import type { Selection } from "@/context/SelectionContext";
-import { DetailRow, PanelCard, PreviewBox } from "@/framework/ui";
+import { DetailRow, PanelCard } from "@/framework/ui";
 
 import type { ProjectSpec } from "../gardenLoftsModel";
 
@@ -119,8 +119,6 @@ export default function ManufacturingInspector() {
 
   return (
     <PanelCard title="Selected Geometry" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
-      <PreviewBox />
-
       {!sel && (
         <div className="mt-6 text-center text-sm text-gray-400">
           <p>Nothing selected.</p>

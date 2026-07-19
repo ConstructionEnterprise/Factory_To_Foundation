@@ -23,7 +23,7 @@ export default function FactoryBrowse() {
   const items: BrowseListItem[] = liveNodes.map((n) => ({ id: n.node.id, title: n.node.title }));
 
   return (
-    <PanelCard title="Browse Factory" className="h-full">
+    <PanelCard title="Factory" className="h-full">
       <div className="mb-2 flex px-1">
         <span
           className="rounded-full px-2.5 py-0.5 text-xs font-medium"

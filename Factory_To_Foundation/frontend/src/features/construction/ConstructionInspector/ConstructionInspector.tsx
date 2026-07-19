@@ -1,5 +1,5 @@
 import { useSelection } from "@/context/SelectionContext";
-import { DetailRow, PanelCard, PreviewBox } from "@/framework/ui";
+import { DetailRow, PanelCard } from "@/framework/ui";
 
 export default function ConstructionInspector() {
   const { selected } = useSelection();
@@ -7,8 +7,6 @@ export default function ConstructionInspector() {
 
   return (
     <PanelCard title="Selected Object" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
-      <PreviewBox />
-
       <div className="mt-4">
         <h2 className="text-xl font-bold" style={{ color: "var(--ff-text-primary)" }}>{sel?.payload.name ?? "Nothing Selected"}</h2>
         <p className="mt-1 font-semibold" style={{ color: "var(--ff-accent)" }}>{sel?.objectType ?? "Select an object"}</p>

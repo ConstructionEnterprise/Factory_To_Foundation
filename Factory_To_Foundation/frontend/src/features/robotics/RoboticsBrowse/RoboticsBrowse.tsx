@@ -24,7 +24,7 @@ export default function RoboticsBrowse() {
   const activeId = selected?.feature === "robotics" ? selected.objectId : undefined;
 
   return (
-    <PanelCard title="Browse Robotics" className="h-[560px]">
+    <PanelCard title="Robotics" className="h-[560px]">
       <BrowseList
         items={toBrowseItems()}
         activeId={activeId}
