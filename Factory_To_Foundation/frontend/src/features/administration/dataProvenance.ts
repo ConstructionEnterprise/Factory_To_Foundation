@@ -66,8 +66,8 @@ export const dataProvenance: FeatureProvenance[] = [
     feature: "Manufacturing",
     status: "real-static",
     summary:
-      "Real ingested Garden Lofts geometry — 272 real dwelling-unit objects from Garden Lofts Exterior.blend, including real per-unit plan dimensions from a Step 0 geometric-adjacency investigation. A confirmed real unit-distribution defect (Levels 14–20) is flagged in the UI, not corrected. The Manufacturing → Factory instruction generator does a real live twin-manifest lookup at generation time, but the generated instruction text itself is illustrative planning content, never executed.",
-    source: "public/models/garden-lofts-exterior.glb + features/manufacturing/gardenLoftsModel.ts",
+      "Real, source-agnostic geometry ingestion — a real local blender-bridge service converts an uploaded .blend file via headless Blender and replaces the loaded model (replace semantics, not a library). The tree, per-node metadata, selection, and generated sheets all walk whatever real hierarchy and real custom-property extras the uploaded file actually contains, with no hardcoded naming pattern or per-project field list — verified against two structurally different real files (Garden Lofts' object-parented tower, Modern Heritage's Collection-grouped framing). The Manufacturing → Factory instruction generator does a real live twin-manifest lookup at generation time, but the generated instruction text itself is illustrative planning content, never executed.",
+    source: "blender-bridge/server.mjs + features/manufacturing/manufacturingModel.ts",
   },
   {
     feature: "Scheduling",

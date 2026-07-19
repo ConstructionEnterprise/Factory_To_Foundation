@@ -47,33 +47,20 @@ export type ConstructionPayload = {
   punchListCount: string;
 };
 
-// Both variants share `name` so panels that don't need to branch (a plain
-// header) can read it unconditionally; everything else is real per-kind
-// data — a unit's SF/level, or the building's real PROJECT_SPEC.
-export type ManufacturingUnitSelection = {
-  kind: "unit";
+/**
+ * Agnostic to source format or project — a selected node is just its
+ * real name plus whatever real custom-property data it actually
+ * carries. No `kind` discriminant (no assumption a "unit" vs "building"
+ * distinction exists at all), no per-file fields (SF/level/subtype were
+ * Garden-Lofts-specific derived concepts, not general). Loosely typed
+ * (`Record<string, unknown>`) here to avoid this context module
+ * depending on the manufacturing feature's own extras shape;
+ * ManufacturingInspector narrows it with the real type it owns.
+ */
+export type ManufacturingPayload = {
   name: string;
-  objectName: string;
-  level: number;
-  typeLabel: string;
-  subtypeCode: string;
-  squareFootage?: number;
-  /** Set when this unit's real geometry contradicts the confirmed unit-distribution spec. */
-  flag?: string;
-  /** Set by ManufacturingBrowse when a Shop Drawing sheet (not the Objects tree or a 3D click) drove this selection — GeometryViewport reads this once, on selection change, to default into plan view. Absent means "leave the viewport's current mode alone / default to 3D isolation." */
-  preferredView?: "plan";
+  extras: Record<string, unknown>;
 };
-
-export type ManufacturingBuildingSelection = {
-  kind: "building";
-  name: string;
-  // Loosely typed here to avoid this context module depending on the
-  // manufacturing feature's PROJECT_SPEC shape; ManufacturingInspector
-  // narrows it with the real type it owns.
-  projectSpec: Record<string, unknown> | undefined;
-};
-
-export type ManufacturingPayload = ManufacturingUnitSelection | ManufacturingBuildingSelection;
 
 export type SchedulePayload = {
   name: string;

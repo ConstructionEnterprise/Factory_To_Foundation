@@ -9,7 +9,7 @@ import {
 
 /**
  * No Metrics dropdown here — real decomposed geometry is ingested now
- * (see GeometryViewport/gardenLoftsModel.ts), but nothing has been
+ * (see GeometryViewport/manufacturingModel.ts), but nothing has been
  * scoped into KPI-shaped numbers yet; inventing a rollup would
  * misrepresent the page's actual state.
  */

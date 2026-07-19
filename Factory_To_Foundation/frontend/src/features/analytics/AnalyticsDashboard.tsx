@@ -9,7 +9,7 @@ import { translateManifest } from "@/features/factory/twinTranslator";
 import { graphNodes, TIER_LABEL, TIER_ORDER } from "@/features/genealogy/graphData";
 import { canBeFinishedProduct } from "@/features/genealogy/genealogyRegistry";
 
-import { useGardenLoftsTree } from "@/features/manufacturing/gardenLoftsModel";
+import { useManufacturingTree } from "@/features/manufacturing/manufacturingModel";
 
 import { constructionProjects } from "@/features/construction/constructionData";
 
@@ -93,14 +93,14 @@ function GenealogyWidget() {
 }
 
 function ManufacturingWidgetInner() {
-  const { unitsByObjectName } = useGardenLoftsTree();
-  const units = Array.from(unitsByObjectName.values());
-  const flagged = units.filter((u) => u.flag).length;
+  const tree = useManufacturingTree();
+  const allNodes = Array.from(tree.nodesById.values());
+  const withMetadata = allNodes.filter((n) => Object.keys(n.extras).length > 0).length;
 
   return (
     <div className="space-y-1.5">
-      <Row label="Real ingested dwelling units" value={String(units.length)} />
-      <Row label="Flagged (L14–20 unit-distribution defect)" value={String(flagged)} />
+      <Row label="Real nodes in loaded model" value={String(allNodes.length)} />
+      <Row label="Nodes with real source metadata" value={String(withMetadata)} />
     </div>
   );
 }
@@ -108,7 +108,7 @@ function ManufacturingWidgetInner() {
 function ManufacturingWidget() {
   return (
     <PanelCard
-      title="Manufacturing — Garden Lofts"
+      title="Manufacturing — Loaded Model"
       toolbar={<StatusBadge label="Real Ingested Geometry" tone="neutral" />}
     >
       <Suspense
