@@ -88,3 +88,22 @@ export const COL_H = BRIDGE_BEAM.Z;
 export const RAIL = { A_Y: -1.55, B_Y: 1.55, X_MIN: 5.0, X_MAX: 11.6 } as const;
 
 export const ATC = { NEAR_X: 5.5, FAR_X: 11.1 } as const;
+
+/** Real carried-panel dimensions from the twin's draw_panel_on_hook (PL/PW/THK literals in CE_Integrated_Cell_V3_0-6.py) — PL is full length, W is HALF-depth (the twin's dy runs -PW..+PW), THK is the ±ts thickness offset. */
+export const PANEL_ON_HOOK = { L: 4.0, W: 1.4, THK: 0.1 } as const;
+
+/** Real hook travel heights from the twin source (HOOK_PARK_Z / HOOK_LOWER_Z / HOOK_DELIVER_Z). */
+export const HOOK = { PARK_Z: 7.5, LOWER_Z: 5.25, DELIVER_Z: 1.2 } as const;
+
+/**
+ * Real IK acceptance constants from the twin's kinematics section
+ * (SECTION 1B): MAX_REACH = A2+A3+D6; ik() rejects wrist targets beyond
+ * MAX_REACH*0.99 and |c3|>1 (which bounds the wrist no closer than
+ * |A2-A3| from the shoulder). These are the twin's ONLY real reach
+ * constraints — no per-joint angle limits exist anywhere in its code
+ * (verified by direct search, 2026-07-20), so any reach-envelope math
+ * must derive from these and nothing else.
+ */
+export const MAX_REACH = A2 + A3 + D6;
+export const IK_ACCEPT_REACH = MAX_REACH * 0.99;
+export const IK_INNER_REACH = Math.abs(A2 - A3);

@@ -1,16 +1,27 @@
 import { TIER_LABEL, TIER_ORDER, type GraphTier } from "@/features/genealogy/graphData";
 import type { TwinManifest, TwinManifestEntry } from "@/features/factory/useTwinManifest";
+import { FIXED } from "@/features/factory/twinGeometryConstants";
 import {
   resolveCommandTarget,
+  type ElementSpec,
   type InstructionSet,
   type InstructionStep,
 } from "@/context/ManufacturingOutputContext";
+import { metersLabel } from "./manufacturingModel";
 
 export type InstructionGenerationTarget = {
   sourceObjectId: string;
   /** Real unit type label (e.g. "1 Bedroom") — absent for a building-level representative run. */
   unitTypeLabel?: string;
   level?: number;
+  /**
+   * Real shop-drawing-derived data for one fabricatable element — present
+   * when generation was triggered by viewing an element's sheet (see
+   * ManufacturingBrowse's ElementSheet), absent for the toolbar's
+   * representative run. Enriches the SAME phase sequence with the
+   * element's real measured data; it does not fork a second generator.
+   */
+  elementSpec?: ElementSpec;
 };
 
 /**
@@ -103,6 +114,55 @@ export type InstructionGenerationResult =
   | { ok: false; reason: string };
 
 /**
+ * Real per-phase enrichment from an element's real shop-drawing data.
+ * Purely generic: dimension math and verbatim extras only — no name or
+ * key-pattern branching anywhere, so every uploaded file takes this
+ * identical path (§6.15 discipline).
+ */
+function enrichAction(baseAction: string, phaseIndex: number, spec: ElementSpec): string {
+  const notes: string[] = [];
+  if (phaseIndex === 0) {
+    // Framing pass — the element's real measured envelope + real source metadata.
+    if (spec.dims) {
+      notes.push(
+        `Real measured envelope: ${metersLabel(spec.dims.x)} × ${metersLabel(spec.dims.y)} × ${metersLabel(spec.dims.z)}.`
+      );
+    }
+    const extraEntries = Object.entries(spec.extras);
+    if (extraEntries.length > 0) {
+      notes.push(`Real source metadata: ${extraEntries.map(([k, v]) => `${k}=${String(v)}`).join(", ")}.`);
+    }
+  }
+  if (phaseIndex === 2 && spec.orientationKind) {
+    // Tilt stage — the element's real thinnest-axis orientation vs. the cell's fixed flat->vertical flow.
+    notes.push(
+      spec.orientationKind === "elevation"
+        ? "Element is wall-shaped (real thinnest axis horizontal) — the tilt stage's flat→vertical reorientation ends at this element's real installed orientation."
+        : "Element is plan-oriented (real thinnest axis vertical) — the cell's fixed flow still tilts panels to vertical for gantry pickup; final flat installation orientation is beyond this cell's modeled flow."
+    );
+  }
+  return notes.length > 0 ? `${baseAction} ${notes.join(" ")}` : baseAction;
+}
+
+/**
+ * Real fit check: the element lies flat on the fixture table, so its two
+ * LARGEST real dimensions occupy the table plane (the smallest is its
+ * thickness). Compared against the twin's real TABLE_JIG_FIXED constants
+ * — a genuinely computed statement with its real numbers, either way.
+ */
+function buildFabricationNotes(spec: ElementSpec): string[] {
+  if (!spec.dims) return [];
+  const sorted = [Math.abs(spec.dims.x), Math.abs(spec.dims.y), Math.abs(spec.dims.z)].sort((a, b) => b - a);
+  const [d1, d2] = sorted;
+  const fits = d1 <= FIXED.W && d2 <= FIXED.D;
+  return [
+    fits
+      ? `Fits the real fixture table: element footprint ${metersLabel(d1)} × ${metersLabel(d2)} within TABLE_JIG_FIXED ${metersLabel(FIXED.W)} × ${metersLabel(FIXED.D)}.`
+      : `Exceeds the real fixture table: element footprint ${metersLabel(d1)} × ${metersLabel(d2)} vs TABLE_JIG_FIXED ${metersLabel(FIXED.W)} × ${metersLabel(FIXED.D)} — cannot be fabricated in one piece on this cell as modeled.`,
+  ];
+}
+
+/**
  * Builds a real, readable planned sequence — never executed, never written
  * to command_queue.json (see ManufacturingOutputContext). Every
  * targetSubsystemId/realCommandTarget comes from a real manifest lookup;
@@ -132,14 +192,16 @@ export function generateInstructionSet(
       ? `${target.unitTypeLabel}${target.level !== undefined ? ` (Level ${target.level})` : ""}`
       : "typical residential module";
 
+    const baseAction = `[${tierNote}] ${phase.describe(side)} (${unitNote}; real phase: ${phase.realPhase})`;
+
     steps.push({
       id: `${target.sourceObjectId}-step-${i + 1}`,
       sequence: i + 1,
       targetSubsystemId: entry.id,
       realCommandTarget: resolveCommandTarget(entry.id),
       targetType: entry.type,
-      action: `[${tierNote}] ${phase.describe(side)} (${unitNote}; real phase: ${phase.realPhase})`,
-      relatedObjectId: target.unitTypeLabel ? target.sourceObjectId : undefined,
+      action: target.elementSpec ? enrichAction(baseAction, i, target.elementSpec) : baseAction,
+      relatedObjectId: target.unitTypeLabel || target.elementSpec ? target.sourceObjectId : undefined,
       status: "planned",
       estimatedDurationSec: phase.estimatedDurationSec,
     });
@@ -151,6 +213,8 @@ export function generateInstructionSet(
       sourceObjectId: target.sourceObjectId,
       generatedAt: new Date().toISOString(),
       steps,
+      elementSpec: target.elementSpec,
+      fabricationNotes: target.elementSpec ? buildFabricationNotes(target.elementSpec) : undefined,
     },
   };
 }

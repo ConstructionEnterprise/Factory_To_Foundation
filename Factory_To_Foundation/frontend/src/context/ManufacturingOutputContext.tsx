@@ -65,11 +65,39 @@ export type InstructionStep = {
   estimatedDurationSec: number;
 };
 
+/**
+ * The real shop-drawing-derived data for one fabricatable element — the
+ * exact same real values the element's sheet displays (name, measured
+ * bounding box, thinnest-axis orientation, verbatim source extras),
+ * packaged for instruction generation. Source-agnostic by construction:
+ * every field is either derived from live geometry (any file) or passed
+ * through verbatim (extras, whatever keys this file's author wrote —
+ * possibly none, which is a real state, not an error).
+ */
+export type ElementSpec = {
+  name: string;
+  /** Real measured bounding-box size in meters — undefined only when the node truly has no geometry (then it isn't fabricatable and shouldn't reach generation anyway). */
+  dims?: { x: number; y: number; z: number };
+  /** Real thinnest-axis classification from orientationForNode — "elevation" = wall-shaped, "plan" = floor/ceiling-shaped. */
+  orientationKind?: "plan" | "elevation";
+  extras: Record<string, string | number | boolean>;
+};
+
 export type InstructionSet = {
   /** Which real ingested unit/module this sequence is for — a real object name, or the building root id for a representative/building-level run. */
   sourceObjectId: string;
   generatedAt: string;
   steps: InstructionStep[];
+  /** Present when this set was generated from a real shop-drawing sheet (see ElementSpec); absent for a representative/building-level run. */
+  elementSpec?: ElementSpec;
+  /**
+   * Real measured statements about this element vs. the real cell —
+   * currently the fixture-table fit check (element footprint vs. the
+   * twin's real 6.6 × 3.8 m TABLE_JIG_FIXED constants). Only genuinely
+   * computed facts belong here, stated with their real numbers — never a
+   * severity score or a guessed feasibility rating.
+   */
+  fabricationNotes?: string[];
 };
 
 /**

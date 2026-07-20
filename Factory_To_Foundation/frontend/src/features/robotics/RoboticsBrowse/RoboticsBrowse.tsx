@@ -1,50 +1,34 @@
 import { useSelection } from "@/context/SelectionContext";
 import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
 
-import { roboticsNodes } from "../roboticsData";
+import { ROBOT_NAMES } from "../roboticsData";
 
-// ATCs are coordinated by the rail, not contained by it — Rail stays a
-// root-level leaf, ATCs stay root-level too. Each ATC's real tools[]
-// (from the digital twin subsystem model) becomes its child list; tool
-// leaves are static/informational, not backed by a selectable node.
-function toBrowseItems(): BrowseListItem[] {
-  return roboticsNodes.map((node) => ({
-    id: node.id,
-    title: node.title,
-    children:
-      node.tools.length > 0
-        ? node.tools.map((tool, i) => ({ id: `${node.id}-tool-${i}`, title: tool }))
-        : undefined,
-  }));
-}
-
+/**
+ * The four real twin robots (A1/A2/B1/B2). Selecting one drives the same
+ * global SelectionContext the isolated viewport and Inspector read, so
+ * all three stay on one identity — and it's the same selection Factory's
+ * "View Robot" cross-nav button sets, so arriving from Factory lands on
+ * the right robot with no second mechanism.
+ */
 export default function RoboticsBrowse() {
   const { selected, setSelected } = useSelection();
-
   const activeId = selected?.feature === "robotics" ? selected.objectId : undefined;
 
+  const items: BrowseListItem[] = ROBOT_NAMES.map((name) => ({ id: name, title: `Robot ${name}` }));
+
   return (
-    <PanelCard title="Robotics" className="h-[560px]">
+    <PanelCard title="Robot Library" className="h-[560px]">
       <BrowseList
-        items={toBrowseItems()}
+        items={items}
         activeId={activeId}
-        onSelect={(id) => {
-          const node = roboticsNodes.find((n) => n.id === id);
-          if (!node) return;
+        onSelect={(id) =>
           setSelected({
             feature: "robotics",
-            objectType: node.subtitle,
-            objectId: node.id,
-            payload: {
-              name: node.title,
-              status: node.status,
-              currentTask: node.currentTask,
-              tool: node.tool,
-              cycleTime: node.cycleTime,
-              axisPositions: node.axisPositions,
-            },
-          });
-        }}
+            objectType: "CR6 Robot",
+            objectId: id,
+            payload: { name: `Robot ${id}`, robotName: id },
+          })
+        }
       />
     </PanelCard>
   );

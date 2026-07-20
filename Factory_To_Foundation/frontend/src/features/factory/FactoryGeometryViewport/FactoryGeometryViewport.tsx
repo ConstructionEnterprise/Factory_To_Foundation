@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { Line, OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
@@ -9,20 +9,23 @@ import { useSelection } from "@/context/SelectionContext";
 import { translateManifest, type LiveFactoryNode, type FactoryStatus } from "../twinTranslator";
 import { useTwinManifest } from "../useTwinManifest";
 import { useTwinState, type TwinState } from "../useTwinState";
-import { robotJointPoints } from "../twinKinematics";
+import { RobotArm } from "../RobotArm";
+import { startCollisionMonitor, useCollisionSnapshot } from "../collisionStore";
+import { ROBOT_RAIL_Y, reachEnvelopeCenter } from "../collisionGeometry";
 import {
   ATC,
   BRIDGE_BEAM,
   CE_COLOR,
   COL_H,
   FIXED,
+  IK_ACCEPT_REACH,
+  IK_INNER_REACH,
   MOD,
   PIVOT,
   RAIL,
   ROLLER,
   RUNWAY,
   TILT,
-  TOOL_COLOR_CYCLE,
   toThree,
   type Vec3,
 } from "../twinGeometryConstants";
@@ -120,15 +123,6 @@ function Quad({ corners, color }: { corners: [Vec3, Vec3, Vec3, Vec3]; color: st
   );
 }
 
-function Sphere({ center, radius, color }: { center: Vec3; radius: number; color: string }) {
-  return (
-    <mesh position={toThree(...center)}>
-      <sphereGeometry args={[radius, 16, 16]} />
-      <meshStandardMaterial color={color} />
-    </mesh>
-  );
-}
-
 function Seg({ p0, p1, color, width = 2 }: { p0: Vec3; p1: Vec3; color: string; width?: number }) {
   return <Line points={[toThree(...p0), toThree(...p1)]} color={color} lineWidth={width} />;
 }
@@ -183,6 +177,7 @@ function SubsystemGroup({
   setSelected,
   selectedId,
   depsKey,
+  colliding = false,
   children,
 }: {
   manifestId: string;
@@ -190,6 +185,8 @@ function SubsystemGroup({
   setSelected: SetSelected;
   selectedId: string | undefined;
   depsKey: string;
+  /** True when the collision monitor sees this subsystem in a real intersection right now — outline goes critical-red, overriding the status color. */
+  colliding?: boolean;
   children: ReactNode;
 }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -220,9 +217,40 @@ function SubsystemGroup({
   return (
     <group ref={groupRef} onClick={handleClick}>
       {children}
-      {box && <StatusOutline box={box} color={STATUS_COLOR[live?.node.status ?? "unknown"]} />}
+      {box && (
+        <StatusOutline box={box} color={colliding ? STATUS_COLOR.down : STATUS_COLOR[live?.node.status ?? "unknown"]} />
+      )}
       {box && selectedId === manifestId && <SelectionHighlight box={box} />}
     </group>
+  );
+}
+
+/**
+ * Real reach envelope for one robot — an exact spherical shell derived
+ * ONLY from the twin's own ik() acceptance constraints (wrist within
+ * [|A2-A3|, MAX_REACH*0.99] of the shoulder; no per-joint limits exist
+ * anywhere in the twin, verified 1a). Centered on the robot's LIVE base,
+ * so it slides with real rail travel. See reachEnvelopeCenter().
+ */
+function ReachEnvelope({ name, state }: { name: string; state: TwinState }) {
+  const robot = state.robots[name as keyof TwinState["robots"]];
+  const center = reachEnvelopeCenter(robot.rail_x, ROBOT_RAIL_Y[name]);
+  const pos = toThree(...center);
+  return (
+    <>
+      <mesh position={pos}>
+        <sphereGeometry args={[IK_ACCEPT_REACH, 48, 32]} />
+        <meshStandardMaterial color="#4a7ab5" transparent opacity={0.07} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      <mesh position={pos}>
+        <sphereGeometry args={[IK_ACCEPT_REACH, 24, 16]} />
+        <meshBasicMaterial color="#4a7ab5" wireframe transparent opacity={0.18} depthWrite={false} />
+      </mesh>
+      <mesh position={pos}>
+        <sphereGeometry args={[IK_INNER_REACH, 24, 16]} />
+        <meshStandardMaterial color="#b98a3f" transparent opacity={0.25} depthWrite={false} />
+      </mesh>
+    </>
   );
 }
 
@@ -479,58 +507,26 @@ const ATC_RACKS: { manifestId: string; cx: number; ry: number }[] = (["A", "B"] 
   }));
 });
 
-// Real per-robot rail_y, ported directly from IntegratedCell.__init__'s
-// CR6Robot(...) construction (self.A1 = CR6Robot("A1", self.rail_A, ...)
-// etc.) — robot.rail_y is a real @property reading robot.rail.y, so this
-// is the real, not-independently-invented value. Not carried in
-// state.json itself (only rail_x is, since it's the live DOF) — which
-// physical rail each named robot sits on is fixed at construction, same
-// as the twin side.
-const ROBOT_RAIL_Y: Record<string, number> = {
-  A1: RAIL.A_Y,
-  A2: RAIL.A_Y,
-  B1: RAIL.B_Y,
-  B2: RAIL.B_Y,
-};
-
-// Cosmetic rail-mounted base riser height only — not part of the real DH
-// chain (whose own origin is z=0, exactly matching the twin's own
-// draw_robot()'s identical base_z cosmetic constant).
-const ROBOT_BASE_Z = 0.06 + 0.14 + 0.14 + 0.14;
-
-// Per-segment width/color, matching the twin's own new draw_robot()
-// (ported from CR6_V8_0_Dual_Robot_Cell.py's rendering template).
-const SEGMENT_WIDTH = [8, 7, 7, 5, 5, 4];
-const SEGMENT_COLOR = ["#DDDDDD", "#DDDDDD", "#CCCCCC", "#CCCCCC", "#CC5500", "#CC5500"];
-
+// Real per-robot rail_y lives in collisionGeometry's ROBOT_RAIL_Y
+// (imported above) — one copy shared by rendering, collision checking, and
+// the reach envelope so they can't drift apart. The arm itself renders via
+// the shared RobotArm component, the exact same renderer Robotics' isolated
+// viewport uses, so the two tabs can never disagree about the same live q.
 function RobotGeometry({ name, robot }: { name: string; robot: TwinState["robots"]["A1"] }) {
-  const railY = ROBOT_RAIL_Y[name];
-  const base: Vec3 = [robot.rail_x, railY, 0];
-  const pts = robotJointPoints(robot.q, base);
-  const toolColor = TOOL_COLOR_CYCLE[robot.tool_idx % 5];
-  const tip = pts[pts.length - 1];
-
-  return (
-    <>
-      <Box center={[robot.rail_x, railY, ROBOT_BASE_Z]} half={[0.18, 0.18, 0.14]} color="#CCCCCC" />
-      {pts.slice(0, -1).map((p, i) => (
-        <Seg key={i} p0={p} p1={pts[i + 1]} color={SEGMENT_COLOR[i]} width={SEGMENT_WIDTH[i]} />
-      ))}
-      {pts.map((p, i) => (
-        <Sphere key={i} center={p} radius={0.045} color="white" />
-      ))}
-      <Sphere center={tip} radius={0.08} color={toolColor} />
-    </>
-  );
+  return <RobotArm q={robot.q} railX={robot.rail_x} railY={ROBOT_RAIL_Y[name]} toolIdx={robot.tool_idx} />;
 }
 
 // ── Scene root ──
 
-function FactoryScene({ liveNodes, state, selectedId, setSelected }: {
+function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds, reachRobot }: {
   liveNodes: LiveFactoryNode[];
   state: TwinState | null;
   selectedId: string | undefined;
   setSelected: SetSelected;
+  /** Subsystem ids the collision monitor currently sees intersecting. */
+  collidingIds: Set<string>;
+  /** Robot name (A1/A2/B1/B2) whose real reach envelope should render, or null. */
+  reachRobot: string | null;
 }) {
   const handleMiss = () => {
     // Clicking empty space / non-manifest scene dressing (floor, rails,
@@ -548,13 +544,29 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected }: {
       {state && <ModuleJigWalls placedWalls={state.placed_walls} />}
 
       {CR6_RAILS.map((r) => (
-        <SubsystemGroup key={r.manifestId} manifestId={r.manifestId} liveNodes={liveNodes} setSelected={setSelected} selectedId={selectedId} depsKey="static">
+        <SubsystemGroup
+          key={r.manifestId}
+          manifestId={r.manifestId}
+          liveNodes={liveNodes}
+          setSelected={setSelected}
+          selectedId={selectedId}
+          depsKey="static"
+          colliding={collidingIds.has(r.manifestId)}
+        >
           <Cr6RailGeometry railY={r.y} />
         </SubsystemGroup>
       ))}
 
       {ATC_RACKS.map((a) => (
-        <SubsystemGroup key={a.manifestId} manifestId={a.manifestId} liveNodes={liveNodes} setSelected={setSelected} selectedId={selectedId} depsKey="static">
+        <SubsystemGroup
+          key={a.manifestId}
+          manifestId={a.manifestId}
+          liveNodes={liveNodes}
+          setSelected={setSelected}
+          selectedId={selectedId}
+          depsKey="static"
+          colliding={collidingIds.has(a.manifestId)}
+        >
           <Box center={[a.cx, a.ry, 0.4]} half={[0.55, 0.37, 0.4]} color="#1A1A1A" />
         </SubsystemGroup>
       ))}
@@ -566,6 +578,7 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected }: {
           setSelected={setSelected}
           selectedId={selectedId}
           depsKey={`${state.gantry.bridge_x},${state.gantry.trolley_y},${state.gantry.hook_z}`}
+          colliding={collidingIds.has("gantry")}
         >
           <GantryGeometry state={state.gantry} />
         </SubsystemGroup>
@@ -578,6 +591,7 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected }: {
           setSelected={setSelected}
           selectedId={selectedId}
           depsKey={`${state.roller.panel_x},${state.roller.state}`}
+          colliding={collidingIds.has("roller")}
         >
           <RollerGeometry state={state.roller} />
         </SubsystemGroup>
@@ -590,6 +604,7 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected }: {
           setSelected={setSelected}
           selectedId={selectedId}
           depsKey={`${state.tilt.angle_deg},${state.tilt.pin_extended},${state.tilt.state}`}
+          colliding={collidingIds.has("tilt")}
         >
           <TiltGeometry state={state.tilt} />
         </SubsystemGroup>
@@ -606,11 +621,14 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected }: {
               setSelected={setSelected}
               selectedId={selectedId}
               depsKey={`${robot.rail_x},${robot.q.join(",")},${robot.state},${robot.tool_idx}`}
+              colliding={collidingIds.has(`robots.${name}`)}
             >
               <RobotGeometry name={name} robot={robot} />
             </SubsystemGroup>
           );
         })}
+
+      {state && reachRobot && <ReachEnvelope name={reachRobot} state={state} />}
     </group>
   );
 }
@@ -619,9 +637,26 @@ export default function FactoryGeometryViewport() {
   const { selected, setSelected } = useSelection();
   const { connected: manifestConnected, manifest } = useTwinManifest();
   const { state } = useTwinState();
+  const collision = useCollisionSnapshot();
+  const [showReach, setShowReach] = useState(false);
+
+  // The collision monitor runs on its own fast poll (every written twin
+  // snapshot), independent of this component's 750ms display poll.
+  useEffect(() => {
+    startCollisionMonitor();
+  }, []);
 
   const liveNodes: LiveFactoryNode[] = manifestConnected && manifest ? translateManifest(manifest, state) : [];
   const selectedId = selected?.feature === "factory" ? selected.objectId : undefined;
+
+  const collidingIds = useMemo(() => new Set(collision.activeContactIds), [collision.activeContactIds]);
+  const selectedRobot = selectedId?.startsWith("robots.") ? selectedId.split(".")[1] : null;
+  const reachRobot = showReach && selectedRobot ? selectedRobot : null;
+  // Transient events are the signal; persistent by-construction contacts
+  // (real, but present since monitoring began) are counted separately so
+  // the badge doesn't sit permanently red — see the Reports split.
+  const transientCount = collision.events.filter((e) => e.ongoing && !e.persistent).length;
+  const persistentCount = collision.events.filter((e) => e.ongoing && e.persistent).length;
 
   return (
     <PanelCard title="Factory Digital Twin" className="h-full" bodyClassName="flex flex-col flex-1">
@@ -630,6 +665,39 @@ export default function FactoryGeometryViewport() {
         <Legend color="var(--ff-status-warning)" label="Idle" />
         <Legend color="var(--ff-status-critical)" label="Down" />
         <Legend color="var(--ff-text-muted)" label="No Live Data" />
+        {collision.monitoring && (
+          <span
+            className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+            style={
+              transientCount > 0
+                ? { background: "var(--ff-status-critical)", color: "white" }
+                : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+            }
+            title={`Real geometric checking of every written twin snapshot — ${persistentCount} persistent by-construction contact${persistentCount === 1 ? "" : "s"} tracked separately; see Reports for the full run log`}
+          >
+            {transientCount > 0
+              ? `⚠ ${transientCount} transient collision${transientCount === 1 ? "" : "s"}`
+              : `Collisions: 0 transient · ${persistentCount} persistent (${collision.checkedSnapshots} snapshots)`}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowReach((v) => !v)}
+          disabled={!selectedRobot}
+          className="rounded-full px-2.5 py-0.5 text-xs font-medium disabled:opacity-40"
+          style={
+            reachRobot
+              ? { background: "var(--ff-accent)", color: "white" }
+              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+          }
+          title={
+            selectedRobot
+              ? "Exact reach shell from the twin's real ik() acceptance (no per-joint limits exist in the twin)"
+              : "Select a robot to view its real reach envelope"
+          }
+        >
+          Reach Envelope{reachRobot ? ` — ${reachRobot}` : ""}
+        </button>
         <span
           className="ml-auto rounded-full px-2.5 py-0.5 text-xs font-medium"
           style={
@@ -647,10 +715,27 @@ export default function FactoryGeometryViewport() {
           <ambientLight intensity={0.7} />
           <directionalLight position={[30, 40, 20]} intensity={1.3} />
           <directionalLight position={[-20, 20, -20]} intensity={0.4} />
-          <FactoryScene liveNodes={liveNodes} state={state} selectedId={selectedId} setSelected={setSelected} />
+          <FactoryScene
+            liveNodes={liveNodes}
+            state={state}
+            selectedId={selectedId}
+            setSelected={setSelected}
+            collidingIds={collidingIds}
+            reachRobot={reachRobot}
+          />
           <InitialCamera />
           <OrbitControls makeDefault enableDamping dampingFactor={0.08} target={SCENE_TARGET} />
         </Canvas>
+        {reachRobot && (
+          <p
+            className="absolute bottom-2 left-3 rounded px-2 py-1 text-[0.65rem]"
+            style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
+          >
+            Reach shell derived from the twin's real ik() acceptance: wrist {IK_INNER_REACH.toFixed(1)}–
+            {IK_ACCEPT_REACH.toFixed(2)} m from shoulder, sliding with live rail position. The twin has no per-joint
+            limits — this is its complete real reach constraint set.
+          </p>
+        )}
       </div>
     </PanelCard>
   );

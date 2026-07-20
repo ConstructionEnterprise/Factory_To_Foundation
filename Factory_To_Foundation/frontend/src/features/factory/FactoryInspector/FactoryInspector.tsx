@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+
 import { useSelection } from "@/context/SelectionContext";
 import { DetailRow, PanelCard, StatusBadge, type StatusTone } from "@/framework/ui";
 
@@ -12,12 +14,20 @@ const STATUS_TONE: Record<string, StatusTone> = {
 };
 
 export default function FactoryInspector() {
-  const { selected } = useSelection();
+  const { selected, setSelected } = useSelection();
   const { connected } = useTwinManifest();
+  const navigate = useNavigate();
 
   // Narrow to this feature's payload shape before reading it.
   const factorySelection =
     selected?.feature === "factory" ? selected : undefined;
+
+  // Real robots carry a "robots.<name>" manifest id — that's the one cross-nav
+  // signal, no separate "is this a robot" flag. Drives the "View Robot" button
+  // that jumps to the Robotics tab isolated on this same real robot.
+  const robotName = factorySelection?.objectId.startsWith("robots.")
+    ? factorySelection.objectId.split(".")[1]
+    : undefined;
 
   return (
     <PanelCard
@@ -106,6 +116,26 @@ export default function FactoryInspector() {
         )}
 
       </div>
+
+      {robotName && (
+        <button
+          type="button"
+          onClick={() => {
+            setSelected({
+              feature: "robotics",
+              objectType: "CR6 Robot",
+              objectId: robotName,
+              payload: { name: `Robot ${robotName}`, robotName },
+            });
+            navigate("/robotics");
+          }}
+          className="mt-5 w-full rounded-[0.2rem] px-3.5 py-2 text-sm font-medium text-white"
+          style={{ background: "var(--ff-accent)" }}
+          title={`Open Robot ${robotName} isolated in the Robotics tab with its live pose`}
+        >
+          View Robot {robotName} in Robotics →
+        </button>
+      )}
 
     </PanelCard>
   );

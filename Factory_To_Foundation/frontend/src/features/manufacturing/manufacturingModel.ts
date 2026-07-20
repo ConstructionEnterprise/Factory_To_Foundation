@@ -168,6 +168,33 @@ export function metersLabel(m: number): string {
   return `${m.toFixed(2)} m (${ft.toFixed(1)}')`;
 }
 
+/**
+ * Packages one fabricatable element's real shop-drawing data (the exact
+ * values its sheet displays: measured bounding box, thinnest-axis
+ * orientation, verbatim extras) for instruction generation — see
+ * ElementSpec in ManufacturingOutputContext. Generic by construction:
+ * live-geometry measurements + verbatim pass-through only, no name or
+ * key-pattern reads, so every uploaded file takes this identical path.
+ */
+export function buildElementSpec(
+  scene: Object3D,
+  node: ManufacturingNode
+): import("@/context/ManufacturingOutputContext").ElementSpec {
+  const size = measureNode(scene, node.id);
+  const obj = scene.getObjectByName(node.id);
+  let orientationKind: "plan" | "elevation" | undefined;
+  if (obj) {
+    const box = new THREE.Box3().setFromObject(obj);
+    if (!box.isEmpty()) orientationKind = orientationForNode(box).kind;
+  }
+  return {
+    name: node.name,
+    dims: size ? { x: size.x, y: size.y, z: size.z } : undefined,
+    orientationKind,
+    extras: node.extras,
+  };
+}
+
 export type CameraOrientation = {
   kind: "plan" | "elevation";
   /** Real unit vector the camera sits along, offset outward from the target's center — the camera looks back toward center along the reverse of this vector. */

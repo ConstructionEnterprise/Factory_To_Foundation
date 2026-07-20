@@ -24,11 +24,8 @@ export type FactoryPayload = {
 
 export type RoboticsPayload = {
   name: string;
-  status: "running" | "idle" | "fault";
-  currentTask: string;
-  tool: string;
-  cycleTime: string;
-  axisPositions: string;
+  /** Real robot key A1/A2/B1/B2 — the identity for live lookup and Factory→Robotics cross-nav. Live telemetry (state, rail_x, the six joint angles q, tool_idx) is read live from the twin store keyed on this, never frozen here (a snapshot would go stale as the robot moves). */
+  robotName: string;
 };
 
 export type LogisticsPayload = {

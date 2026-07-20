@@ -1,11 +1,15 @@
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 
 import { useSelection } from "@/context/SelectionContext";
+import { useManufacturingOutput } from "@/context/ManufacturingOutputContext";
+import { useTwinManifest } from "@/features/factory/useTwinManifest";
 import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
 
+import { generateInstructionSet } from "../instructionGeneration";
 import {
+  buildElementSpec,
   measureNode,
   metersLabel,
   orientationForNode,
@@ -195,8 +199,36 @@ function ShopDrawingProjection({ objectName }: { objectName: string }) {
  */
 function ElementSheet({ node, onBack }: { node: ManufacturingNode; onBack: () => void }) {
   const { scene } = useGLTF(useManufacturingModelUrl());
+  const { connected: manifestConnected, manifest } = useTwinManifest();
+  const { setInstructionSet } = useManufacturingOutput();
+  const [genStatus, setGenStatus] = useState<string | null>(null);
   const size = measureNode(scene, node.id);
   const extraEntries = Object.entries(node.extras);
+
+  // Viewing a shop drawing IS the trigger: this element's real sheet data
+  // feeds the same generator (and the same manifest-grounded targets) the
+  // toolbar's "Generate Shop Drawings & Instructions" button uses — for
+  // any uploaded file, no per-file branching anywhere in the path.
+  useEffect(() => {
+    if (!manifestConnected || !manifest || manifest.length === 0) {
+      setGenStatus("Twin manifest not reachable — no instruction draft generated for this element.");
+      return;
+    }
+    const result = generateInstructionSet(
+      { sourceObjectId: node.id, elementSpec: buildElementSpec(scene, node) },
+      manifest
+    );
+    if (!result.ok) {
+      setGenStatus(result.reason);
+      return;
+    }
+    setInstructionSet(result.instructionSet);
+    setGenStatus(
+      `Instruction draft generated from this sheet's real data (${result.instructionSet.steps.length} steps) — view it in Reports or Factory's Instructions menu.`
+    );
+    // Regenerate only when the element (or manifest availability) changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id, manifestConnected]);
 
   return (
     <div className="p-4 text-sm">
@@ -215,6 +247,11 @@ function ElementSheet({ node, onBack }: { node: ManufacturingNode; onBack: () =>
       <p className="mt-0.5 text-xs" style={{ color: "var(--ff-text-muted)" }}>
         Structured spec sheet — real data only, not a rendered dimensioned CAD drawing.
       </p>
+      {genStatus && (
+        <p className="mt-1 text-xs font-medium" style={{ color: "var(--ff-accent)" }}>
+          {genStatus}
+        </p>
+      )}
 
       {node.hasGeometry && <ShopDrawingProjection objectName={node.id} />}
 

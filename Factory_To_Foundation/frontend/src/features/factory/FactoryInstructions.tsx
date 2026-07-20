@@ -35,6 +35,19 @@ export default function FactoryInstructions() {
         Generated {new Date(instructionSet.generatedAt).toLocaleTimeString()}
       </div>
 
+      {instructionSet.fabricationNotes?.map((note) => (
+        <div
+          key={note}
+          className="mb-2 rounded-[0.2rem] p-2 text-xs"
+          style={{
+            border: "1px solid var(--ff-panel-border)",
+            color: note.startsWith("Exceeds") ? "var(--ff-status-critical)" : "var(--ff-text-primary)",
+          }}
+        >
+          {note}
+        </div>
+      ))}
+
       <ol className="space-y-2">
         {instructionSet.steps
           .slice()
