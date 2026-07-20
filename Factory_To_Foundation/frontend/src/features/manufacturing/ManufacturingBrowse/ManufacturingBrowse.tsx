@@ -1,5 +1,6 @@
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useGLTF } from "@react-three/drei";
+import * as THREE from "three";
 
 import { useSelection } from "@/context/SelectionContext";
 import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
@@ -7,8 +8,11 @@ import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
 import {
   measureNode,
   metersLabel,
+  orientationForNode,
+  shouldFabricate,
   useManufacturingModelUrl,
   useManufacturingTree,
+  type CameraOrientation,
   type ManufacturingNode,
   type ManufacturingTree,
 } from "../manufacturingModel";
@@ -63,12 +67,131 @@ function humanizeKey(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+type ProjectedEdges = {
+  /** Real projected 2D line segments — one pair of endpoints per real mesh triangle edge, in the plane's own real units (meters). */
+  segments: [number, number, number, number][];
+  bounds: { minU: number; maxU: number; minV: number; maxV: number };
+};
+
 /**
- * One sheet per real selectable element — whatever the tree's real nodes
- * actually are for this file, not "one per unit" or "one per module".
- * Real bounding-box dimensions always shown; real extras shown generically,
- * whatever keys this specific node happens to carry; absence of extras is
- * an honest, expected state, not an error.
+ * Real orthographic projection computed directly from the target's own
+ * live mesh vertex data — re-measured/re-derived fresh each call (never
+ * baked/precomputed coordinates), the same principle the removed Garden
+ * Lofts plan-view work proved out. No WebGL/camera involved: every real
+ * triangle edge in the target's subtree is transformed by its real
+ * world matrix, then projected onto whichever two axes aren't the
+ * orientation's dominant view axis (see `orientationForNode`) — a
+ * genuine 2D projection of the real 3D geometry, drawn as SVG lines, the
+ * conventional "shop drawing" line-drawing form rather than a shaded
+ * render.
+ */
+function computeProjectedEdges(target: THREE.Object3D, orientation: CameraOrientation): ProjectedEdges {
+  const uAxis: "x" | "y" | "z" = Math.abs(orientation.direction.y) > 0.5 ? "x" : Math.abs(orientation.direction.x) > 0.5 ? "z" : "x";
+  const vAxis: "x" | "y" | "z" = Math.abs(orientation.direction.y) > 0.5 ? "z" : Math.abs(orientation.direction.x) > 0.5 ? "y" : "y";
+
+  const segments: [number, number, number, number][] = [];
+  let minU = Infinity;
+  let maxU = -Infinity;
+  let minV = Infinity;
+  let maxV = -Infinity;
+
+  target.updateWorldMatrix(true, false);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+
+  function project(v: THREE.Vector3): [number, number] {
+    const u = v[uAxis];
+    const vv = v[vAxis];
+    if (u < minU) minU = u;
+    if (u > maxU) maxU = u;
+    if (vv < minV) minV = vv;
+    if (vv > maxV) maxV = vv;
+    return [u, vv];
+  }
+
+  target.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return;
+    const geom = obj.geometry;
+    const pos = geom.attributes.position;
+    if (!pos) return;
+    const index = geom.index;
+    const triCount = index ? index.count / 3 : pos.count / 3;
+    for (let i = 0; i < triCount; i++) {
+      const i0 = index ? index.getX(i * 3) : i * 3;
+      const i1 = index ? index.getX(i * 3 + 1) : i * 3 + 1;
+      const i2 = index ? index.getX(i * 3 + 2) : i * 3 + 2;
+      a.fromBufferAttribute(pos, i0).applyMatrix4(obj.matrixWorld);
+      b.fromBufferAttribute(pos, i1).applyMatrix4(obj.matrixWorld);
+      c.fromBufferAttribute(pos, i2).applyMatrix4(obj.matrixWorld);
+      const [au, av] = project(a);
+      const [bu, bv] = project(b);
+      const [cu, cv] = project(c);
+      segments.push([au, av, bu, bv], [bu, bv, cu, cv], [cu, cv, au, av]);
+    }
+  });
+
+  return { segments, bounds: { minU, maxU, minV, maxV } };
+}
+
+/**
+ * Real orthographic projection of a node's own live mesh, auto-oriented
+ * (plan vs. elevation) purely from its real measured geometry — see
+ * `orientationForNode`. Deliberately no dimension lines to neighboring
+ * elements ("7.5m to the next wall") — that requires a real geometric-
+ * adjacency investigation per project (what the removed Garden Lofts
+ * `PLAN_DIMENSIONS` did), out of scope here, not faked.
+ */
+function ShopDrawingProjection({ objectName }: { objectName: string }) {
+  const { scene } = useGLTF(useManufacturingModelUrl());
+  const target = scene.getObjectByName(objectName);
+
+  const projected = useMemo(() => {
+    if (!target) return undefined;
+    const orientation = orientationForNode(new THREE.Box3().setFromObject(target));
+    return { ...computeProjectedEdges(target, orientation), orientation };
+  }, [target]);
+
+  if (!target || !projected || projected.segments.length === 0) return null;
+
+  const { segments, bounds, orientation } = projected;
+  const width = Math.max(bounds.maxU - bounds.minU, 0.01);
+  const height = Math.max(bounds.maxV - bounds.minV, 0.01);
+  const margin = Math.max(width, height) * 0.1;
+  const viewMinU = bounds.minU - margin;
+  const viewMaxV = bounds.maxV + margin;
+  const viewW = width + margin * 2;
+  const viewH = height + margin * 2;
+  const strokeWidth = Math.max(viewW, viewH) / 400;
+
+  return (
+    <div
+      className="mb-3 h-56 w-full relative"
+      style={{ background: "var(--ff-content-bg)", border: "1px solid var(--ff-panel-border)", borderRadius: "var(--ff-radius)" }}
+    >
+      <span
+        className="absolute right-2 top-2 rounded-[0.15rem] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide"
+        style={{ background: "var(--ff-panel-bg)", border: "1px solid var(--ff-panel-border)", color: "var(--ff-text-muted)" }}
+      >
+        {orientation.kind === "plan" ? "Plan" : "Elevation"}
+      </span>
+      {/* SVG y grows downward; real V (world Y or Z) reads "up" — negating V here is the one correction, not a fabricated value. */}
+      <svg viewBox={`${viewMinU} ${-viewMaxV} ${viewW} ${viewH}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+        {segments.map(([x1, y1, x2, y2], i) => (
+          <line key={i} x1={x1} y1={-y1} x2={x2} y2={-y2} stroke="var(--ff-text-primary)" strokeWidth={strokeWidth} />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * One sheet per real fabricatable element — gated by `shouldFabricate()`
+ * (a real leaf mesh, not a pure organizational group; see
+ * manufacturingModel.ts), not "one per unit" or "one per module". Real
+ * projection + real bounding-box dimensions always shown; real extras
+ * shown generically, whatever keys this specific node happens to carry;
+ * absence of extras is an honest, expected state, not an error.
  */
 function ElementSheet({ node, onBack }: { node: ManufacturingNode; onBack: () => void }) {
   const { scene } = useGLTF(useManufacturingModelUrl());
@@ -92,6 +215,8 @@ function ElementSheet({ node, onBack }: { node: ManufacturingNode; onBack: () =>
       <p className="mt-0.5 text-xs" style={{ color: "var(--ff-text-muted)" }}>
         Structured spec sheet — real data only, not a rendered dimensioned CAD drawing.
       </p>
+
+      {node.hasGeometry && <ShopDrawingProjection objectName={node.id} />}
 
       <dl className="mt-3 space-y-1.5">
         <Row label="Object Name" value={node.name} />
@@ -130,14 +255,18 @@ function ShopDrawingsTree({ tree }: { tree: ManufacturingTree }) {
       items={toBrowseItems(tree.roots)}
       onSelect={(id) => {
         const node = tree.nodesById.get(id);
-        if (!node) return;
+        // Pure organizational nodes (no real geometry of their own) stay
+        // navigational — BrowseList already toggles their expand/collapse
+        // regardless of this handler; only a real fabricatable element
+        // opens a sheet.
+        if (!node || !shouldFabricate(node)) return;
         setOpenSheetId(id);
 
         // Also drives the real global selection (Inspector + GeometryViewport
         // both react) — one identity scheme, not two parallel mechanisms.
         setSelected({
           feature: "manufacturing",
-          objectType: node.children.length > 0 ? "Group" : "Object",
+          objectType: "Object",
           objectId: node.id,
           payload: { name: node.name, extras: node.extras },
         });
