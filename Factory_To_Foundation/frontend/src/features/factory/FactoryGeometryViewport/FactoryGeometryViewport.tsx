@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import { Line, OrbitControls, PerspectiveCamera, Text } from "@react-three/drei";
+import { Line, OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 
 import { Legend, PanelCard } from "@/framework/ui";
@@ -9,6 +9,7 @@ import { useSelection } from "@/context/SelectionContext";
 import { translateManifest, type LiveFactoryNode, type FactoryStatus } from "../twinTranslator";
 import { useTwinManifest } from "../useTwinManifest";
 import { useTwinState, type TwinState } from "../useTwinState";
+import { robotJointPoints } from "../twinKinematics";
 import {
   ATC,
   BRIDGE_BEAM,
@@ -23,6 +24,7 @@ import {
   TILT,
   TOOL_COLOR_CYCLE,
   toThree,
+  type Vec3,
 } from "../twinGeometryConstants";
 
 /**
@@ -84,8 +86,6 @@ const STATUS_COLOR: Record<FactoryStatus, string> = {
 };
 
 const ACCENT = "#d9631e";
-
-type Vec3 = [number, number, number];
 
 // ── Small geometry helpers, mirroring pyvista_render.py's pv_box/pv_quad/pv_sphere ──
 
@@ -479,53 +479,47 @@ const ATC_RACKS: { manifestId: string; cx: number; ry: number }[] = (["A", "B"] 
   }));
 });
 
-// Real per-robot rail_y/side, ported directly from IntegratedCell.__init__'s
-// CR6Robot(...) construction (self.A1 = CR6Robot("A1", self.rail_A, ..., +1)
-// etc.) — robot.rail_y is a real @property reading robot.rail.y, so these
-// are the real, not-independently-invented values.
-const ROBOT_GEOMETRY: Record<string, { railY: number; side: 1 | -1 }> = {
-  A1: { railY: RAIL.A_Y, side: 1 },
-  A2: { railY: RAIL.A_Y, side: 1 },
-  B1: { railY: RAIL.B_Y, side: -1 },
-  B2: { railY: RAIL.B_Y, side: -1 },
+// Real per-robot rail_y, ported directly from IntegratedCell.__init__'s
+// CR6Robot(...) construction (self.A1 = CR6Robot("A1", self.rail_A, ...)
+// etc.) — robot.rail_y is a real @property reading robot.rail.y, so this
+// is the real, not-independently-invented value. Not carried in
+// state.json itself (only rail_x is, since it's the live DOF) — which
+// physical rail each named robot sits on is fixed at construction, same
+// as the twin side.
+const ROBOT_RAIL_Y: Record<string, number> = {
+  A1: RAIL.A_Y,
+  A2: RAIL.A_Y,
+  B1: RAIL.B_Y,
+  B2: RAIL.B_Y,
 };
 
-const WORKING_STATE = "WORKING";
-const CHANGING_TOOL_STATES = new Set(["AT_ATC", "TOOL_CHANGE"]);
+// Cosmetic rail-mounted base riser height only — not part of the real DH
+// chain (whose own origin is z=0, exactly matching the twin's own
+// draw_robot()'s identical base_z cosmetic constant).
+const ROBOT_BASE_Z = 0.06 + 0.14 + 0.14 + 0.14;
+
+// Per-segment width/color, matching the twin's own new draw_robot()
+// (ported from CR6_V8_0_Dual_Robot_Cell.py's rendering template).
+const SEGMENT_WIDTH = [8, 7, 7, 5, 5, 4];
+const SEGMENT_COLOR = ["#DDDDDD", "#DDDDDD", "#CCCCCC", "#CCCCCC", "#CC5500", "#CC5500"];
 
 function RobotGeometry({ name, robot }: { name: string; robot: TwinState["robots"]["A1"] }) {
-  const geo = ROBOT_GEOMETRY[name];
-  const rx = robot.x, ry = geo.railY, side = geo.side;
-  const baseZ = 0.06 + 0.14 + 0.14;
-  const j1z = baseZ + 0.28;
-  const working = robot.state === WORKING_STATE;
-  const changingTool = CHANGING_TOOL_STATES.has(robot.state);
-
-  let el: Vec3, tip: Vec3;
-  if (working) {
-    el = [rx, ry + side * 0.8, j1z + 0.55 * 0.7];
-    tip = [rx, ry + side * 1.45, 0.9 + 0.15];
-  } else if (changingTool) {
-    el = [rx, ry - side * 0.3, j1z + 0.55 * 0.7];
-    tip = [rx, ry - side * 0.7, j1z + 0.22 * robot.tool_idx];
-  } else {
-    el = [rx, ry + side * 0.25, j1z + 0.55];
-    tip = [rx, ry + side * 0.4, j1z + 0.55 + 0.5 * 0.6];
-  }
-
-  const upperArmP0: Vec3 = [rx, ry, j1z + 0.14];
-  const toolP0: Vec3 = [tip[0], tip[1] + side * 0.04, tip[2] - 0.18];
+  const railY = ROBOT_RAIL_Y[name];
+  const base: Vec3 = [robot.rail_x, railY, 0];
+  const pts = robotJointPoints(robot.q, base);
   const toolColor = TOOL_COLOR_CYCLE[robot.tool_idx % 5];
+  const tip = pts[pts.length - 1];
 
   return (
     <>
-      <Box center={[rx, ry, baseZ + 0.14]} half={[0.18, 0.18, 0.14]} color="#CCCCCC" />
-      <Box center={[rx, ry, j1z + 0.06]} half={[0.1, 0.1, 0.06]} color="#CC5500" />
-      <Seg p0={upperArmP0} p1={el} color="#DDDDDD" width={5} />
-      <Sphere center={el} radius={0.05} color="#CC5500" />
-      <Seg p0={el} p1={tip} color="#CCCCCC" width={3.5} />
-      <Sphere center={tip} radius={0.035} color="#CC5500" />
-      <Seg p0={toolP0} p1={tip} color={toolColor} width={2.5} />
+      <Box center={[robot.rail_x, railY, ROBOT_BASE_Z]} half={[0.18, 0.18, 0.14]} color="#CCCCCC" />
+      {pts.slice(0, -1).map((p, i) => (
+        <Seg key={i} p0={p} p1={pts[i + 1]} color={SEGMENT_COLOR[i]} width={SEGMENT_WIDTH[i]} />
+      ))}
+      {pts.map((p, i) => (
+        <Sphere key={i} center={p} radius={0.045} color="white" />
+      ))}
+      <Sphere center={tip} radius={0.08} color={toolColor} />
     </>
   );
 }
@@ -611,31 +605,12 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected }: {
               liveNodes={liveNodes}
               setSelected={setSelected}
               selectedId={selectedId}
-              depsKey={`${robot.x},${robot.state},${robot.tool_idx}`}
+              depsKey={`${robot.rail_x},${robot.q.join(",")},${robot.state},${robot.tool_idx}`}
             >
               <RobotGeometry name={name} robot={robot} />
             </SubsystemGroup>
           );
         })}
-
-      {/* Illustrative-pose disclosure — always visible near the robots,
-          not a tooltip, matching the required "unmissable" standard. Real
-          per-joint telemetry doesn't exist in state.json (only rail
-          position does) — confirmed during Step 0 that even the twin's
-          own PyVista reference viewport uses this same 3-pose cosmetic
-          branching, not real kinematics. */}
-      <Text
-        position={toThree((RAIL.X_MIN + RAIL.X_MAX) / 2, RUNWAY.Y_POS + 1.3, 0.02)}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.45}
-        color="#8b93a1"
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.015}
-        outlineColor="white"
-      >
-        Robot arm pose is illustrative (3-pose cosmetic), not real joint telemetry
-      </Text>
     </group>
   );
 }

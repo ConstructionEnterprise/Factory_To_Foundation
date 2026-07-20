@@ -39,12 +39,13 @@ export function formatFactoryStatus(status: FactoryStatus): string {
 /**
  * Static floor-plan layout, hand-placed only for the manifest identities
  * whose real physical arrangement is known today. Position is a UI
- * decision, not something read off the twin — `robots.*.x` in state.json
- * is rail-travel position (a single linear DOF), not a screen coordinate.
- * Anything in the manifest that isn't listed here (the 6 real rail/ATC
- * subsystems, or whatever the twin grows next) gets `fallbackGridSlot`
- * instead of a hand-authored position — deliberate, so a manifest that
- * grows doesn't require this table to grow in lockstep.
+ * decision, not something read off the twin — `robots.*.rail_x` in
+ * state.json is rail-travel position (a single linear DOF, one of the
+ * hybrid robot's 7), not a screen coordinate. Anything in the manifest
+ * that isn't listed here (the 6 real rail/ATC subsystems, or whatever the
+ * twin grows next) gets `fallbackGridSlot` instead of a hand-authored
+ * position — deliberate, so a manifest that grows doesn't require this
+ * table to grow in lockstep.
  */
 const KNOWN_LAYOUT: Record<string, { x: number; y: number; width: number; height: number }> = {
   "robots.A1": { x: 40, y: 0, width: 160, height: 90 },

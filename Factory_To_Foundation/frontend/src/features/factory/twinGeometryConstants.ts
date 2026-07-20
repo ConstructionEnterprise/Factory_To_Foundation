@@ -14,10 +14,25 @@
  * hand at each call site, so the mapping can't drift between subsystems.
  */
 
+/** Real twin-space (x, y, z) point, pre-`toThree` conversion. */
+export type Vec3 = [number, number, number];
+
 /** Real twin-space (x, y, z) -> three.js (x, y, z), i.e. [x, z, y]. */
-export function toThree(x: number, y: number, z: number): [number, number, number] {
+export function toThree(x: number, y: number, z: number): Vec3 {
   return [x, z, y];
 }
+
+/**
+ * Real DH parameters for the CR6 arm, ported verbatim from
+ * CE_Integrated_Cell_V3_0-6.py's SECTION 1B (itself ported verbatim from
+ * CR6_V8_0_Dual_Robot_Cell.py's validated V6.1 DH convention — copied,
+ * not re-derived, same discipline as every other constant in this file).
+ * Used by `../twinKinematics.ts`'s forward-kinematics function.
+ */
+export const D1 = 1.5;
+export const A2 = 2.5;
+export const A3 = 2.0;
+export const D6 = 0.5;
 
 export const CE_COLOR = {
   gold: "#CC6600",

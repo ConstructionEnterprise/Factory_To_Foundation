@@ -10,12 +10,16 @@ const POLL_MS = 750;
 /**
  * The full real state.json schema, confirmed against both a live read and
  * the exact write code in CE_Integrated_Cell_V3_0-6.py's advance() (HOOK
- * B) — nothing speculative added. Notably: `robots.*.x` is rail-travel
- * position (a single linear DOF), not a screen/joint coordinate, and
- * `tool_idx` is an explicitly-decoupled legacy cosmetic color-cycle, not
- * real tool identity (per the twin project's own CLAUDE.md). Neither
- * ATC/tool state nor rail position as a first-class field exists in
- * state.json yet — only what's below is real.
+ * B) — nothing speculative added.
+ *
+ * BREAKING CHANGE (post CR6-kinematics merge): `robots.*.x` is gone.
+ * Robots are now a real hybrid 7-DOF model — `rail_x` is the single
+ * linear rail-travel DOF (what `x` used to be), and `q` is 6 real joint
+ * angles (radians) from the twin's own DH-based inverse kinematics, not
+ * a cosmetic pose. `tool_idx` is still an explicitly-decoupled legacy
+ * cosmetic color-cycle, not real tool identity (per the twin project's
+ * own CLAUDE.md). Neither ATC/tool state as a first-class field exists
+ * in state.json yet — only what's below is real.
  */
 export type TwinLastError = {
   command: string;
@@ -49,9 +53,13 @@ export type TwinTiltState = {
   pin_extended: boolean;
 };
 
+/** 6 real joint angles (radians), q1..q6, same order as the twin's own DH chain. */
+export type Quat6 = [number, number, number, number, number, number];
+
 export type TwinRobotState = {
   state: string;
-  x: number;
+  rail_x: number;
+  q: Quat6;
   cycles: number;
   tool_idx: number;
 };
