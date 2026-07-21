@@ -10,6 +10,7 @@ import { translateManifest, type LiveFactoryNode, type FactoryStatus } from "../
 import { useTwinManifest } from "../useTwinManifest";
 import { useTwinState, type TwinState } from "../useTwinState";
 import { RobotArm } from "../RobotArm";
+import { useTwinControl, type UseTwinControlResult } from "../useTwinControl";
 import { startCollisionMonitor, useCollisionSnapshot } from "../collisionStore";
 import { ROBOT_RAIL_Y, reachEnvelopeCenter } from "../collisionGeometry";
 import {
@@ -633,11 +634,70 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
   );
 }
 
+/**
+ * Real process control for the twin, via twin-bridge's /twin-control/*
+ * endpoints (see twin-bridge/server.mjs). Three honest states, not a
+ * simple on/off: bridge unreachable, not running, running-and-stoppable
+ * (this bridge started it), running-but-not-stoppable (some other process
+ * — e.g. a manually-run terminal instance — owns it; Stop is disabled and
+ * says why rather than silently doing nothing).
+ */
+function RunSimulationButton({ twinControl }: { twinControl: UseTwinControlResult }) {
+  const { bridgeReachable, control, starting, stopping, lastError, start, stop } = twinControl;
+
+  if (!bridgeReachable) {
+    return (
+      <span
+        className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+        style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
+        title="twin-bridge not reachable at localhost:4100 — start it with: node twin-bridge/server.mjs"
+      >
+        Twin Bridge Offline
+      </span>
+    );
+  }
+
+  const running = control?.status === "running";
+  const externallyOwned = running && control?.bridgeOwned === false;
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => (running ? stop() : start())}
+        disabled={starting || stopping || externallyOwned}
+        className="rounded-[0.2rem] px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        style={{ background: running ? "var(--ff-status-critical)" : "var(--ff-status-positive)" }}
+        title={
+          externallyOwned
+            ? `Running externally (pid ${control?.pid}) — not started by this bridge, so it can't be stopped from here`
+            : running
+              ? `Stop the real twin process (pid ${control?.pid})`
+              : "Launch the real twin process (headless driver) via twin-bridge"
+        }
+      >
+        {starting ? "Starting…" : stopping ? "Stopping…" : running ? "Stop Simulation" : "Run Simulation"}
+      </button>
+      {running && (
+        <span className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+          {externallyOwned ? "external process" : `pid ${control?.pid}`} · frame {control?.frame ?? "—"}
+        </span>
+      )}
+      {lastError && (
+        <span className="text-xs font-medium" style={{ color: "var(--ff-status-critical)" }}>
+          {lastError}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function FactoryGeometryViewport() {
   const { selected, setSelected } = useSelection();
   const { connected: manifestConnected, manifest } = useTwinManifest();
   const { state } = useTwinState();
   const collision = useCollisionSnapshot();
+  const twinControl = useTwinControl();
   const [showReach, setShowReach] = useState(false);
 
   // The collision monitor runs on its own fast poll (every written twin
@@ -661,6 +721,7 @@ export default function FactoryGeometryViewport() {
   return (
     <PanelCard title="Factory Digital Twin" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex flex-wrap items-center gap-6 px-6 py-4 border-b border-gray-100">
+        <RunSimulationButton twinControl={twinControl} />
         <Legend color="var(--ff-status-positive)" label="Running" />
         <Legend color="var(--ff-status-warning)" label="Idle" />
         <Legend color="var(--ff-status-critical)" label="Down" />
