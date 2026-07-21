@@ -144,6 +144,58 @@ function enrichAction(baseAction: string, phaseIndex: number, spec: ElementSpec)
   return notes.length > 0 ? `${baseAction} ${notes.join(" ")}` : baseAction;
 }
 
+function formatPosition(p: { x: number; y: number; z: number }): string {
+  return `(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}) m`;
+}
+
+/**
+ * The framing phase specifically — the only phase that can real-ly
+ * decompose per element, since fastening happens AT specific real
+ * locations while roller/tilt/gantry act on the whole panel as one
+ * object. Real overlapping features (see findOverlappingFeatures) each
+ * become their own real sub-step with a real position; zero features
+ * stays exactly one step, same as before this existed — no padding, no
+ * invented minimum count.
+ */
+function buildFramingSteps(
+  baseAction: string,
+  entry: TwinManifestEntry,
+  phase: PhaseStep,
+  target: InstructionGenerationTarget,
+  startSequence: number
+): InstructionStep[] {
+  const features = target.elementSpec?.overlappingFeatures ?? [];
+  const enriched = target.elementSpec ? enrichAction(baseAction, 0, target.elementSpec) : baseAction;
+
+  if (features.length === 0) {
+    return [
+      {
+        id: `${target.sourceObjectId}-step-${startSequence}`,
+        sequence: startSequence,
+        targetSubsystemId: entry.id,
+        realCommandTarget: resolveCommandTarget(entry.id),
+        targetType: entry.type,
+        action: enriched,
+        relatedObjectId: target.unitTypeLabel || target.elementSpec ? target.sourceObjectId : undefined,
+        status: "planned",
+        estimatedDurationSec: phase.estimatedDurationSec,
+      },
+    ];
+  }
+
+  return features.map((feature, i) => ({
+    id: `${target.sourceObjectId}-step-${startSequence + i}`,
+    sequence: startSequence + i,
+    targetSubsystemId: entry.id,
+    realCommandTarget: resolveCommandTarget(entry.id),
+    targetType: entry.type,
+    action: `${enriched} Real co-located feature ${i + 1}/${features.length}: "${feature.name}" at ${formatPosition(feature.position)}.`,
+    relatedObjectId: feature.id,
+    status: "planned",
+    estimatedDurationSec: phase.estimatedDurationSec,
+  }));
+}
+
 /**
  * Real fit check: the element lies flat on the fixture table, so its two
  * LARGEST real dimensions occupy the table plane (the smallest is its
@@ -175,6 +227,7 @@ export function generateInstructionSet(
 ): InstructionGenerationResult {
   const side = pickSide(target.sourceObjectId);
   const steps: InstructionStep[] = [];
+  let nextSequence = 1;
 
   for (let i = 0; i < PHASE_STEPS.length; i++) {
     const phase = PHASE_STEPS[i];
@@ -194,9 +247,19 @@ export function generateInstructionSet(
 
     const baseAction = `[${tierNote}] ${phase.describe(side)} (${unitNote}; real phase: ${phase.realPhase})`;
 
+    if (i === 0) {
+      // Framing is the only phase real feature data can decompose — see
+      // buildFramingSteps. Every other phase acts on the panel as one
+      // whole object, so it stays exactly one step, unchanged.
+      const framingSteps = buildFramingSteps(baseAction, entry, phase, target, nextSequence);
+      steps.push(...framingSteps);
+      nextSequence += framingSteps.length;
+      continue;
+    }
+
     steps.push({
-      id: `${target.sourceObjectId}-step-${i + 1}`,
-      sequence: i + 1,
+      id: `${target.sourceObjectId}-step-${nextSequence}`,
+      sequence: nextSequence,
       targetSubsystemId: entry.id,
       realCommandTarget: resolveCommandTarget(entry.id),
       targetType: entry.type,
@@ -205,6 +268,7 @@ export function generateInstructionSet(
       status: "planned",
       estimatedDurationSec: phase.estimatedDurationSec,
     });
+    nextSequence += 1;
   }
 
   return {

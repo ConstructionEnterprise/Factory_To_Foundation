@@ -81,6 +81,15 @@ export type ElementSpec = {
   /** Real thinnest-axis classification from orientationForNode — "elevation" = wall-shaped, "plan" = floor/ceiling-shaped. */
   orientationKind?: "plan" | "elevation";
   extras: Record<string, string | number | boolean>;
+  /**
+   * Real other leaf meshes elsewhere in the model whose bounding box
+   * actually spatially overlaps this element's — see
+   * findOverlappingFeatures() in manufacturingModel.ts. Empty for a
+   * featureless element; that's a real result, not a missing one. Drives
+   * a real per-feature step breakdown in instruction generation instead
+   * of one static framing line for every element regardless of what it is.
+   */
+  overlappingFeatures: { id: string; name: string; position: { x: number; y: number; z: number } }[];
 };
 
 export type InstructionSet = {

@@ -10,6 +10,7 @@ import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
 import { generateInstructionSet } from "../instructionGeneration";
 import {
   buildElementSpec,
+  findOverlappingFeatures,
   measureNode,
   metersLabel,
   orientationForNode,
@@ -197,13 +198,25 @@ function ShopDrawingProjection({ objectName }: { objectName: string }) {
  * shown generically, whatever keys this specific node happens to carry;
  * absence of extras is an honest, expected state, not an error.
  */
-function ElementSheet({ node, onBack }: { node: ManufacturingNode; onBack: () => void }) {
+function ElementSheet({
+  node,
+  nodesById,
+  onBack,
+}: {
+  node: ManufacturingNode;
+  nodesById: Map<string, ManufacturingNode>;
+  onBack: () => void;
+}) {
   const { scene } = useGLTF(useManufacturingModelUrl());
   const { connected: manifestConnected, manifest } = useTwinManifest();
   const { setInstructionSet } = useManufacturingOutput();
   const [genStatus, setGenStatus] = useState<string | null>(null);
   const size = measureNode(scene, node.id);
   const extraEntries = Object.entries(node.extras);
+  const overlappingFeatures = useMemo(
+    () => findOverlappingFeatures(scene, nodesById, node.id),
+    [scene, nodesById, node.id]
+  );
 
   // Viewing a shop drawing IS the trigger: this element's real sheet data
   // feeds the same generator (and the same manifest-grounded targets) the
@@ -215,7 +228,7 @@ function ElementSheet({ node, onBack }: { node: ManufacturingNode; onBack: () =>
       return;
     }
     const result = generateInstructionSet(
-      { sourceObjectId: node.id, elementSpec: buildElementSpec(scene, node) },
+      { sourceObjectId: node.id, elementSpec: buildElementSpec(scene, node, nodesById) },
       manifest
     );
     if (!result.ok) {
@@ -272,6 +285,32 @@ function ElementSheet({ node, onBack }: { node: ManufacturingNode; onBack: () =>
           <Row label="Metadata" value="None in the source file for this element — not confirmed" />
         )}
       </dl>
+
+      <div className="mt-4">
+        <h4 className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--ff-text-muted)" }}>
+          Real Overlapping Features
+        </h4>
+        <p className="mt-0.5 text-[0.7rem]" style={{ color: "var(--ff-text-muted)" }}>
+          Other real meshes elsewhere in the model whose bounding box actually intersects this element's — drives
+          the per-feature framing steps below, not a fabricated count.
+        </p>
+        {overlappingFeatures.length > 0 ? (
+          <ul className="mt-1.5 space-y-1">
+            {overlappingFeatures.map((f) => (
+              <li key={f.id} className="text-xs" style={{ color: "var(--ff-text-primary)" }}>
+                <span className="font-medium">{f.name}</span>{" "}
+                <span style={{ color: "var(--ff-text-muted)" }}>
+                  ({f.position.x.toFixed(2)}, {f.position.y.toFixed(2)}, {f.position.z.toFixed(2)}) m
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-xs" style={{ color: "var(--ff-text-primary)" }}>
+            None — no other real geometry overlaps this element's footprint.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -283,7 +322,7 @@ function ShopDrawingsTree({ tree }: { tree: ManufacturingTree }) {
   if (openSheetId) {
     const node = tree.nodesById.get(openSheetId);
     if (node) {
-      return <ElementSheet node={node} onBack={() => setOpenSheetId(null)} />;
+      return <ElementSheet node={node} nodesById={tree.nodesById} onBack={() => setOpenSheetId(null)} />;
     }
   }
 

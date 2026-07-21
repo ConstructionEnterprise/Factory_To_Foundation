@@ -168,17 +168,78 @@ export function metersLabel(m: number): string {
   return `${m.toFixed(2)} m (${ft.toFixed(1)}')`;
 }
 
+export type OverlappingFeature = {
+  id: string;
+  name: string;
+  /** Real world-space center of the overlapping feature's own bounding box, meters. */
+  position: { x: number; y: number; z: number };
+};
+
+/**
+ * Real feature breakdown: other real leaf meshes anywhere in the loaded
+ * model whose real world-space bounding box actually intersects the
+ * target's — e.g. a door/window opening frame that isn't a child of the
+ * wall it's cut into, but really does spatially overlap it. Pure Box3
+ * intersection, no name-pattern matching, so it works identically on any
+ * uploaded file: a featureless element (a plain roof panel) honestly
+ * returns an empty list, not a fabricated one.
+ *
+ * Excludes the target itself, its own real descendants (a leaf mesh's own
+ * sub-meshes would trivially "overlap" it), and its own real ancestors
+ * (whose box trivially contains it) — everything else in the tree is a
+ * real candidate. Sorted by real position along the target's own longest
+ * axis for a stable, physically left-to-right order — a deterministic
+ * real choice, not a fabricated ranking.
+ */
+export function findOverlappingFeatures(
+  scene: Object3D,
+  nodesById: Map<string, ManufacturingNode>,
+  targetId: string
+): OverlappingFeature[] {
+  const targetObj = scene.getObjectByName(targetId);
+  if (!targetObj) return [];
+  const targetBox = new THREE.Box3().setFromObject(targetObj);
+  if (targetBox.isEmpty()) return [];
+
+  const size = targetBox.getSize(new THREE.Vector3());
+  const axis: "x" | "y" | "z" = size.x >= size.y && size.x >= size.z ? "x" : size.y >= size.z ? "y" : "z";
+
+  const excluded = new Set<string>();
+  targetObj.traverse((o) => {
+    if (o.name) excluded.add(o.name);
+  });
+  for (let p = targetObj.parent; p; p = p.parent) {
+    if (p.name) excluded.add(p.name);
+  }
+
+  const matches: OverlappingFeature[] = [];
+  for (const node of nodesById.values()) {
+    if (!node.hasGeometry || excluded.has(node.id)) continue;
+    const obj = scene.getObjectByName(node.id);
+    if (!obj) continue;
+    const box = new THREE.Box3().setFromObject(obj);
+    if (box.isEmpty() || !box.intersectsBox(targetBox)) continue;
+    const center = box.getCenter(new THREE.Vector3());
+    matches.push({ id: node.id, name: node.name, position: { x: center.x, y: center.y, z: center.z } });
+  }
+
+  matches.sort((a, b) => a.position[axis] - b.position[axis]);
+  return matches;
+}
+
 /**
  * Packages one fabricatable element's real shop-drawing data (the exact
  * values its sheet displays: measured bounding box, thinnest-axis
- * orientation, verbatim extras) for instruction generation — see
- * ElementSpec in ManufacturingOutputContext. Generic by construction:
- * live-geometry measurements + verbatim pass-through only, no name or
- * key-pattern reads, so every uploaded file takes this identical path.
+ * orientation, verbatim extras, real spatially-overlapping features) for
+ * instruction generation — see ElementSpec in ManufacturingOutputContext.
+ * Generic by construction: live-geometry measurements + verbatim
+ * pass-through only, no name or key-pattern reads, so every uploaded file
+ * takes this identical path.
  */
 export function buildElementSpec(
   scene: Object3D,
-  node: ManufacturingNode
+  node: ManufacturingNode,
+  nodesById: Map<string, ManufacturingNode>
 ): import("@/context/ManufacturingOutputContext").ElementSpec {
   const size = measureNode(scene, node.id);
   const obj = scene.getObjectByName(node.id);
@@ -192,6 +253,7 @@ export function buildElementSpec(
     dims: size ? { x: size.x, y: size.y, z: size.z } : undefined,
     orientationKind,
     extras: node.extras,
+    overlappingFeatures: findOverlappingFeatures(scene, nodesById, node.id),
   };
 }
 
