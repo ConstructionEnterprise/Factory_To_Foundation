@@ -64,6 +64,15 @@ export type TwinRobotState = {
   tool_idx: number;
 };
 
+export type TwinLastToolVerify = {
+  robot_id: string;
+  expected: string;
+  actual: string | null;
+  match: boolean;
+  frame: number;
+  note: string;
+};
+
 export type TwinState = {
   frame: number;
   master_phase: string;
@@ -73,6 +82,11 @@ export type TwinState = {
   _paused_by: string;
   _paused_at: string | null;
   _last_error: TwinLastError | null;
+  /** Real AUTO/MANUAL/MAINTENANCE mode (Phase A, command-vocabulary pass) — confirmed live, was missing from this type until Track B/Phase B4 needed it to gate the real Execute action. */
+  mode: "AUTO" | "MANUAL" | "MAINTENANCE";
+  /** Real in-progress manual moves, keyed by subsystem name ("A1", "roller", "tilt", "gantry") -> move kind (Phases D/E/G) — same real gap as `mode` above. */
+  manual_moves: Record<string, string>;
+  last_tool_verify: TwinLastToolVerify | null;
   gantry: TwinGantryState;
   roller: TwinRollerState;
   tilt: TwinTiltState;

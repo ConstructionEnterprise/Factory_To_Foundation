@@ -1,17 +1,22 @@
 // Mostly-read-only bridge: polls the real digital twin's state.json and
 // serves the latest known-good snapshot over HTTP for the FF frontend to
-// consume. Never writes to, or otherwise touches, any twin FILE — the twin
-// project's "extensions wrap, never alter" rule still applies to the twin's
-// own codebase. The one exception is /twin-control/*, which manages the
-// twin as a PROCESS (start/stop/status) by launching the durable headless
-// driver (twin_headless_driver.py, in this same directory) — that's a new
-// capability, not a twin-code edit.
+// consume. Never writes to, or otherwise touches, any twin FILE it doesn't
+// own the contract for — the twin project's "extensions wrap, never alter"
+// rule still applies to the twin's own codebase. Two exceptions:
+// /twin-control/*, which manages the twin as a PROCESS (start/stop/status)
+// by launching the durable headless driver (twin_headless_driver.py, in
+// this same directory); and /twin-command (Track B, Phase B4), which
+// writes to the twin's own real command_queue.json — the twin's own
+// documented, always-been-writable-by-an-external-controller file (that's
+// the entire point of HOOK A's real command/state contract), not a file
+// this bridge is inventing write access to. Both are new bridge
+// capabilities, not twin-code edits.
 //
 // Dev-time only. Run manually alongside `npm run dev`:
 //   node twin-bridge/server.mjs
 
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, rename } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -20,6 +25,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const STATE_PATH = "C:\\Users\\jchap\\Dev\\Construction_Enterprises\\state\\state.json";
 const MANIFEST_PATH = "C:\\Users\\jchap\\Dev\\Construction_Enterprises\\state\\cell_manifest.json";
+// Real path, confirmed directly against the twin's own _CMD_FILE
+// (CE_Integrated_Cell_V3_0-6.py: os.path.join(_STATE_DIR, "command_queue.json"))
+// -- same real state/ directory as STATE_PATH/MANIFEST_PATH above.
+const COMMAND_PATH = "C:\\Users\\jchap\\Dev\\Construction_Enterprises\\state\\command_queue.json";
+const COMMAND_TMP_PATH = COMMAND_PATH + ".tmp";
 const DRIVER_PATH = path.join(__dirname, "twin_headless_driver.py");
 const PORT = 4100;
 const ALLOWED_ORIGIN = "http://localhost:5173";
@@ -143,6 +153,12 @@ pollManifest();
 const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  // Required for the browser's CORS preflight on /twin-command's real
+  // POST + Content-Type: application/json body -- without this, the
+  // preflight OPTIONS response is missing the one header Chrome checks
+  // before allowing the real POST through, and fetch() fails with a
+  // generic network error indistinguishable from "bridge not running".
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -208,6 +224,47 @@ const server = createServer(async (req, res) => {
           : { status: "not_running", bridgeOwned: false, pid: null, frame: null }
       )
     );
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/twin-command") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    let parsed;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, reason: "invalid JSON body" }));
+      return;
+    }
+    if (typeof parsed.command !== "string" || !parsed.command) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, reason: "command must be a real, non-empty string" }));
+      return;
+    }
+    // Real, honest params validation: params must be a real object (matching
+    // command_queue.json's own {"command":..., "params":{...}} contract) --
+    // never silently coerced from something else.
+    const params = parsed.params ?? {};
+    if (typeof params !== "object" || params === null || Array.isArray(params)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, reason: "params must be a real object" }));
+      return;
+    }
+    const payload = JSON.stringify({ command: parsed.command, params });
+    try {
+      // Atomic write (temp + rename) -- same real discipline the twin's own
+      // HOOK B write uses for state.json (os.replace(_STATE_TMP, _STATE_FILE)),
+      // so the twin's next read of this file never sees a partial write.
+      await writeFile(COMMAND_TMP_PATH, payload, "utf-8");
+      await rename(COMMAND_TMP_PATH, COMMAND_PATH);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, reason: String(err) }));
+    }
     return;
   }
 

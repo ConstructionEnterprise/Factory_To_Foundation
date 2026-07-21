@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { A2, A3, D1, D6, type Vec3 } from "./twinGeometryConstants";
+import { A2, A3, D1, D6, MAX_REACH, type Vec3 } from "./twinGeometryConstants";
 import type { Quat6 } from "./useTwinState";
 
 /**
@@ -65,4 +65,34 @@ export function robotJointPoints(q: Quat6, base: Vec3): Vec3[] {
   }
 
   return pts;
+}
+
+/**
+ * Real reachability check for the one fixed tool-down orientation
+ * `robot_execute_point` always uses (DEFAULT_RPY = [0, pi, 0] in the
+ * twin — see Phase G/Track B). Mirrors `ik()`'s own real early-exit
+ * reach checks in CE_Integrated_Cell_V3_0-6.py: distance to the wrist
+ * center vs `MAX_REACH*0.99`, and the `|c3|>1` inner-bound check — the
+ * same real formula, not an approximation, specialized for this one
+ * orientation whose wrist-offset vector simplifies to a constant
+ * `[0, 0, D6]` (worked out by hand from `rpy_to_R([0, pi, 0])`, whose
+ * third column — the tool's Z axis — comes out to exactly `[0, 0, -1]`).
+ * Used to warn a human BEFORE they click Execute (Phase B3's decision),
+ * not just to explain a dispatch failure after the fact — the real
+ * dispatch-time gate in `robot_execute_point` remains the actual
+ * backstop regardless of what this predicts.
+ */
+export function isPointReachableToolDown(targetWorld: Vec3, base: Vec3): boolean {
+  const px = targetWorld[0] - base[0];
+  const py = targetWorld[1] - base[1];
+  const pz = targetWorld[2] - base[2];
+  const wx = px;
+  const wy = py;
+  const wz = pz + D6;
+  const r = Math.hypot(wx, wy);
+  const s = wz - D1;
+  const d2 = r * r + s * s;
+  if (Math.sqrt(d2) > MAX_REACH * 0.99) return false;
+  const c3 = (d2 - A2 * A2 - A3 * A3) / (2 * A2 * A3);
+  return Math.abs(c3) <= 1;
 }

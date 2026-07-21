@@ -210,8 +210,9 @@ export default function ReportsLibrary() {
           className="mb-3 rounded-[0.2rem] p-2 text-xs font-semibold"
           style={{ background: "var(--ff-status-warning)", color: "white" }}
         >
-          Planning Draft — an illustrative planned sequence. Not real command_queue.json entries;
-          nothing here executes or has ever been written to the twin.
+          Planning Draft — action text and durations are illustrative. Steps below with real
+          dispatchable code are read-only here; use Factory's "Instructions" menu to Execute
+          one, which always requires its own explicit click.
         </div>
         <div className="flex justify-between text-xs" style={{ color: "var(--ff-text-muted)" }}>
           <span>
@@ -293,6 +294,22 @@ export default function ReportsLibrary() {
                     </span>
                   )}
                 </div>
+                {step.reachabilityIssue && (
+                  <div
+                    className="mt-1.5 rounded-[0.2rem] p-1.5 text-xs"
+                    style={{ background: "var(--ff-status-critical)", color: "white" }}
+                  >
+                    ⚠ {step.reachabilityIssue}
+                  </div>
+                )}
+                {step.code && step.code.length > 0 && (
+                  <pre
+                    className="mt-1.5 overflow-x-auto rounded-[0.2rem] p-1.5 text-xs"
+                    style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-primary)" }}
+                  >
+                    {step.code.join("\n")}
+                  </pre>
+                )}
               </li>
             ))}
         </ol>

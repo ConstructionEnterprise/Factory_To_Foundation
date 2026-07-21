@@ -63,6 +63,43 @@ export type InstructionStep = {
    * disclosure.
    */
   estimatedDurationSec: number;
+  /**
+   * Real dispatchable command(s) this step actually maps to, in order —
+   * e.g. `[{command: "robot_execute_point", params: {robot_id, contact_point}}]`.
+   * `code` below is a human-readable rendering of this exact same real
+   * payload, not independently invented text. Absent when no real
+   * command/coordinate is derivable for this step (see Track B / Phase
+   * B1's finding on shop-drawing-vs-twin coordinate spaces) — never a
+   * fabricated placeholder command.
+   */
+  dispatch?: { command: string; params: Record<string, unknown> }[];
+  /**
+   * Real KRL-style code lines rendering `dispatch` above, using KUKA
+   * KRL's real structural conventions (E6POS target declarations in
+   * degrees, LIN/CALL statements) — chosen over RAPID/ABB because the
+   * twin's own real orientation representation (DEFAULT_RPY, a
+   * roll/pitch/yaw triple) maps directly onto KRL's real A/B/C Euler
+   * fields, while RAPID's robtarget uses quaternions and would need an
+   * extra, unneeded conversion layer. Still illustrative in structure
+   * (not a literal program a real KRC would compile) but every value
+   * shown is real, not fabricated. Absent exactly when `dispatch` is.
+   */
+  code?: string[];
+  /**
+   * Real, computed-at-generation-time reachability concern for this
+   * step's dispatch — present only when the same real ik() reach math
+   * the twin's own robot_execute_point uses (see
+   * isPointReachableToolDown in twinKinematics.ts) predicts this exact
+   * point will fail the twin's real dispatch-time reachability gate.
+   * Surfaced so a human sees this BEFORE clicking Execute (Phase B3),
+   * not just as a scattered dispatch failure mid-sequence — real
+   * precedent: a panel wider than the real fixture table (Exterior Wall
+   * Frame 01, Track B investigation) puts several of its real stud
+   * points outside real reach. Absent means no known issue at
+   * generation time, not a guarantee — the twin's own real dispatch
+   * check is still the actual backstop.
+   */
+  reachabilityIssue?: string;
 };
 
 /**

@@ -1,15 +1,22 @@
-import { useManufacturingOutput } from "@/context/ManufacturingOutputContext";
+import { useState } from "react";
+
+import { useManufacturingOutput, type InstructionStep } from "@/context/ManufacturingOutputContext";
+import { useTwinState } from "./useTwinState";
+import { executeStep, type StepExecutionResult } from "./twinExecute";
 
 /**
  * Content for Factory's "Instructions" CommandRibbon dropdown — the third
  * menu type, deferred until a real cross-feature flow earned it (see
- * ManufacturingOutputContext). Read-only: Factory never writes here, only
- * displays whatever Manufacturing last generated, or an honest empty state.
- * Never shows a stale set from a previous ingested asset — the context is
- * in-memory only, so a page reload naturally clears it too.
+ * ManufacturingOutputContext). Read-only display of whatever Manufacturing
+ * last generated, plus (Track B, Phase B4) a real, explicitly human-
+ * triggered Execute action per step — Option 1 from Phase B3's decision:
+ * generate only, manual dispatch, no batch auto-run. Never shows a stale
+ * set from a previous ingested asset — the context is in-memory only, so a
+ * page reload naturally clears it too.
  */
 export default function FactoryInstructions() {
   const { instructionSet } = useManufacturingOutput();
+  const { connected, state } = useTwinState();
 
   if (!instructionSet || instructionSet.steps.length === 0) {
     return (
@@ -19,15 +26,34 @@ export default function FactoryInstructions() {
     );
   }
 
+  const canExecute = connected && state?.mode === "MANUAL" && state?.paused === true;
+  const gateReason = !connected
+    ? "Twin bridge not reachable — Execute is unavailable until it's running."
+    : state?.mode !== "MANUAL"
+      ? `Twin is in ${state?.mode ?? "an unknown"} mode — set it to MANUAL to execute a step.`
+      : !state?.paused
+        ? "Twin is not paused — pause it before executing a manual command."
+        : null;
+
   return (
-    <div className="w-96 max-h-96 overflow-auto p-3">
+    <div className="w-[28rem] max-h-96 overflow-auto p-3">
       <div
         className="mb-3 rounded-[0.2rem] p-2 text-xs font-semibold"
         style={{ background: "var(--ff-status-warning)", color: "white" }}
       >
-        Planning Draft — an illustrative planned sequence. Not real command_queue.json
-        entries; nothing here executes or has ever been written to the twin.
+        Planning Draft — action text and durations are illustrative. A step with real
+        dispatchable code below can be sent to the real twin only via its own Execute
+        click, one step at a time. Nothing here runs automatically.
       </div>
+
+      {gateReason && (
+        <div
+          className="mb-3 rounded-[0.2rem] p-2 text-xs"
+          style={{ border: "1px solid var(--ff-panel-border)", color: "var(--ff-text-muted)" }}
+        >
+          {gateReason}
+        </div>
+      )}
 
       <div className="mb-2 text-xs" style={{ color: "var(--ff-text-muted)" }}>
         Source: <span className="font-medium" style={{ color: "var(--ff-text-primary)" }}>{instructionSet.sourceObjectId}</span>
@@ -53,32 +79,87 @@ export default function FactoryInstructions() {
           .slice()
           .sort((a, b) => a.sequence - b.sequence)
           .map((step) => (
-            <li
-              key={step.id}
-              className="rounded-[0.2rem] p-2"
-              style={{ border: "1px solid var(--ff-panel-border)" }}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold" style={{ color: "var(--ff-accent)" }}>
-                  Step {step.sequence}
-                </span>
-                <span
-                  className="rounded-[0.2rem] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase"
-                  style={{ background: "var(--ff-status-neutral)", color: "white" }}
-                >
-                  {step.status}
-                </span>
-              </div>
-              <p className="mt-1 text-xs" style={{ color: "var(--ff-text-primary)" }}>{step.action}</p>
-              <div className="mt-1.5 flex flex-wrap gap-x-3 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
-                <span>Target: <span className="font-medium">{step.targetSubsystemId}</span></span>
-                <span>Real target: <span className="font-medium">{step.realCommandTarget}</span></span>
-                <span>Type: <span className="font-medium">{step.targetType}</span></span>
-                {step.relatedObjectId && <span>Object: <span className="font-medium">{step.relatedObjectId}</span></span>}
-              </div>
-            </li>
+            <InstructionStepRow key={step.id} step={step} canExecute={canExecute} />
           ))}
       </ol>
     </div>
+  );
+}
+
+function InstructionStepRow({ step, canExecute }: { step: InstructionStep; canExecute: boolean }) {
+  const [executing, setExecuting] = useState(false);
+  const [result, setResult] = useState<StepExecutionResult | null>(null);
+
+  async function handleExecute() {
+    setExecuting(true);
+    setResult(null);
+    const r = await executeStep(step);
+    setResult(r);
+    setExecuting(false);
+  }
+
+  return (
+    <li className="rounded-[0.2rem] p-2" style={{ border: "1px solid var(--ff-panel-border)" }}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold" style={{ color: "var(--ff-accent)" }}>
+          Step {step.sequence}
+        </span>
+        <span
+          className="rounded-[0.2rem] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase"
+          style={{ background: "var(--ff-status-neutral)", color: "white" }}
+        >
+          {step.status}
+        </span>
+      </div>
+      <p className="mt-1 text-xs" style={{ color: "var(--ff-text-primary)" }}>{step.action}</p>
+      <div className="mt-1.5 flex flex-wrap gap-x-3 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+        <span>Target: <span className="font-medium">{step.targetSubsystemId}</span></span>
+        <span>Real target: <span className="font-medium">{step.realCommandTarget}</span></span>
+        <span>Type: <span className="font-medium">{step.targetType}</span></span>
+        {step.relatedObjectId && <span>Object: <span className="font-medium">{step.relatedObjectId}</span></span>}
+      </div>
+
+      {step.reachabilityIssue && (
+        <div
+          className="mt-1.5 rounded-[0.2rem] p-1.5 text-[0.65rem]"
+          style={{ background: "var(--ff-status-critical)", color: "white" }}
+        >
+          ⚠ {step.reachabilityIssue}
+        </div>
+      )}
+
+      {step.code && step.code.length > 0 && (
+        <pre
+          className="mt-1.5 overflow-x-auto rounded-[0.2rem] p-1.5 text-[0.65rem]"
+          style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-primary)" }}
+        >
+          {step.code.join("\n")}
+        </pre>
+      )}
+
+      {step.dispatch && step.dispatch.length > 0 && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canExecute || executing}
+            onClick={handleExecute}
+            className="rounded-[0.2rem] px-2 py-1 text-[0.65rem] font-semibold text-white disabled:opacity-40"
+            style={{ background: "var(--ff-accent)" }}
+          >
+            {executing ? "Executing…" : "Execute"}
+          </button>
+          {result && (
+            <span
+              className="text-[0.65rem]"
+              style={{ color: result.ok ? "var(--ff-status-positive)" : "var(--ff-status-critical)" }}
+            >
+              {result.ok
+                ? "Dispatched — real completion confirmed."
+                : `Failed: ${result.commands[result.commands.length - 1]?.reason ?? "unknown"}`}
+            </span>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
