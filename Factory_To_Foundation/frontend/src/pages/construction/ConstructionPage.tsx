@@ -3,7 +3,7 @@ import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 import {
   ConstructionBrowse,
   ConstructionInspector,
-  ConstructionLayout,
+  ConstructionMap,
   ConstructionToolbar,
 } from "@/features/construction";
 
@@ -22,7 +22,7 @@ export default function ConstructionPage() {
       kpis={<KpiList kpis={constructionKpis} />}
       toolbar={<ConstructionToolbar />}
       left={<ConstructionBrowse />}
-      center={<ConstructionLayout />}
+      center={<ConstructionMap />}
       right={<ConstructionInspector />}
     />
   );

@@ -1,5 +1,3 @@
-import type { Bounds, EntityNodeData } from "@/framework/viewport";
-
 export type ConstructionObjectType = "Project" | "Building" | "Floor" | "Floor Plans";
 
 export type ConstructionInspectable = {
@@ -130,42 +128,7 @@ export function findConstructionNode(
   return undefined;
 }
 
-export type ConstructionProjectBox = {
-  id: string;
-  title: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-// The Site Plan viewport shows the 4 projects as boxes. There's no real
-// per-project status yet, so no status coloring — just the shared
-// genealogy "project" tier token for visual identity, not a status color.
-export const constructionProjectBoxes: ConstructionProjectBox[] = constructionProjects.map((project, i) => ({
-  id: project.id,
-  title: project.title,
-  x: i * 260,
-  y: 0,
-  width: 220,
-  height: 120,
-}));
-
-export function toProjectEntityNode(box: ConstructionProjectBox): EntityNodeData {
-  return {
-    id: box.id,
-    title: box.title,
-    subtitle: "Project",
-    accentColor: "var(--ff-tier-project)",
-    x: box.x,
-    y: box.y,
-    width: box.width,
-    height: box.height,
-  };
-}
-
-export function getConstructionBounds(): Bounds {
-  const xs = constructionProjectBoxes.flatMap((n) => [n.x, n.x + n.width]);
-  const ys = constructionProjectBoxes.flatMap((n) => [n.y, n.y + n.height]);
-  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-}
+// The old block-based "Site Plan" viewport (ConstructionProjectBox /
+// constructionProjectBoxes / toProjectEntityNode / getConstructionBounds)
+// was deleted when the Construction Enterprises Map replaced it — see
+// ConstructionMap/ and constructionLocations.ts.

@@ -28,6 +28,10 @@ type BrowseListProps = {
   items: BrowseListItem[];
   activeId?: string;
   onSelect: (id: string) => void;
+  /** Externally-driven highlight (e.g. hovering the same object in a viewport). Optional — most consumers don't use it. */
+  hoveredId?: string;
+  /** Fires with the row's id on pointer enter, null on leave. Optional — for viewport↔browse hover sync. */
+  onHover?: (id: string | null) => void;
 };
 
 type BrowseListRowProps = {
@@ -35,6 +39,8 @@ type BrowseListRowProps = {
   depth: number;
   activeId?: string;
   onSelect: (id: string) => void;
+  hoveredId?: string;
+  onHover?: (id: string | null) => void;
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
 };
@@ -44,11 +50,14 @@ function BrowseListRow({
   depth,
   activeId,
   onSelect,
+  hoveredId,
+  onHover,
   expandedIds,
   onToggle,
 }: BrowseListRowProps) {
   const hasChildren = !!item.children && item.children.length > 0;
   const active = item.id === activeId;
+  const highlighted = !active && item.id === hoveredId;
   const expanded = expandedIds.has(item.id);
   const indent = hasChildren ? depth : item.indent ?? depth;
 
@@ -64,6 +73,8 @@ function BrowseListRow({
           if (hasChildren) onToggle(item.id);
           onSelect(item.id);
         }}
+        onMouseEnter={onHover ? () => onHover(item.id) : undefined}
+        onMouseLeave={onHover ? () => onHover(null) : undefined}
         className={`
           mb-1
           flex
@@ -78,7 +89,9 @@ function BrowseListRow({
           ${
             active
               ? "bg-[var(--ff-accent-soft)] text-[var(--ff-accent)] font-semibold"
-              : "hover:bg-gray-100"
+              : highlighted
+                ? "bg-gray-100"
+                : "hover:bg-gray-100"
           }
         `}
         style={{
@@ -118,6 +131,8 @@ function BrowseListRow({
             depth={depth + 1}
             activeId={activeId}
             onSelect={onSelect}
+            hoveredId={hoveredId}
+            onHover={onHover}
             expandedIds={expandedIds}
             onToggle={onToggle}
           />
@@ -136,7 +151,7 @@ function BrowseListRow({
  * same rotation/timing as CollapsibleSection) instead of selectable
  * rows; only leaf items call `onSelect`.
  */
-export default function BrowseList({ items, activeId, onSelect }: BrowseListProps) {
+export default function BrowseList({ items, activeId, onSelect, hoveredId, onHover }: BrowseListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const onToggle = (id: string) => {
@@ -160,6 +175,8 @@ export default function BrowseList({ items, activeId, onSelect }: BrowseListProp
           depth={0}
           activeId={activeId}
           onSelect={onSelect}
+          hoveredId={hoveredId}
+          onHover={onHover}
           expandedIds={expandedIds}
           onToggle={onToggle}
         />
