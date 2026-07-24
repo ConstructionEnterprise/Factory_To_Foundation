@@ -9,10 +9,14 @@ import { useSelection } from "@/context/SelectionContext";
 import { NORTH_TEXAS_COUNTIES } from "../northTexasCounties";
 import { projectLonLat, unprojectXZ, type MapXZ } from "../mapProjection";
 import {
+  ELEVATION_GRID_SIZE,
   ELEVATION_MAX_LAT,
   ELEVATION_MAX_LON,
+  ELEVATION_MAX_M,
+  ELEVATION_METERS,
   ELEVATION_MIN_LAT,
   ELEVATION_MIN_LON,
+  ELEVATION_MIN_M,
   elevationAt,
   metersToFeet,
 } from "../northTexasElevation";
@@ -309,29 +313,42 @@ function Graticule() {
 // plane, and hypsometric tinting is conventionally flat-shaded on real
 // physical maps too.
 //
-// Normalized against real, fixed continental-US elevation extremes — sea
-// level (0m) up to Mount Whitney, CA, the real highest point in the
-// contiguous 48 states (4,421m / 14,505 ft) — not this dataset's own local
-// min/max. Auto-stretching a region's own min/max to the full 0–1 ramp
-// would show maximum color contrast regardless of how flat the real terrain
-// actually is, which overstates North Texas's genuinely modest real relief
-// (74–393m here lands in just the bottom ~9% of this fixed real scale) —
-// the same category of honesty problem as fabricating a number that isn't
-// there. This also means the ramp is already correctly scaled for future
-// real data in higher-relief states, without redesigning it later.
-const USA_MIN_ELEVATION_M = 0;
-const USA_MAX_ELEVATION_M = 4421;
+// Normalized against real, fixed Texas elevation extremes — sea level (0m,
+// the real Gulf Coast) up to Guadalupe Peak, the real highest point in
+// Texas (2,667m / 8,751 ft) — not this dataset's own local min/max, and
+// deliberately not the full continental-US range either (an earlier version
+// used Mount Whitney/4,421m — real, but compressed North Texas's real
+// 74–393m range to under 9% of the ramp, reading as barely-there. Texas's
+// own real range is the more legible honest reference: still a real, fixed,
+// external scale — never the local dataset's own min/max, which would
+// auto-stretch flat terrain to maximum contrast regardless of how flat it
+// really is — but North Texas's real range now occupies a real, visible
+// ~2.8%–14.7% band, still correctly reading as the flat part of the state,
+// just with enough real internal contrast to actually look like terrain.
+const TX_MIN_ELEVATION_M = 0;
+const TX_MAX_ELEVATION_M = 2667;
 
+// Real bug found live: the original low-elevation stops (#dadfd2, #ddd8c8)
+// were ~17-24% saturation at ~83-85% lightness — technically tinted, but
+// perceptually just pale grey, especially after the mesh's own lighting
+// response. Fixed with real, perceptible green→tan hues, saturation raised
+// to ~30-40% (still muted/restrained, not neon) while keeping lightness
+// high enough to stay a quiet background layer. Stops positioned in real
+// meters so North Texas's own real 74–393m range spans a visible green
+// (near 0m) → tan (near 400m) transition within itself, not just a single
+// near-uniform tone — the point of switching to the Texas-scale reference
+// above.
 const HYPSOMETRIC_STOPS: [number, string][] = [
-  [0.0, "#dadfd2"],
-  [0.09, "#ddd8c8"],
-  [0.3, "#dccbb2"],
-  [0.6, "#cdbaa4"],
-  [1.0, "#e9e7e3"],
+  [0.0, "#a3c08c"], // 0m — Gulf Coast / sea level
+  [0.056, "#c3c68f"], // ~150m — mid North Texas
+  [0.15, "#d9c98f"], // ~400m — just past North Texas's real max
+  [0.3, "#cba873"], // ~800m — Hill Country / Edwards Plateau
+  [0.562, "#a67f56"], // ~1500m — higher plateau
+  [1.0, "#e8e6e2"], // 2667m — Guadalupe Peak
 ];
 
 function hypsometricColor(elevationM: number): THREE.Color {
-  const t = (elevationM - USA_MIN_ELEVATION_M) / (USA_MAX_ELEVATION_M - USA_MIN_ELEVATION_M);
+  const t = (elevationM - TX_MIN_ELEVATION_M) / (TX_MAX_ELEVATION_M - TX_MIN_ELEVATION_M);
   const clamped = Math.min(Math.max(t, 0), 1);
   for (let i = 0; i < HYPSOMETRIC_STOPS.length - 1; i++) {
     const [t0, c0] = HYPSOMETRIC_STOPS[i];
@@ -391,6 +408,262 @@ function Terrain() {
     <mesh geometry={TERRAIN_GEOMETRY} position={[0, -0.04, 0]}>
       <meshStandardMaterial vertexColors side={THREE.DoubleSide} />
     </mesh>
+  );
+}
+
+// ── Contour lines — real isolines extracted from the real elevation grid ──
+// via marching squares. This, not the hypsometric tint alone, is the actual
+// defining convention of "looks like a topographic map" — real topo maps
+// layer contour lines ON TOP of a hypsometric wash; the wash by itself was
+// never a substitute for the lines. Every segment endpoint is a linear
+// interpolation between two adjacent REAL DEM sample points along a raw
+// grid edge — extracted geometry, not fabricated.
+
+/** Real interval, in feet — a standard low-relief topo-quad choice (USGS
+ * quads commonly use 20-100ft depending on relief/scale; North Texas's real
+ * ~330m/~1,090ft range gets ~22 lines at this interval, legible without
+ * clutter). Every 5th (250ft) is an index contour — heavier, labeled. */
+const CONTOUR_INTERVAL_FT = 50;
+const CONTOUR_INTERVAL_M = CONTOUR_INTERVAL_FT / 3.28084;
+const CONTOUR_INDEX_EVERY = 5;
+
+type ContourSegment = { a: MapXZ; b: MapXZ };
+
+function marchingSquaresLevel(level: number): ContourSegment[] {
+  const n = ELEVATION_GRID_SIZE;
+  const segments: ContourSegment[] = [];
+
+  const lonAt = (j: number) => ELEVATION_MIN_LON + (ELEVATION_MAX_LON - ELEVATION_MIN_LON) * (j / (n - 1));
+  const latAt = (i: number) => ELEVATION_MIN_LAT + (ELEVATION_MAX_LAT - ELEVATION_MIN_LAT) * (i / (n - 1));
+  const valueAt = (i: number, j: number) => ELEVATION_METERS[i * n + j];
+  const pointAt = (i: number, j: number): MapXZ => projectLonLat([lonAt(j), latAt(i)]);
+
+  const interp = (pA: MapXZ, vA: number, pB: MapXZ, vB: number): MapXZ => {
+    const t = (level - vA) / (vB - vA);
+    return { x: pA.x + (pB.x - pA.x) * t, z: pA.z + (pB.z - pA.z) * t };
+  };
+
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < n - 1; j++) {
+      const vTL = valueAt(i, j), vTR = valueAt(i, j + 1);
+      const vBL = valueAt(i + 1, j), vBR = valueAt(i + 1, j + 1);
+      const pTL = pointAt(i, j), pTR = pointAt(i, j + 1);
+      const pBL = pointAt(i + 1, j), pBR = pointAt(i + 1, j + 1);
+
+      // Standard marching-squares case: which corners are above the level.
+      const c = (vTL > level ? 8 : 0) | (vTR > level ? 4 : 0) | (vBR > level ? 2 : 0) | (vBL > level ? 1 : 0);
+      if (c === 0 || c === 15) continue;
+
+      const top = () => interp(pTL, vTL, pTR, vTR);
+      const right = () => interp(pTR, vTR, pBR, vBR);
+      const bottom = () => interp(pBL, vBL, pBR, vBR);
+      const left = () => interp(pTL, vTL, pBL, vBL);
+
+      // Saddle cases (5, 10) resolved via the average-of-4-corners tie-break
+      // — a known, standard simplification for the ambiguous case.
+      switch (c) {
+        case 1: case 14: segments.push({ a: left(), b: bottom() }); break;
+        case 2: case 13: segments.push({ a: bottom(), b: right() }); break;
+        case 3: case 12: segments.push({ a: left(), b: right() }); break;
+        case 4: case 11: segments.push({ a: top(), b: right() }); break;
+        case 6: case 9: segments.push({ a: top(), b: bottom() }); break;
+        case 7: case 8: segments.push({ a: left(), b: top() }); break;
+        case 5: {
+          const avg = (vTL + vTR + vBR + vBL) / 4;
+          if (avg > level) { segments.push({ a: top(), b: right() }); segments.push({ a: left(), b: bottom() }); }
+          else { segments.push({ a: left(), b: top() }); segments.push({ a: bottom(), b: right() }); }
+          break;
+        }
+        case 10: {
+          const avg = (vTL + vTR + vBR + vBL) / 4;
+          if (avg > level) { segments.push({ a: left(), b: top() }); segments.push({ a: bottom(), b: right() }); }
+          else { segments.push({ a: top(), b: right() }); segments.push({ a: left(), b: bottom() }); }
+          break;
+        }
+      }
+    }
+  }
+  return segments;
+}
+
+const CONTOUR_Y = -0.02; // above the terrain (-0.04), below the county extrusion (0 to 0.35)
+const CONTOUR_COLOR = "#8a6d4a";
+const CONTOUR_INDEX_COLOR = "#6b5334";
+
+type ContourLevel = { elevationM: number; index: boolean; segments: ContourSegment[] };
+
+const CONTOUR_LEVELS: ContourLevel[] = (() => {
+  const start = Math.ceil(ELEVATION_MIN_M / CONTOUR_INTERVAL_M) * CONTOUR_INTERVAL_M;
+  const levels: ContourLevel[] = [];
+  let n = 0;
+  for (let m = start; m <= ELEVATION_MAX_M; m += CONTOUR_INTERVAL_M, n++) {
+    levels.push({ elevationM: m, index: n % CONTOUR_INDEX_EVERY === 0, segments: marchingSquaresLevel(m) });
+  }
+  return levels;
+})();
+
+function segmentsToLineGeometry(levels: ContourLevel[]): THREE.BufferGeometry {
+  const positions: number[] = [];
+  for (const level of levels) {
+    for (const seg of level.segments) {
+      positions.push(seg.a.x, CONTOUR_Y, seg.a.z, seg.b.x, CONTOUR_Y, seg.b.z);
+    }
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return geom;
+}
+
+const REGULAR_CONTOUR_GEOMETRY = segmentsToLineGeometry(CONTOUR_LEVELS.filter((l) => !l.index));
+const INDEX_CONTOUR_GEOMETRY = segmentsToLineGeometry(CONTOUR_LEVELS.filter((l) => l.index));
+
+/** Real contour lines, pooled into two draw calls (regular / index) rather
+ * than one <Line> per segment or per level. */
+function ContourLines() {
+  return (
+    <>
+      <lineSegments geometry={REGULAR_CONTOUR_GEOMETRY}>
+        <lineBasicMaterial color={CONTOUR_COLOR} transparent opacity={0.4} />
+      </lineSegments>
+      <lineSegments geometry={INDEX_CONTOUR_GEOMETRY}>
+        <lineBasicMaterial color={CONTOUR_INDEX_COLOR} transparent opacity={0.65} linewidth={1.5} />
+      </lineSegments>
+      {CONTOUR_LEVELS.filter((l) => l.index && l.segments.length > 0).map((l) => {
+        const mid = l.segments[Math.floor(l.segments.length / 2)];
+        const pos: MapXZ = { x: (mid.a.x + mid.b.x) / 2, z: (mid.a.z + mid.b.z) / 2 };
+        return (
+          <Text
+            key={l.elevationM}
+            position={[pos.x, CONTOUR_Y + 0.01, pos.z]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            fontSize={0.9}
+            color={CONTOUR_INDEX_COLOR}
+            fillOpacity={0.75}
+            anchorX="center"
+            anchorY="middle"
+          >
+            {`${Math.round(metersToFeet(l.elevationM)).toLocaleString()}'`}
+          </Text>
+        );
+      })}
+    </>
+  );
+}
+
+// ── "Wet Utilities" (Water / Sewer / Storm Drain) — ILLUSTRATIVE ONLY. ──
+// Real municipal utility line data is fragmented per-jurisdiction and not
+// available as a bulk dataset the way county/state/elevation data is — so
+// this is a clearly-disclosed schematic overlay, same honesty convention as
+// Manufacturing's illustrative instruction durations and Factory's
+// illustrative Gantt bars. No real road-network geometry exists anywhere in
+// this app's data (checked before writing this), so this deliberately does
+// NOT claim road-right-of-way alignment — a plausible orthogonal grid
+// instead, at a reasonable illustrative interval, clipped to the real North
+// Texas county cluster (never drawn over the USA backdrop).
+
+const WET_UTILITY_SPACING_KM = 8;
+const WET_UTILITY_SAMPLE_STEP_KM = 1.5;
+const WET_UTILITY_Y = -0.015; // above contours (-0.02), below the county extrusion
+
+function pointInAnyCounty(pt: MapXZ): boolean {
+  for (const county of PROJECTED_COUNTIES) {
+    for (const ring of county.rings) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const pi = ring[i], pj = ring[j];
+        const intersect = pi.z > pt.z !== pj.z > pt.z && pt.x < ((pj.x - pi.x) * (pt.z - pi.z)) / (pj.z - pi.z) + pi.x;
+        if (intersect) inside = !inside;
+      }
+      if (inside) return true;
+    }
+  }
+  return false;
+}
+
+const WET_UTILITY_EXTENT = (() => {
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const c of PROJECTED_COUNTIES) {
+    for (const ring of c.rings) {
+      for (const p of ring) {
+        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+        minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+      }
+    }
+  }
+  return { minX, maxX, minZ, maxZ };
+})();
+
+/** Grid lines at `spacingKm` (offset by `offsetKm`), clipped to the real
+ * county cluster by sampling every `WET_UTILITY_SAMPLE_STEP_KM` and only
+ * keeping sub-segments where both endpoints land inside a real county —
+ * an approximation of true polygon clipping, appropriate for a schematic
+ * layer that's explicitly disclosed as illustrative, not survey-grade. */
+function clippedUtilityGrid(spacingKm: number, offsetKm: number): ContourSegment[] {
+  const { minX, maxX, minZ, maxZ } = WET_UTILITY_EXTENT;
+  const segments: ContourSegment[] = [];
+
+  const clipLine = (points: MapXZ[]) => {
+    for (let i = 0; i < points.length - 1; i++) {
+      if (pointInAnyCounty(points[i]) && pointInAnyCounty(points[i + 1])) {
+        segments.push({ a: points[i], b: points[i + 1] });
+      }
+    }
+  };
+
+  for (let x = minX + offsetKm; x <= maxX; x += spacingKm) {
+    const points: MapXZ[] = [];
+    for (let z = minZ; z <= maxZ; z += WET_UTILITY_SAMPLE_STEP_KM) points.push({ x, z });
+    clipLine(points);
+  }
+  for (let z = minZ + offsetKm; z <= maxZ; z += spacingKm) {
+    const points: MapXZ[] = [];
+    for (let x = minX; x <= maxX; x += WET_UTILITY_SAMPLE_STEP_KM) points.push({ x, z });
+    clipLine(points);
+  }
+  return segments;
+}
+
+// Real-world-adjacent civil-drafting convention: blue = water, green = sewer,
+// a third distinct color = storm drain. Hues chosen to stay distinguishable
+// from the terrain/contour palette (cooler, more saturated than the muted
+// olive/tan/brown already in use there).
+const WATER_COLOR = "#4a7fa8";
+const SEWER_COLOR = "#4a8f6e";
+const STORM_COLOR = "#8a7aa8";
+
+const WATER_SEGMENTS = clippedUtilityGrid(WET_UTILITY_SPACING_KM, 0);
+const SEWER_SEGMENTS = clippedUtilityGrid(WET_UTILITY_SPACING_KM, WET_UTILITY_SPACING_KM / 2);
+const STORM_SEGMENTS = clippedUtilityGrid(WET_UTILITY_SPACING_KM, WET_UTILITY_SPACING_KM / 4);
+
+function segmentsToGeometry(segs: ContourSegment[]): THREE.BufferGeometry {
+  const positions: number[] = [];
+  for (const s of segs) positions.push(s.a.x, WET_UTILITY_Y, s.a.z, s.b.x, WET_UTILITY_Y, s.b.z);
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return geom;
+}
+
+const WATER_GEOMETRY = segmentsToGeometry(WATER_SEGMENTS);
+const SEWER_GEOMETRY = segmentsToGeometry(SEWER_SEGMENTS);
+const STORM_GEOMETRY = segmentsToGeometry(STORM_SEGMENTS);
+
+/** Illustrative-only wet utilities layer — see the mandatory disclosure
+ * caption this ties to in the toolbar/footer, not just this component's own
+ * doc comment. Subdued opacity throughout — a supporting layer, never meant
+ * to compete with county lines, massing, or the F»F corridor. */
+function WetUtilities() {
+  return (
+    <>
+      <lineSegments geometry={WATER_GEOMETRY}>
+        <lineBasicMaterial color={WATER_COLOR} transparent opacity={0.55} />
+      </lineSegments>
+      <lineSegments geometry={SEWER_GEOMETRY}>
+        <lineBasicMaterial color={SEWER_COLOR} transparent opacity={0.55} />
+      </lineSegments>
+      <lineSegments geometry={STORM_GEOMETRY}>
+        <lineBasicMaterial color={STORM_COLOR} transparent opacity={0.5} />
+      </lineSegments>
+    </>
   );
 }
 
@@ -701,6 +974,8 @@ function MapScene({
   placementFor,
   showCorridors,
   showGraticule,
+  showContours,
+  showWetUtilities,
   setSelected,
 }: {
   sites: ResolvedSite[];
@@ -709,6 +984,8 @@ function MapScene({
   placementFor: string | null;
   showCorridors: boolean;
   showGraticule: boolean;
+  showContours: boolean;
+  showWetUtilities: boolean;
   setSelected: SetSelected;
 }) {
   const titleOf = (projectId: string) => constructionProjects.find((p) => p.id === projectId)?.title ?? projectId;
@@ -743,6 +1020,12 @@ function MapScene({
 
       {/* Real elevation-tinted terrain, covering the real fetched grid extent. */}
       <Terrain />
+
+      {/* Real contour lines extracted from the same real DEM grid — the actual topo-map-defining layer. */}
+      {showContours && <ContourLines />}
+
+      {/* ILLUSTRATIVE ONLY — see the mandatory disclosure caption whenever this is toggled on. */}
+      {showWetUtilities && <WetUtilities />}
 
       {PROJECTED_COUNTIES.map((c) => (
         <County
@@ -807,6 +1090,8 @@ export default function ConstructionMap() {
   const { overrides, placementFor, hoveredId } = useSiteState();
   const [showCorridors, setShowCorridors] = useState(true);
   const [showGraticule, setShowGraticule] = useState(true);
+  const [showContours, setShowContours] = useState(true);
+  const [showWetUtilities, setShowWetUtilities] = useState(false);
   const compassNeedleRef = useRef<HTMLDivElement>(null);
 
   const selectedId = selected?.feature === "construction" ? selected.objectId : undefined;
@@ -857,6 +1142,32 @@ export default function ConstructionMap() {
         >
           Lat/Lon Grid
         </button>
+        <button
+          type="button"
+          onClick={() => setShowContours((v) => !v)}
+          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={
+            showContours
+              ? { background: "var(--ff-accent)", color: "white" }
+              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+          }
+          title="Real elevation contour lines (50ft interval), extracted from the real Copernicus DEM GLO-90 grid via marching squares"
+        >
+          Contours
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowWetUtilities((v) => !v)}
+          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={
+            showWetUtilities
+              ? { background: "var(--ff-accent)", color: "white" }
+              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+          }
+          title="Water/Sewer/Storm Drain — illustrative/schematic only, not surveyed utility locations"
+        >
+          Wet Utilities
+        </button>
       </div>
 
       <div className={`relative flex-1 ${placementFor ? "cursor-crosshair" : ""}`} style={{ background: "var(--ff-content-bg)" }}>
@@ -870,6 +1181,8 @@ export default function ConstructionMap() {
             placementFor={placementFor}
             showCorridors={showCorridors}
             showGraticule={showGraticule}
+            showContours={showContours}
+            showWetUtilities={showWetUtilities}
             setSelected={setSelected}
           />
           <InitialCamera />
@@ -979,12 +1292,22 @@ export default function ConstructionMap() {
           </div>
         )}
 
-        <p
-          className="absolute bottom-2 left-3 rounded px-2 py-1 text-[0.65rem]"
-          style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
-        >
-          County & state boundaries: real US Census data · terrain: real elevation (Copernicus DEM GLO-90) · building massing symbolic (real story counts, not to scale)
-        </p>
+        <div className="absolute bottom-2 left-3 flex flex-col items-start gap-1">
+          {showWetUtilities && (
+            <p
+              className="rounded px-2 py-1 text-[0.65rem] font-medium"
+              style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
+            >
+              Wet Utilities (Water/Sewer/Storm Drain): ILLUSTRATIVE/SCHEMATIC ONLY — not surveyed or real utility locations. Before any excavation in Texas, call 811 (Texas811) at least 2 business days ahead for a real utility locate — required by law.
+            </p>
+          )}
+          <p
+            className="rounded px-2 py-1 text-[0.65rem]"
+            style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
+          >
+            County & state boundaries: real US Census data · terrain: real elevation (Copernicus DEM GLO-90) · building massing symbolic (real story counts, not to scale)
+          </p>
+        </div>
       </div>
     </PanelCard>
   );
