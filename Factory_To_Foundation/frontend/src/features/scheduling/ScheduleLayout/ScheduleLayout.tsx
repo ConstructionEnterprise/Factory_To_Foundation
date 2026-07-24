@@ -29,7 +29,7 @@ export default function ScheduleLayout() {
                 payload: {
                   name: node.title,
                   description: node.description,
-                  ownedBy: node.ownedBy,
+                  ownedByModule: node.ownedByModule,
                   inputs: node.inputs,
                   outputs: node.outputs,
                 },

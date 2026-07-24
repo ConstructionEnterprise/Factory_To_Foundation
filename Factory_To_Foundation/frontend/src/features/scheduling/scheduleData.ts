@@ -20,12 +20,35 @@ export type FunctionBlockPort = {
   type: PortType;
 };
 
+/**
+ * Real owning module for a stage — was a free-text `ownedBy: string`
+ * (confirmed live values: "Logistics", "Factory", "Construction", "Not yet
+ * built") until the enterprise-migration Phase 1 schema investigation
+ * flagged it as unenforced: nothing stopped it drifting from an actual
+ * module id, and it couldn't back a real per-stage RBAC grant (a
+ * Superintendent owning Construction Schedule specifically, not the other
+ * 4 stages). Typed as a real closed union of the app's actual module ids so
+ * it can become a real FK once the SQL migration lands, without another
+ * rework. `null` is the real, honest "no owner yet" state (Inbound
+ * Material — CLAUDE.md gap #2) — never a string like "Not yet built"
+ * standing in for an actual absence.
+ */
+export type OwningModule = "logistics" | "factory" | "construction";
+
+/** Display label per real owning module — one lookup, so display text can't drift from the module id itself. */
+export const OWNING_MODULE_LABEL: Record<OwningModule, string> = {
+  logistics: "Logistics",
+  factory: "Factory",
+  construction: "Construction",
+};
+
 export type ScheduleNodeData = {
   id: string;
   title: string;
   subtitle: string;
   description: string;
-  ownedBy: string;
+  /** null = genuinely no owning module yet (Inbound Material) — not a placeholder string. */
+  ownedByModule: OwningModule | null;
   x: number;
   y: number;
   width: number;
@@ -49,7 +72,7 @@ export const scheduleNodes: ScheduleNodeData[] = [
     title: "Inbound Material",
     subtitle: "Purchase Orders",
     description: "Tracks purchase orders from the moment they're placed, before material has physically arrived or been assigned a genealogy identity.",
-    ownedBy: "Not yet built",
+    ownedByModule: null,
     x: 0,
     y: 0,
     width: 200,
@@ -62,7 +85,7 @@ export const scheduleNodes: ScheduleNodeData[] = [
     title: "Material Arrival",
     subtitle: "Receiving",
     description: "Tracks when material actually arrives on site and where it's routed — the moment a Material genealogy node is created.",
-    ownedBy: "Logistics",
+    ownedByModule: "logistics",
     x: GAP,
     y: 0,
     width: 200,
@@ -75,7 +98,7 @@ export const scheduleNodes: ScheduleNodeData[] = [
     title: "Sub-Assembly & Module Production",
     subtitle: "Production",
     description: "Tracks the making of sub-assemblies and modules on the factory floor — connects to real cycle-time data once the Twin Service lands.",
-    ownedBy: "Factory",
+    ownedByModule: "factory",
     x: GAP * 2,
     y: 0,
     width: 200,
@@ -92,7 +115,7 @@ export const scheduleNodes: ScheduleNodeData[] = [
     title: "Module Storage & Logistics",
     subtitle: "Storage / Yard",
     description: "Tracks where finished modules sit in the yard and their transportation status ahead of delivery.",
-    ownedBy: "Logistics",
+    ownedByModule: "logistics",
     x: GAP * 3,
     y: 0,
     width: 200,
@@ -105,7 +128,7 @@ export const scheduleNodes: ScheduleNodeData[] = [
     title: "Construction Schedule",
     subtitle: "Install / Site",
     description: "Tracks on-site installation sequencing — the coarsest-grained schedule of the five, closer to a critical-path Gantt than a live feed.",
-    ownedBy: "Construction",
+    ownedByModule: "construction",
     x: GAP * 4,
     y: 0,
     width: 200,

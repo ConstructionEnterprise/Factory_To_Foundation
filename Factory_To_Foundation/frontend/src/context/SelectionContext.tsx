@@ -5,6 +5,8 @@ import {
   type ReactNode,
 } from "react";
 
+import type { OwningModule } from "@/features/scheduling/scheduleData";
+
 // Each feature's payload shape. Kept minimal until the feature is
 // actually built — extend as each one ships real inspector content.
 export type GenealogyPayload = { name: string };
@@ -62,7 +64,8 @@ export type ManufacturingPayload = {
 export type SchedulePayload = {
   name: string;
   description: string;
-  ownedBy: string;
+  /** null = genuinely no owning module yet (Inbound Material) — see scheduleData.ts's OwningModule doc comment. */
+  ownedByModule: OwningModule | null;
   /** Real function-block ports (Phase 1 — structural only, nothing executes). Empty for a block with none on that side (e.g. Inbound Material has no inputs). */
   inputs: { label: string; type: string }[];
   outputs: { label: string; type: string }[];

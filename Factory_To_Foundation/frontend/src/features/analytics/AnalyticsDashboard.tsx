@@ -155,7 +155,7 @@ function SchedulingWidget() {
         <Row label="Real port-to-port wires" value={String(scheduleWires.length)} />
         <Row
           label="Stages with no live data yet"
-          value={String(scheduleNodes.filter((n) => n.ownedBy === "Not yet built").length)}
+          value={String(scheduleNodes.filter((n) => n.ownedByModule === null).length)}
         />
       </div>
     </PanelCard>
