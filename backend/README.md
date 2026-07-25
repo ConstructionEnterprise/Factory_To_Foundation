@@ -117,7 +117,13 @@ bridges to external processes, this is the actual application backend.
    and the full role_permission grant matrix. See `prisma/seed.ts`'s own
    header comment for the two confirmed revisions from the original
    Phase 1 draft (CEO, Robotics Engineer) and one flagged interpretation
-   call (Robotics Engineer + Administer — see that file).
+   call (Robotics Engineer + Administer — see that file). Also seeds real
+   Genealogy (13 nodes/12 edges, from the frontend's own `graphData.ts`)
+   and Construction (4 projects + 70 tree nodes, from `constructionData.ts`)
+   reference data — added during Phase 2's live-verification pass so the
+   real multi-parent Genealogy DAG case could actually be checked against
+   live data; deliberately seeds **zero** `ConstructionSite` rows (no
+   static fixture has real coordinates for any project).
 
 6. **Create a real user account** (see "Creating a real user account" above):
    ```
