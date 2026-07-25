@@ -18,8 +18,10 @@ import type { SiteOverride } from "./constructionSiteStore";
  *   Tarrant County (user-confirmed real location; the lon/lat below is
  *   Saginaw's real city-center geography).
  *
- * In-app assignments live in a localStorage overlay (constructionSiteStore)
- * keyed by project id; this fixture layer is the default underneath.
+ * In-app assignments live in real Postgres via the ff-backend API
+ * (constructionSiteStore, Phase 3a of the enterprise migration — no longer
+ * localStorage), keyed by project id; this fixture layer is the default
+ * underneath.
  */
 
 export type SitePrecision = "unlocated" | "region" | "address" | "sited";
@@ -68,8 +70,8 @@ export type ResolvedSite = {
 };
 
 /**
- * Merge the fixture layer with the localStorage overlay into one resolved
- * site. Precision is derived, never stored:
+ * Merge the fixture layer with the real backend-sourced overrides into one
+ * resolved site. Precision is derived, never stored:
  * - coords assigned  → 'sited' (or 'address' when an address string is also set)
  * - no coords        → 'region' if a real county is known, else 'unlocated'
  * An address string without coords is metadata only — it never promotes
@@ -88,7 +90,7 @@ export function resolveSite(projectId: string, overrides: Record<string, SiteOve
       region: fixture?.region,
       address,
       coords,
-      source: "Placed in-app (localStorage overlay)",
+      source: "Placed in-app (real backend, Postgres via the ff-backend API)",
     };
   }
   return {

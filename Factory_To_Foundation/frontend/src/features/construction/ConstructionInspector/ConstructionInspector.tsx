@@ -23,12 +23,12 @@ const PRECISION_LABEL: Record<SitePrecision, string> = {
  * "Site this project" — assign/edit an address string and place the
  * project on the Construction Enterprises Map. The address is metadata
  * only (no geocoding service, deliberately); placement is a user-picked
- * map click. Assignments persist in a localStorage overlay; clearing
- * falls back to the honest fixture state (county-level for Garden Lofts,
- * unlocated for the rest).
+ * map click. Assignments persist to real Postgres via the ff-backend API;
+ * clearing falls back to the honest fixture state (county-level for Garden
+ * Lofts, unlocated for the rest).
  */
 function SiteSection({ projectId }: { projectId: string }) {
-  const { overrides, placementFor } = useSiteState();
+  const { overrides, placementFor, loading, error } = useSiteState();
   const site = resolveSite(projectId, overrides);
   const hasOverride = projectId in overrides;
   const placing = placementFor === projectId;
@@ -36,7 +36,8 @@ function SiteSection({ projectId }: { projectId: string }) {
   const [draft, setDraft] = useState(site.address ?? "");
   useEffect(() => {
     setDraft(site.address ?? "");
-    // Re-sync the input when the selected project (or its stored address) changes.
+    // Re-sync the input when the selected project (or its stored address) changes —
+    // also fires once the initial GET /construction-sites resolves.
   }, [projectId, site.address]);
 
   const commitAddress = () => {
@@ -49,54 +50,68 @@ function SiteSection({ projectId }: { projectId: string }) {
         Site this project
       </h3>
 
-      <div className="mt-2 space-y-0.5">
-        <DetailRow label="Placement" value={PRECISION_LABEL[site.precision]} />
-        {site.region && <DetailRow label="County" value={`${site.region} County`} />}
-      </div>
-      <p className="mt-1 text-[0.65rem] leading-snug" style={{ color: "var(--ff-text-muted)" }}>
-        {site.source}
-      </p>
-
-      <label className="mt-3 block text-[0.65rem] font-medium" style={{ color: "var(--ff-text-secondary)" }}>
-        Address (metadata only — placement is picked on the map)
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commitAddress}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          placeholder="e.g. 1200 Main St, Lewisville, TX"
-          className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-          style={{ borderColor: "var(--ff-panel-border)", color: "var(--ff-text-primary)" }}
-        />
-      </label>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => (placing ? cancelPlacement() : startPlacement(projectId))}
-          className="rounded-[0.2rem] px-3 py-1.5 text-xs font-medium text-white"
-          style={{ background: placing ? "var(--ff-status-critical)" : "var(--ff-accent)" }}
-        >
-          {placing ? "Cancel placement" : "Place on map"}
-        </button>
-        {hasOverride && (
-          <button
-            type="button"
-            onClick={() => clearSite(projectId)}
-            className="rounded-[0.2rem] border px-3 py-1.5 text-xs font-medium"
-            style={{ borderColor: "var(--ff-panel-border)", color: "var(--ff-text-secondary)" }}
-            title="Remove the in-app assignment and fall back to the honest fixture state"
-          >
-            Clear site
-          </button>
-        )}
-      </div>
-      {placing && (
+      {loading ? (
         <p className="mt-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
-          Click anywhere on the map to set this project’s location (Esc cancels).
+          Loading site data…
+        </p>
+      ) : (
+        <>
+          <div className="mt-2 space-y-0.5">
+            <DetailRow label="Placement" value={PRECISION_LABEL[site.precision]} />
+            {site.region && <DetailRow label="County" value={`${site.region} County`} />}
+          </div>
+          <p className="mt-1 text-[0.65rem] leading-snug" style={{ color: "var(--ff-text-muted)" }}>
+            {site.source}
+          </p>
+
+          <label className="mt-3 block text-[0.65rem] font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+            Address (metadata only — placement is picked on the map)
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitAddress}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              placeholder="e.g. 1200 Main St, Lewisville, TX"
+              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              style={{ borderColor: "var(--ff-panel-border)", color: "var(--ff-text-primary)" }}
+            />
+          </label>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => (placing ? cancelPlacement() : startPlacement(projectId))}
+              className="rounded-[0.2rem] px-3 py-1.5 text-xs font-medium text-white"
+              style={{ background: placing ? "var(--ff-status-critical)" : "var(--ff-accent)" }}
+            >
+              {placing ? "Cancel placement" : "Place on map"}
+            </button>
+            {hasOverride && (
+              <button
+                type="button"
+                onClick={() => clearSite(projectId)}
+                className="rounded-[0.2rem] border px-3 py-1.5 text-xs font-medium"
+                style={{ borderColor: "var(--ff-panel-border)", color: "var(--ff-text-secondary)" }}
+                title="Remove the in-app assignment and fall back to the honest fixture state"
+              >
+                Clear site
+              </button>
+            )}
+          </div>
+          {placing && (
+            <p className="mt-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+              Click anywhere on the map to set this project’s location (Esc cancels).
+            </p>
+          )}
+        </>
+      )}
+
+      {error && (
+        <p className="mt-2 text-[0.65rem]" style={{ color: "var(--ff-status-critical)" }}>
+          {error}
         </p>
       )}
     </div>

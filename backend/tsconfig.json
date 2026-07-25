@@ -8,9 +8,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "rootDir": ".",
     "outDir": "dist",
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["prisma/**/*.ts"]
+  "include": ["prisma/**/*.ts", "src/**/*.ts"]
 }

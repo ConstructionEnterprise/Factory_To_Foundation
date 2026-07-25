@@ -1,9 +1,34 @@
 # ff-backend
 
 Real relational persistence for Factory » Foundation — PostgreSQL via
-Prisma. This is Phase 2 of the enterprise migration: schema + migrations +
-seed data only. No API routes, no auth, no frontend wiring yet (see
-`schema.prisma`'s own header comment for the full scope note).
+Prisma, plus (as of Phase 3a) a real Fastify API server. Phase 2 was
+schema + migrations + seed data only; Phase 3a adds the first real API
+routes and the first real frontend persistence cutover (Construction
+sites). **No auth yet — every route is completely open, a deliberate,
+disclosed scope limit for this phase, not a security decision. See
+`src/server.ts`'s own banner comment.** See `schema.prisma`'s header
+comment for Phase 2's original scope note.
+
+## Running the API server
+
+```
+npm run dev
+```
+
+Starts the Fastify server on **http://localhost:4300** (tsx watch mode —
+same dev-time-only convention as `twin-bridge`/`blender-bridge`, run
+manually alongside `npm run dev` in `frontend/`). Requires Postgres
+running and migrated/seeded (see Setup below) — the server itself doesn't
+check this at startup, so a route will fail with a real Prisma connection
+error if the database isn't up yet.
+
+- `GET /health` → `{ "status": "ok" }`
+- `GET /construction-sites` → list all real `ConstructionSite` rows
+- `GET /construction-sites/:projectId` → one site, real 404 if unset
+- `PUT`/`PATCH /construction-sites/:projectId` → partial merge (body:
+  `{ address?: string, coords?: { x: number, z: number } }`) — a
+  coords-only patch never clobbers an existing address and vice versa
+- `DELETE /construction-sites/:projectId` → clear a site (idempotent)
 
 Sibling directory to `Factory_To_Foundation`, `twin-bridge`, and
 `blender-bridge` — same "not nested inside the frontend" convention those
