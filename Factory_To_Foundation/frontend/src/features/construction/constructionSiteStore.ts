@@ -12,6 +12,13 @@ import { useSyncExternalStore } from "react";
  * is a worse failure mode than an honest "couldn't reach the server" error
  * surfaced via `error` below when the backend isn't running.
  *
+ * Real RBAC (Phase 3b): every request below sends `credentials: "include"`
+ * so the httpOnly auth cookies actually reach the API — without it, every
+ * call here would 401 even for a genuinely logged-in user, since fetch()
+ * doesn't send cookies cross-origin by default. `describeResponseError()`
+ * surfaces the backend's real `{ error }` body (e.g. a 403's exact missing
+ * permission), not a generic "server responded 403".
+ *
  * resolveSite() (constructionLocations.ts) is unchanged and still owns
  * precision — it merges the frontend-only fixture layer (never migrated to
  * SQL, per schema.prisma's own scope note) with whatever `overrides` this
@@ -44,6 +51,13 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** Reads the real `{ error: string }` body the backend's error handler always sends (auth.ts's middleware included) rather than a generic "server responded 4xx" — a 403 should say which permission is missing, not just that something failed. */
+async function describeResponseError(res: Response): Promise<string> {
+  const body = await res.json().catch(() => null);
+  if (body && typeof body.error === "string") return body.error;
+  return `server responded ${res.status}`;
+}
+
 let state: SiteState = { overrides: {}, placementFor: null, hoveredId: null, loading: true, error: null };
 const listeners = new Set<() => void>();
 
@@ -52,22 +66,12 @@ function emit(next: Partial<SiteState>) {
   listeners.forEach((l) => l());
 }
 
-export function useSiteState(): SiteState {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => state
-  );
-}
-
 type SiteDto = { projectId: string } & SiteOverride;
 
 async function loadSites() {
   try {
-    const res = await fetch(`${API_BASE}/construction-sites`);
-    if (!res.ok) throw new Error(`server responded ${res.status}`);
+    const res = await fetch(`${API_BASE}/construction-sites`, { credentials: "include" });
+    if (!res.ok) throw new Error(await describeResponseError(res));
     const sites = (await res.json()) as SiteDto[];
     const overrides: Record<string, SiteOverride> = {};
     for (const site of sites) overrides[site.projectId] = { address: site.address, coords: site.coords };
@@ -77,7 +81,33 @@ async function loadSites() {
   }
 }
 
-void loadSites();
+// Real fix for a real bug (Phase 3b): this store used to kick off its
+// initial fetch unconditionally at module-import time. Once auth existed,
+// that fetch almost always fired BEFORE the user had actually logged in
+// (route components are all eagerly imported, regardless of what the auth
+// gate in App.tsx is currently rendering) — it failed with a real 401, and
+// nothing ever retried after login actually succeeded. Fixed by deferring
+// the fetch until the first real subscriber (i.e. a mounted Construction
+// component) shows up, which can only happen once the user is past the
+// auth gate — confirmed live: logging in and opening Construction now
+// loads real site data instead of surfacing a stale "Not authenticated".
+let loadStarted = false;
+function ensureSitesLoaded() {
+  if (loadStarted) return;
+  loadStarted = true;
+  void loadSites();
+}
+
+export function useSiteState(): SiteState {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      ensureSitesLoaded();
+      return () => listeners.delete(l);
+    },
+    () => state
+  );
+}
 
 export function setSiteAddress(projectId: string, address: string) {
   const previous = state.overrides[projectId] ?? {};
@@ -86,11 +116,12 @@ export function setSiteAddress(projectId: string, address: string) {
 
   void fetch(`${API_BASE}/construction-sites/${projectId}`, {
     method: "PATCH",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ address: trimmed }),
   })
     .then(async (res) => {
-      if (!res.ok) throw new Error(`server responded ${res.status}`);
+      if (!res.ok) throw new Error(await describeResponseError(res));
       const site = (await res.json()) as SiteDto;
       emit({ overrides: { ...state.overrides, [projectId]: { address: site.address, coords: site.coords } } });
     })
@@ -111,11 +142,12 @@ export function setSiteCoords(projectId: string, coords: SiteCoords) {
 
   void fetch(`${API_BASE}/construction-sites/${projectId}`, {
     method: "PUT",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ coords }),
   })
     .then(async (res) => {
-      if (!res.ok) throw new Error(`server responded ${res.status}`);
+      if (!res.ok) throw new Error(await describeResponseError(res));
       const site = (await res.json()) as SiteDto;
       emit({ overrides: { ...state.overrides, [projectId]: { address: site.address, coords: site.coords } } });
     })
@@ -130,10 +162,14 @@ export function clearSite(projectId: string) {
   delete next[projectId];
   emit({ overrides: next, placementFor: state.placementFor === projectId ? null : state.placementFor, error: null });
 
-  void fetch(`${API_BASE}/construction-sites/${projectId}`, { method: "DELETE" }).catch((err) => {
-    // Roll back the optimistic clear if the delete never actually reached the server.
-    if (previous) emit({ overrides: { ...state.overrides, [projectId]: previous }, error: `Couldn't clear site (${describeError(err)})` });
-  });
+  void fetch(`${API_BASE}/construction-sites/${projectId}`, { method: "DELETE", credentials: "include" })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await describeResponseError(res));
+    })
+    .catch((err) => {
+      // Roll back the optimistic clear if the delete never actually reached the server.
+      if (previous) emit({ overrides: { ...state.overrides, [projectId]: previous }, error: `Couldn't clear site (${describeError(err)})` });
+    });
 }
 
 export function startPlacement(projectId: string) {

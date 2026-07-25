@@ -13,5 +13,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["prisma/**/*.ts", "src/**/*.ts"]
+  "include": ["prisma/**/*.ts", "src/**/*.ts", "scripts/**/*.ts"]
 }

@@ -6,6 +6,7 @@
   "description": "Real relational persistence for Factory » Foundation — Postgres via Prisma. Phase 2 of the enterprise migration: schema + migrations only, no API routes, no auth, no frontend wiring yet.",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "create-user": "tsx scripts/create-user.ts",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -15,11 +16,15 @@
     "prisma:format": "prisma format"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
+    "@inquirer/prompts": "^8.5.2",
     "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.9.0",
+    "argon2": "^0.45.1",
     "dotenv": "^17.4.2",
     "fastify": "^5.10.0",
+    "jose": "^6.2.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -33,6 +38,7 @@
   "allowScripts": {
     "@prisma/engines@7.9.0": true,
     "esbuild@0.28.1": true,
-    "prisma@7.9.0": true
+    "prisma@7.9.0": true,
+    "argon2@0.45.1": true
   }
 }

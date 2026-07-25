@@ -90,12 +90,43 @@ model User {
   role        Role     @relation(fields: [roleId], references: [id])
   createdAt   DateTime @default(now()) @map("created_at")
 
-  // No password/session/JWT fields — deliberately out of scope this phase
-  // (Phase 3). This table exists now only so InstructionExecution.userId
-  // has something real to reference.
+  /// Argon2 hash — never the raw password. Real accounts are created via
+  /// backend/scripts/create-user.ts (an interactive CLI, masked password
+  /// prompt), never seeded in seed.ts — that file is checked into git and
+  /// must never carry even a hashed real credential.
+  passwordHash String @map("password_hash")
+
   instructionExecutions InstructionExecution[]
+  refreshTokens         RefreshToken[]
 
   @@map("user")
+}
+
+/// Real, server-side, revocable refresh-token store (Phase 3b) — a JWT
+/// alone only self-expires; this table is what makes logout and admin-
+/// initiated revocation real rather than "wait for the token to time out."
+/// Stores a HASH of the refresh token, never the raw token — same
+/// principle as User.passwordHash: a leaked database dump must not itself
+/// be a usable credential.
+model RefreshToken {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 hex digest of the real refresh token — the raw token is
+  /// never stored, only ever held by the client (httpOnly cookie) and
+  /// briefly in memory server-side at issue/verify time.
+  tokenHash String @unique @map("token_hash")
+
+  expiresAt DateTime  @map("expires_at")
+  /// Non-null once real rotation (a successful /auth/refresh) or a real
+  /// /auth/logout has retired this token — a genuinely revoked token,
+  /// never deleted, so a reuse attempt after rotation/logout is a real,
+  /// detectable event, not silently indistinguishable from "never existed."
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("refresh_token")
 }
 
 // ───────────────────── Manufacturing → Factory instructions ─────────────────────

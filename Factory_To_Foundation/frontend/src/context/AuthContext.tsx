@@ -1,0 +1,109 @@
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+
+/**
+ * Real auth (Phase 3b of the enterprise migration) — session lives in
+ * httpOnly cookies set by the backend (backend/src/routes/auth.ts), never
+ * read/stored here directly. This context only tracks what GET /auth/me
+ * (and the login/logout calls) tell us: the real current user, their real
+ * role, and their real resolved permissions (module -> granted actions),
+ * for the frontend to know what to show/hide/gate.
+ */
+const API_BASE = "http://localhost:4300";
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  roleId: string;
+  roleName: string;
+};
+
+type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+
+type AuthContextValue = {
+  status: AuthStatus;
+  user: AuthUser | null;
+  /** Real module -> granted-action-list map from role_permission, resolved server-side — empty until authenticated. */
+  permissions: Record<string, string[]>;
+  /** True if the current user's role genuinely has this exact module+action grant. */
+  hasPermission: (moduleId: string, action: string) => boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+async function fetchMe(): Promise<{ user: AuthUser; permissions: Record<string, string[]> } | null> {
+  const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>("loading");
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMe().then((result) => {
+      if (cancelled) return;
+      if (result) {
+        setUser(result.user);
+        setPermissions(result.permissions);
+        setStatus("authenticated");
+      } else {
+        setStatus("unauthenticated");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? `Login failed (${res.status})`);
+    }
+    const me = await fetchMe();
+    if (!me) throw new Error("Logged in, but couldn't load the account afterward — try again.");
+    setUser(me.user);
+    setPermissions(me.permissions);
+    setStatus("authenticated");
+  }, []);
+
+  const logout = useCallback(async () => {
+    await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {
+      // Real network failure — still clear local state below, since the
+      // point of logging out client-side is to stop treating the session
+      // as valid regardless of whether the revoke call itself landed.
+    });
+    setUser(null);
+    setPermissions({});
+    setStatus("unauthenticated");
+  }, []);
+
+  const hasPermission = useCallback(
+    (moduleId: string, action: string) => permissions[moduleId]?.includes(action) ?? false,
+    [permissions]
+  );
+
+  return (
+    <AuthContext.Provider value={{ status, user, permissions, hasPermission, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used inside AuthProvider.");
+  return context;
+}

@@ -1,13 +1,40 @@
 # ff-backend
 
 Real relational persistence for Factory » Foundation — PostgreSQL via
-Prisma, plus (as of Phase 3a) a real Fastify API server. Phase 2 was
-schema + migrations + seed data only; Phase 3a adds the first real API
-routes and the first real frontend persistence cutover (Construction
-sites). **No auth yet — every route is completely open, a deliberate,
-disclosed scope limit for this phase, not a security decision. See
-`src/server.ts`'s own banner comment.** See `schema.prisma`'s header
-comment for Phase 2's original scope note.
+Prisma, a real Fastify API server (Phase 3a), and (Phase 3b) real
+email/password auth with JWT sessions. Phase 2 was schema + migrations +
+seed data only; Phase 3a added the first real API routes and the first
+real frontend persistence cutover (Construction sites); Phase 3b added
+real accounts, login, and RBAC enforcement on Construction's routes.
+**Auth is real but opt-in per route, not a global gate — see
+`src/server.ts`'s own comment for exactly what's open vs. protected and
+why.** See `schema.prisma`'s header comment for Phase 2's original scope
+note.
+
+## Creating a real user account
+
+```
+npm run create-user
+```
+
+Interactive CLI (`scripts/create-user.ts`) — prompts for email, display
+name, a masked password (never echoed), and a role selected from the 10
+real seeded roles. This is the **only** intended way to create real
+accounts — never add credentials to `prisma/seed.ts`, which is checked
+into git.
+
+## Auth endpoints
+
+- `POST /auth/login` — `{ email, password }` → sets `ff_access_token`
+  (httpOnly, ~15min) and `ff_refresh_token` (httpOnly, scoped to `/auth`,
+  30 days) cookies, returns the real user.
+- `POST /auth/refresh` — rotates the refresh token (the presented one is
+  always revoked, a new one always issued on success) and reissues a
+  fresh access token. No body needed.
+- `POST /auth/logout` — revokes the real refresh token server-side and
+  clears both cookies. No body needed.
+- `GET /auth/me` — requires a valid access token; returns the real user +
+  role + resolved `role_permission` grants (module → granted actions).
 
 ## Running the API server
 
@@ -22,13 +49,15 @@ running and migrated/seeded (see Setup below) — the server itself doesn't
 check this at startup, so a route will fail with a real Prisma connection
 error if the database isn't up yet.
 
-- `GET /health` → `{ "status": "ok" }`
-- `GET /construction-sites` → list all real `ConstructionSite` rows
-- `GET /construction-sites/:projectId` → one site, real 404 if unset
+- `GET /health` → `{ "status": "ok" }` (no auth — a health check gated on login defeats its own purpose)
+- `GET /construction-sites` → list all real `ConstructionSite` rows — requires `construction:read`
+- `GET /construction-sites/:projectId` → one site, real 404 if unset — requires `construction:read`
 - `PUT`/`PATCH /construction-sites/:projectId` → partial merge (body:
   `{ address?: string, coords?: { x: number, z: number } }`) — a
-  coords-only patch never clobbers an existing address and vice versa
-- `DELETE /construction-sites/:projectId` → clear a site (idempotent)
+  coords-only patch never clobbers an existing address and vice versa — requires `construction:update`
+- `DELETE /construction-sites/:projectId` → clear a site (idempotent) — requires `construction:delete`
+
+All four require a valid `ff_access_token` cookie (`POST /auth/login` first); a missing/expired token gets a real 401, a role lacking the grant gets a real 403 naming the exact missing permission.
 
 Sibling directory to `Factory_To_Foundation`, `twin-bridge`, and
 `blender-bridge` — same "not nested inside the frontend" convention those
@@ -90,7 +119,12 @@ bridges to external processes, this is the actual application backend.
    Phase 1 draft (CEO, Robotics Engineer) and one flagged interpretation
    call (Robotics Engineer + Administer — see that file).
 
-6. **Inspect it:**
+6. **Create a real user account** (see "Creating a real user account" above):
+   ```
+   npm run create-user
+   ```
+
+7. **Inspect it:**
    ```
    npx prisma studio
    ```
