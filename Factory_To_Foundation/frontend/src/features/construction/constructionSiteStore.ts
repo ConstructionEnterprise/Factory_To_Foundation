@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 
+import { AUTH_CHANGED_EVENT } from "@/context/AuthContext";
+
 /**
  * In-app site assignments for the Construction Enterprises Map, plus the
  * map's transient UI state (placement mode, hover sync with Browse).
@@ -97,6 +99,21 @@ function ensureSitesLoaded() {
   loadStarted = true;
   void loadSites();
 }
+
+// Real second bug found live, same root cause: the "only ever once" guard
+// above means logging out and back in as a DIFFERENT role — with no full
+// page reload in between, since this is a real SPA — never re-fetched.
+// Confirmed live: restoring two real site placements while logged in as
+// CEO, then switching to that same browser tab's already-initialized app,
+// still showed the old "Not authenticated"/empty state from a prior
+// session. Fixed by forcing a real reload on every genuine auth
+// transition (AuthContext's AUTH_CHANGED_EVENT — fired on initial resolve,
+// login, and logout), not just the first-ever mount.
+window.addEventListener(AUTH_CHANGED_EVENT, () => {
+  loadStarted = true;
+  emit({ loading: true });
+  void loadSites();
+});
 
 export function useSiteState(): SiteState {
   return useSyncExternalStore(

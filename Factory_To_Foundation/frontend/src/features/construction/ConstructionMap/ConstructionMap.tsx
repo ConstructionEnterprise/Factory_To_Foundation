@@ -1096,7 +1096,6 @@ export default function ConstructionMap() {
 
   const selectedId = selected?.feature === "construction" ? selected.objectId : undefined;
   const sites = constructionProjects.map((p) => resolveSite(p.id, overrides));
-  const unplaced = sites.filter((s) => s.precision === "unlocated");
   const placingTitle = placementFor
     ? constructionProjects.find((p) => p.id === placementFor)?.title ?? placementFor
     : null;
@@ -1251,63 +1250,16 @@ export default function ConstructionMap() {
           </div>
         )}
 
-        {unplaced.length > 0 && (
-          <div
-            className="absolute right-3 top-2 w-52 rounded border px-3 py-2"
-            style={{ background: "var(--ff-panel-bg)", borderColor: "var(--ff-panel-border)" }}
-          >
-            <p className="text-[0.65rem] font-semibold uppercase tracking-wide" style={{ color: "var(--ff-text-secondary)" }}>
-              Unplaced — no real location data
-            </p>
-            <ul className="mt-1 space-y-0.5">
-              {unplaced.map((site) => {
-                const title = constructionProjects.find((p) => p.id === site.projectId)?.title ?? site.projectId;
-                return (
-                  <li key={site.projectId}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelected({
-                          feature: "construction",
-                          objectType: "Project",
-                          objectId: site.projectId,
-                          payload: selectionPayload(title),
-                        })
-                      }
-                      className="w-full rounded px-1.5 py-0.5 text-left text-xs hover:bg-gray-100"
-                      style={{
-                        color: selectedId === site.projectId ? "var(--ff-accent)" : "var(--ff-text-primary)",
-                        fontWeight: selectedId === site.projectId ? 600 : 400,
-                      }}
-                    >
-                      {title}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="mt-1 text-[0.6rem] leading-snug" style={{ color: "var(--ff-text-muted)" }}>
-              Select one, then use "Site this project" in the Selected panel.
-            </p>
-          </div>
-        )}
-
-        <div className="absolute bottom-2 left-3 flex flex-col items-start gap-1">
-          {showWetUtilities && (
+        {showWetUtilities && (
+          <div className="absolute bottom-2 left-3">
             <p
               className="rounded px-2 py-1 text-[0.65rem] font-medium"
-              style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
+              style={{ background: "rgba(236, 238, 241, 0.5)", color: "var(--ff-text-muted)" }}
             >
               Wet Utilities (Water/Sewer/Storm Drain): ILLUSTRATIVE/SCHEMATIC ONLY — not surveyed or real utility locations. Before any excavation in Texas, call 811 (Texas811) at least 2 business days ahead for a real utility locate — required by law.
             </p>
-          )}
-          <p
-            className="rounded px-2 py-1 text-[0.65rem]"
-            style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
-          >
-            County & state boundaries: real US Census data · terrain: real elevation (Copernicus DEM GLO-90) · building massing symbolic (real story counts, not to scale)
-          </p>
-        </div>
+          </div>
+        )}
       </div>
     </PanelCard>
   );

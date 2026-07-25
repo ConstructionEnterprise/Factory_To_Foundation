@@ -10,6 +10,22 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
  */
 const API_BASE = "http://localhost:4300";
 
+/**
+ * Fired on every real auth transition (initial resolve, a fresh login, a
+ * logout) — a generic hook any feature store can listen for to know its
+ * cached data may now be wrong for whoever's actually logged in, without
+ * AuthContext needing to import or know about that feature at all. Real
+ * bug this fixes: constructionSiteStore.ts used to load its data exactly
+ * once per page load; logging out and back in as a different role (no
+ * full page reload in between) left it silently showing the previous
+ * user's stale fetch/error state.
+ */
+export const AUTH_CHANGED_EVENT = "ff:auth-changed";
+
+function broadcastAuthChanged() {
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+}
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -55,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setStatus("unauthenticated");
       }
+      broadcastAuthChanged();
     });
     return () => {
       cancelled = true;
@@ -77,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me.user);
     setPermissions(me.permissions);
     setStatus("authenticated");
+    broadcastAuthChanged();
   }, []);
 
   const logout = useCallback(async () => {
@@ -88,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setPermissions({});
     setStatus("unauthenticated");
+    broadcastAuthChanged();
   }, []);
 
   const hasPermission = useCallback(
