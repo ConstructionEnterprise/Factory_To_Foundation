@@ -637,3 +637,28 @@ Two real-data-driven passes on top of §6.21's map, done together per explicit i
 - Moved the Wet Utilities illustrative-disclosure banner (§6.23) down into the now-empty spot the county caption occupied, and swapped its solid `var(--ff-chrome-bg)` background for a translucent `rgba(236, 238, 241, 0.5)` so the terrain map stays visible underneath the text. It was already conditionally rendered only when the Wet Utilities layer is toggled on — confirmed this was already correct rather than assuming a fix was needed there too.
 
 **Live-verified:** `tsc -b --force` clean. Confirmed in Chrome: banner gone with Wet Utilities off, translucent banner appears in the right spot with it on and disappears cleanly when toggled off again, Stonepine/Cedarwood's placed pins and corridors unaffected throughout.
+
+### 12. Enterprise migration Phase 3c — real permission-driven UI gating, all 11 modules (committed `66e3c50`, live-verified)
+
+**A UX/honesty layer, explicitly not a security layer** — the backend's `requirePermission` middleware (§10) is what actually protects anything, and that stays true after this phase. Hiding or disabling a control enforces nothing by itself; it only stops the app from *offering* an action it's going to refuse. Said explicitly in code comments at every gate, especially the ones with nothing real backing them up server-side (see below).
+
+**Investigated first, reported the full inventory, got sign-off on three real judgment calls before writing any code** (standing discipline, same as every other phase): a thorough sweep of all 11 modules' components found **8 of 11 have zero real write/execute controls** — Robotics, Logistics, Genealogy, Scheduling, Assets, Analytics, Reports, and Administration are all confirmed read-only/fixture-data browsers today, not something gating touches. Manufacturing's "Generate Shop Drawings & Instructions" looked like an obvious candidate but turned out, on inspection, to only write to in-memory `ManufacturingOutputContext` — no backend/twin mutation — so it stayed ungated; the real mutation happens later, per-step, at Factory's Execute click.
+
+**`usePermission(moduleId, action)`** (`context/AuthContext.tsx`) — a thin wrapper returning `{ allowed, reason }`, built on the `hasPermission` plumbing §10 already shipped. One shared mechanism, not per-feature one-offs.
+
+**Gated, exactly per the reviewed mapping:**
+- Manufacturing "Import .blend File" → `manufacturing:update`
+- Factory "Run/Stop Simulation" and per-step "Execute" (Instructions menu) → `factory:execute`
+- Construction's three controls (already backend-gated since §10) → the UI now mirrors the real `construction:update`/`construction:delete` checks instead of only finding out on a failed request
+- Administration → **route-level** gate on `administration:read` (`router/routes.tsx`'s new `requiredPermission` field, enforced in `Sidebar.tsx` — hides the nav entry — and `App.tsx`'s new `RouteGuard` — blocks direct navigation with a real explanation). The one case needing more than per-control gating: Administration has no controls of its own to disable, so "Investor gets zero Administration access" is only achievable at the route level.
+
+**A real gap flagged, not glossed over:** Manufacturing's upload (→ blender-bridge:4200) and both Factory twin controls (→ twin-bridge:4100) hit bridges with **no auth of their own**. For those three, disabling the button in the UI is the *entire* extent of any protection anywhere in the system — not a UX nicety on top of a real check, unlike Construction's case where a genuine backend rejection still exists underneath. Commented explicitly at each of those three call sites so nobody mistakes a disabled button there for a protected one.
+
+**Live-verified against real accounts** (`qa.ceo`, `qa.investor`, `qa.superintendent`, `qa.robotics` — the last two created via `backend/scripts/createUser.ts`'s core function directly, same no-real-TTY reasoning as §10), **cross-checked against real `role_permission` rows via `psql`, not memory:**
+- CEO: every control enabled everywhere, Administration visible.
+- **Investor — the acid test: genuinely zero write affordances anywhere** (Manufacturing upload, both Factory twin controls, all three Construction controls all correctly disabled with exact `Requires <module>:<action> — your role is Investor` reasons), Administration nav entry gone entirely.
+- Superintendent: Construction fully enabled (real seeded `create,delete,read,update` grant), Manufacturing correctly disabled (read-only), Administration hidden.
+- Robotics Engineer: Construction fully disabled (zero grant there), Administration hidden.
+- **Defense-in-depth check, not just "the button looks disabled":** programmatically bypassed a disabled Construction address input as Robotics Engineer — removed the DOM `disabled` attribute and dispatched real `input`/`blur` events to fire the exact same code path a real click would have. The real backend 403 still fired, the UI's existing error banner surfaced it honestly (`Couldn't reach the site server... Role "Robotics Engineer" lacks the "construction:update" permission`), and a direct `psql` check confirmed the database was never touched. The backend enforcement holds regardless of what the UI does — proven, not assumed.
+
+No console errors throughout, `tsc -b --force` clean, no backend routes/schema/auth-flow changes this phase (explicitly out of scope) — UI gating only, against permissions that already existed.
