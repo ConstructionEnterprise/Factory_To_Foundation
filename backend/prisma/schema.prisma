@@ -1,0 +1,435 @@
+// Factory » Foundation — enterprise migration, Phase 2.
+//
+// Every model here traces back to a real shape already living in the
+// frontend today (see the Phase 1 investigation report, and the ownedBy
+// type-safety fix, commit afb5d3e, for OwningModule's real values). Nothing
+// here is invented from a generic ERD template — where Phase 1 found a real
+// DAG (Genealogy), this uses a real junction table, not a parent_id column;
+// where Phase 1 found a derived value (Construction's site precision), this
+// deliberately has no column for it at all.
+//
+// Explicitly OUT of this schema, per Phase 1 section 4 — static reference/
+// generated assets, not operational records:
+//   northTexasCounties.ts, usaStates.ts, northTexasElevation.ts,
+//   the DH kinematics constants, design tokens (--ff-* CSS variables).
+// These stay code-level, bundled with the frontend, never migrated to SQL.
+//
+// No API routes, no auth, no frontend wiring in this phase — schema +
+// migrations + seed only.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: connection URL lives in prisma.config.ts, not here — `url` on
+// this block was removed/rejected by `prisma validate` (P1012). Real
+// current behavior, not a stylistic choice: migrations for driver adapters
+// work automatically as of Prisma 7, no further config needed here.
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── RBAC ─────────────────────────
+// Module, Role, and Permission are real tables with real seeded rows, not
+// Postgres enums — per explicit instruction, so the role/module/permission
+// list is genuinely queryable data an admin UI (a later phase) could read
+// and eventually manage, not logic hardcoded into application code.
+
+model Module {
+  /// Real stable slug — the same 11 ids the frontend's own feature routing
+  /// already uses (manufacturing, factory, robotics, logistics,
+  /// construction, genealogy, scheduling, assets, analytics, reports,
+  /// administration).
+  id   String @id
+  name String
+
+  rolePermissions RolePermission[]
+  scheduleStages  ScheduleStage[]
+
+  @@map("module")
+}
+
+model Role {
+  id   String @id @default(cuid())
+  name String @unique
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("role")
+}
+
+model Permission {
+  /// Real stable slug — read | create | update | delete | execute | administer.
+  id   String @id
+  name String
+
+  rolePermissions RolePermission[]
+
+  @@map("permission")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String     @map("role_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  moduleId     String     @map("module_id")
+  module       Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  permissionId String     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, moduleId, permissionId])
+  @@map("role_permission")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String   @map("display_name")
+  roleId      String   @map("role_id")
+  role        Role     @relation(fields: [roleId], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // No password/session/JWT fields — deliberately out of scope this phase
+  // (Phase 3). This table exists now only so InstructionExecution.userId
+  // has something real to reference.
+  instructionExecutions InstructionExecution[]
+
+  @@map("user")
+}
+
+// ───────────────────── Manufacturing → Factory instructions ─────────────────────
+// From context/ManufacturingOutputContext.tsx. Currently in-memory only,
+// regenerated on demand — this table is the durable version of that shape.
+
+model InstructionSet {
+  id                   String   @id @default(cuid())
+  /// Real ingested unit/module object name, or the building root id for a
+  /// representative/building-level run.
+  sourceObjectId       String   @map("source_object_id")
+  generatedAt          DateTime @map("generated_at")
+  /// Real measured ElementSpec (dims, orientationKind, extras,
+  /// overlappingFeatures) when generated from a real shop-drawing sheet;
+  /// absent for a representative/building-level run. Kept as JSON rather
+  /// than normalized — it's a snapshot of what a specific generation run
+  /// actually measured, not a separately-queried entity.
+  elementSpecJson      Json?    @map("element_spec_json")
+  /// Real computed statements (e.g. the fixture-table fit check) — never a
+  /// severity score or guessed feasibility rating, per the source type's
+  /// own doc comment.
+  fabricationNotesJson Json?    @map("fabrication_notes_json")
+
+  steps InstructionStep[]
+
+  @@map("instruction_set")
+}
+
+enum InstructionStepStatus {
+  planned
+  // Real vocabulary today is exactly "planned" (see InstructionStep.status's
+  // source doc comment: never "executing"/"complete", which would imply
+  // real execution tracking that doesn't exist at the step level yet).
+  // Modeled as a real enum, not a free string, so adding a genuine new
+  // status later is a deliberate migration, not a silent string change.
+}
+
+model InstructionStep {
+  id String @id @default(cuid())
+
+  instructionSetId String         @map("instruction_set_id")
+  instructionSet   InstructionSet @relation(fields: [instructionSetId], references: [id], onDelete: Cascade)
+
+  sequence Int
+
+  /// Real manifest id from cell_manifest.json (e.g. "robots.A1", "gantry").
+  targetSubsystemId String @map("target_subsystem_id")
+  /// Real resolve_target()-compatible name — see resolveCommandTarget() in
+  /// the source context file for why this can differ from targetSubsystemId.
+  realCommandTarget String @map("real_command_target")
+  /// Real manifest type: "robot" | "gantry" | "roller" | "tilt" | "atc" | "rail".
+  targetType        String @map("target_type")
+
+  /// Illustrative planning text only — never a draft of an executable
+  /// command. Always rendered with a "Planning Draft" disclaimer upstream.
+  action String
+
+  /// Real ingested geometry object this step operates on; absent for a
+  /// building-level representative sequence.
+  relatedObjectId String? @map("related_object_id")
+
+  status InstructionStepStatus @default(planned)
+
+  /// ILLUSTRATIVE ONLY — a round per-step-type estimate, not measured. See
+  /// the source type's own doc comment.
+  estimatedDurationSec Int @map("estimated_duration_sec")
+
+  /// Real dispatchable command(s) in order — absent when no real
+  /// command/coordinate is derivable for this step (never a fabricated
+  /// placeholder). `codeJson` is a human-readable KRL-style rendering of
+  /// this exact same payload, never independently invented text.
+  dispatchJson Json? @map("dispatch_json")
+  codeJson     Json? @map("code_json")
+
+  /// Real, computed-at-generation-time reachability concern — absent means
+  /// no known issue at generation time, not a guarantee (the twin's own
+  /// real dispatch check is still the actual backstop).
+  reachabilityIssue String? @map("reachability_issue")
+
+  executions InstructionExecution[]
+
+  @@map("instruction_step")
+}
+
+/// NEW table — Phase 1's identified gap: a real Execute click (Track B,
+/// twinExecute.ts) dispatches real commands to the live twin today and
+/// returns a result to the caller, but nothing persists it. This is the
+/// real audit trail that doesn't exist yet.
+model InstructionExecution {
+  id String @id @default(cuid())
+
+  instructionStepId String          @map("instruction_step_id")
+  instructionStep   InstructionStep @relation(fields: [instructionStepId], references: [id], onDelete: Cascade)
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  executedAt DateTime @default(now()) @map("executed_at")
+  ok         Boolean
+
+  /// Real per-command CommandExecutionResult[] from twinExecute.ts's
+  /// StepExecutionResult — command, params, ok, reason per real dispatched
+  /// command in this step, in order.
+  commandsJson Json @map("commands_json")
+
+  /// Real twin state.json `frame` at the moment of dispatch, when known.
+  twinFrameAtDispatch Int? @map("twin_frame_at_dispatch")
+
+  @@map("instruction_execution")
+}
+
+// ───────────────────── Factory collision monitor ─────────────────────
+// From features/factory/collisionStore.ts. Currently a real, structured
+// event log that's 100% in-memory — gone on tab close. This is that log,
+// made durable.
+
+model MonitoringSession {
+  id        String    @id @default(cuid())
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+
+  events CollisionEvent[]
+
+  @@map("monitoring_session")
+}
+
+model CollisionEvent {
+  id String @id @default(cuid())
+
+  monitoringSessionId String            @map("monitoring_session_id")
+  monitoringSession   MonitoringSession @relation(fields: [monitoringSessionId], references: [id], onDelete: Cascade)
+
+  subsystemA String @map("subsystem_a")
+  subsystemB String @map("subsystem_b")
+
+  /// Real sim tick (state.json `frame`) of the first/last observed
+  /// intersecting snapshot.
+  startFrame Int @map("start_frame")
+  endFrame   Int @map("end_frame")
+
+  /// Exact max penetration depth seen across the event's observed
+  /// snapshots (m) — real measurement, not estimated.
+  maxPenetration Float @map("max_penetration")
+  /// How many observed snapshots showed the intersection — the real
+  /// measurement resolution of this event.
+  samples        Int
+
+  ongoing    Boolean
+  /// True while the contact held in every snapshot since monitoring began
+  /// — the measurable signature of a by-construction condition (e.g. the
+  /// fixture table overhanging the rails), not a hardcoded pair list.
+  persistent Boolean
+
+  @@map("collision_event")
+}
+
+// ───────────────────── Construction ─────────────────────
+// From constructionData.ts + constructionLocations.ts + constructionSiteStore.ts.
+
+model ConstructionProject {
+  /// Real fixture id (stonepine, cedarwood, garden-lofts, skyline) — kept
+  /// as the real stable natural key the frontend already treats it as,
+  /// not a surrogate id.
+  id                 String  @id
+  title              String
+  /// Real citation of where a location came from when one exists (e.g.
+  /// "garden_lofts_params_v2.json: PROJECT.LOCATION"); null for the
+  /// projects with no real location source anywhere (honest, not guessed).
+  realLocationSource String? @map("real_location_source")
+
+  site      ConstructionSite?
+  treeNodes ConstructionTreeNode[]
+
+  @@map("construction_project")
+}
+
+model ConstructionSite {
+  projectId String              @id @map("project_id")
+  project   ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// Metadata only — never promotes placement precision on its own (no
+  /// geocoding, deliberately, matching constructionSiteStore.ts).
+  address String?
+  coordsX Float?  @map("coords_x")
+  coordsZ Float?  @map("coords_z")
+
+  // Deliberately NO precision column. Phase 1 was explicit: resolveSite()
+  // derives precision (unlocated/region/address/sited) from whether coords
+  // and/or a real fixture region exist — it must stay computed in the
+  // application layer, never stored, or it can drift out of sync with the
+  // values it's derived from.
+
+  @@map("construction_site")
+}
+
+/// Self-referential adjacency list — matches the real varying-depth
+/// structure Phase 1 confirmed (Stonepine has no Buildings tier; Cedarwood
+/// does; Garden Lofts/Skyline go straight from Project to Floor). A
+/// fixed-depth schema would get this wrong.
+model ConstructionTreeNode {
+  id String @id
+
+  projectId String              @map("project_id")
+  project   ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentId String?                @map("parent_id")
+  parent   ConstructionTreeNode?  @relation("ConstructionTreeParent", fields: [parentId], references: [id])
+  children ConstructionTreeNode[] @relation("ConstructionTreeParent")
+
+  title      String
+  /// Real values today: Project | Building | Floor | Floor Plans.
+  objectType String @map("object_type")
+
+  /// Present only on nodes that make sense to inspect — null for
+  /// navigational-only rows, never a fabricated placeholder.
+  progress       String?
+  trade          String?
+  inspector      String?
+  punchListCount String? @map("punch_list_count")
+
+  @@map("construction_tree_node")
+}
+
+// ───────────────────── Genealogy ─────────────────────
+// From graphData.ts + genealogyRegistry.ts. Real DAG, not a tree — Phase 1
+// confirmed Sub-Assembly has 4 real material parents plus its Component
+// parent. A junction table is required; a parent_id column would silently
+// collapse this.
+
+enum GenealogyTier {
+  material
+  framing_package
+  component
+  subassembly
+  module
+  building
+  project
+}
+
+model GenealogyNode {
+  id    String        @id
+  title String
+  tier  GenealogyTier
+  /// Real QR from the ported make*Qr functions — absent for Module/
+  /// Building/Project tiers, where no real thread has built one yet.
+  qr    String?
+
+  outgoingEdges GenealogyEdge[] @relation("GenealogyEdgeFrom")
+  incomingEdges GenealogyEdge[] @relation("GenealogyEdgeTo")
+
+  @@map("genealogy_node")
+}
+
+model GenealogyEdge {
+  id String @id @default(cuid())
+
+  fromId String        @map("from_id")
+  from   GenealogyNode @relation("GenealogyEdgeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId   String        @map("to_id")
+  to     GenealogyNode @relation("GenealogyEdgeTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+  @@map("genealogy_edge")
+}
+
+// ───────────────────── Scheduling ─────────────────────
+// From scheduleData.ts + the ownedBy type-safety fix (commit afb5d3e).
+// OwningModule below has the exact 3 real values that commit defined —
+// deliberately narrower than the 11-value Module table above, because the
+// real frontend type (OwningModule = 'logistics' | 'factory' |
+// 'construction') is itself that narrow. Using the full Module table here
+// instead would let this column hold a value the real frontend type could
+// never produce (e.g. "genealogy" as a schedule-stage owner).
+
+enum OwningModule {
+  logistics
+  factory
+  construction
+}
+
+enum PortDirection {
+  input
+  output
+}
+
+model ScheduleStage {
+  /// Real ids: inbound-material, material-arrival, subassembly-module,
+  /// storage-logistics, construction-schedule.
+  id          String @id
+  title       String
+  subtitle    String
+  description String
+
+  /// null = genuinely no owning module yet (Inbound Material, CLAUDE.md
+  /// gap #2) — never a placeholder value standing in for a real absence.
+  ownedByModuleId String? @map("owned_by_module_id")
+  ownedByModule   Module? @relation(fields: [ownedByModuleId], references: [id])
+
+  ports SchedulePort[]
+
+  @@map("schedule_stage")
+}
+
+model SchedulePort {
+  id      String        @id @default(cuid())
+  stageId String        @map("stage_id")
+  stage   ScheduleStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  /// Real port id string from the source (e.g. "poPlaced") — kept distinct
+  /// from the surrogate `id` above because the real frontend only
+  /// guarantees this string is unique WITHIN its own stage, not globally.
+  portKey   String        @map("port_key")
+  label     String
+  direction PortDirection
+  /// Real vocabulary today is exactly "BOOL" (PortType in scheduleData.ts,
+  /// deliberately not a richer type without a real reason yet).
+  type      String        @default("BOOL")
+
+  outgoingWires ScheduleWire[] @relation("ScheduleWireFrom")
+  incomingWires ScheduleWire[] @relation("ScheduleWireTo")
+
+  @@unique([stageId, portKey])
+  @@map("schedule_port")
+}
+
+/// One real wire per consecutive real pipeline pair, port-to-port —
+/// matches scheduleWires in scheduleData.ts exactly (not a generic
+/// node-to-node connector).
+model ScheduleWire {
+  id         String       @id @default(cuid())
+  fromPortId String       @map("from_port_id")
+  fromPort   SchedulePort @relation("ScheduleWireFrom", fields: [fromPortId], references: [id], onDelete: Cascade)
+  toPortId   String       @map("to_port_id")
+  toPort     SchedulePort @relation("ScheduleWireTo", fields: [toPortId], references: [id], onDelete: Cascade)
+
+  @@map("schedule_wire")
+}

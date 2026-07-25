@@ -1,0 +1,25 @@
+# Local dev Postgres only — not a production deployment config. Credentials
+# below are local-dev-only defaults (also mirrored in .env.example), not real
+# secrets. Run from this directory: `docker compose up -d`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ff-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ff
+      POSTGRES_PASSWORD: ff_dev_local_only
+      POSTGRES_DB: ff_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - ff_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ff -d ff_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ff_postgres_data:
+    name: ff_postgres_data
