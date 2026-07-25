@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useSelection } from "@/context/SelectionContext";
+import { usePermission } from "@/context/AuthContext";
 import { DetailRow, PanelCard } from "@/framework/ui";
 
 import { FACTORY_NODE, isConstructionProjectId, resolveSite, type SitePrecision } from "../constructionLocations";
@@ -32,6 +33,13 @@ function SiteSection({ projectId }: { projectId: string }) {
   const site = resolveSite(projectId, overrides);
   const hasOverride = projectId in overrides;
   const placing = placementFor === projectId;
+  // Phase 3c — UX/honesty gating only, mirroring the real enforcement that
+  // already exists server-side (backend/src/routes/constructionSites.ts).
+  // Unlike Manufacturing/Factory's bridge-hosted controls, a real backend
+  // check backs this up regardless of what the UI does — this just stops
+  // the app from offering an action that would 403 anyway.
+  const updatePermission = usePermission("construction", "update");
+  const deletePermission = usePermission("construction", "delete");
 
   const [draft, setDraft] = useState(site.address ?? "");
   useEffect(() => {
@@ -74,8 +82,10 @@ function SiteSection({ projectId }: { projectId: string }) {
               onKeyDown={(e) => {
                 if (e.key === "Enter") (e.target as HTMLInputElement).blur();
               }}
+              disabled={!updatePermission.allowed}
+              title={updatePermission.reason}
               placeholder="e.g. 1200 Main St, Lewisville, TX"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              className="mt-1 w-full rounded border px-2 py-1.5 text-sm disabled:opacity-60"
               style={{ borderColor: "var(--ff-panel-border)", color: "var(--ff-text-primary)" }}
             />
           </label>
@@ -84,7 +94,9 @@ function SiteSection({ projectId }: { projectId: string }) {
             <button
               type="button"
               onClick={() => (placing ? cancelPlacement() : startPlacement(projectId))}
-              className="rounded-[0.2rem] px-3 py-1.5 text-xs font-medium text-white"
+              disabled={!updatePermission.allowed}
+              title={updatePermission.reason}
+              className="rounded-[0.2rem] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
               style={{ background: placing ? "var(--ff-status-critical)" : "var(--ff-accent)" }}
             >
               {placing ? "Cancel placement" : "Place on map"}
@@ -93,9 +105,10 @@ function SiteSection({ projectId }: { projectId: string }) {
               <button
                 type="button"
                 onClick={() => clearSite(projectId)}
-                className="rounded-[0.2rem] border px-3 py-1.5 text-xs font-medium"
+                disabled={!deletePermission.allowed}
+                className="rounded-[0.2rem] border px-3 py-1.5 text-xs font-medium disabled:opacity-60"
                 style={{ borderColor: "var(--ff-panel-border)", color: "var(--ff-text-secondary)" }}
-                title="Remove the in-app assignment and fall back to the honest fixture state"
+                title={deletePermission.reason ?? "Remove the in-app assignment and fall back to the honest fixture state"}
               >
                 Clear site
               </button>

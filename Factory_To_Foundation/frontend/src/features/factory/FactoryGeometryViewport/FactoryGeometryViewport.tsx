@@ -5,6 +5,7 @@ import * as THREE from "three";
 
 import { Legend, PanelCard } from "@/framework/ui";
 import { useSelection } from "@/context/SelectionContext";
+import { usePermission } from "@/context/AuthContext";
 
 import { translateManifest, type LiveFactoryNode, type FactoryStatus } from "../twinTranslator";
 import { useTwinManifest } from "../useTwinManifest";
@@ -644,6 +645,10 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
  */
 function RunSimulationButton({ twinControl }: { twinControl: UseTwinControlResult }) {
   const { bridgeReachable, control, starting, stopping, lastError, start, stop } = twinControl;
+  // Phase 3c — UX/honesty gating only. twin-bridge (localhost:4100) has NO
+  // auth of its own — disabling this button is the entire extent of any
+  // protection here, not a nicety layered on top of a real backend check.
+  const runPermission = usePermission("factory", "execute");
 
   if (!bridgeReachable) {
     return (
@@ -665,15 +670,16 @@ function RunSimulationButton({ twinControl }: { twinControl: UseTwinControlResul
       <button
         type="button"
         onClick={() => (running ? stop() : start())}
-        disabled={starting || stopping || externallyOwned}
+        disabled={starting || stopping || externallyOwned || !runPermission.allowed}
         className="rounded-[0.2rem] px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-50"
         style={{ background: running ? "var(--ff-status-critical)" : "var(--ff-status-positive)" }}
         title={
-          externallyOwned
+          runPermission.reason ??
+          (externallyOwned
             ? `Running externally (pid ${control?.pid}) — not started by this bridge, so it can't be stopped from here`
             : running
               ? `Stop the real twin process (pid ${control?.pid})`
-              : "Launch the real twin process (headless driver) via twin-bridge"
+              : "Launch the real twin process (headless driver) via twin-bridge")
         }
       >
         {starting ? "Starting…" : stopping ? "Stopping…" : running ? "Stop Simulation" : "Run Simulation"}

@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { ToolbarButton, ToolbarShell } from "@/framework/ui";
 import { useSelection } from "@/context/SelectionContext";
 import { useManufacturingOutput } from "@/context/ManufacturingOutputContext";
+import { usePermission } from "@/context/AuthContext";
 import { useTwinManifest } from "@/features/factory/useTwinManifest";
 
 import { generateInstructionSet } from "../instructionGeneration";
@@ -39,6 +40,11 @@ export default function ManufacturingToolbar() {
   const [message, setMessage] = useState<string | null>(null);
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Phase 3c — UX/honesty gating only. blender-bridge (localhost:4200) has
+  // NO auth of its own — unlike Construction's real backend-enforced
+  // controls, disabling this button is the entire extent of any
+  // protection here, not a nicety layered on top of a real check.
+  const uploadPermission = usePermission("manufacturing", "update");
 
   const manufacturingSel = selected?.feature === "manufacturing" ? selected : undefined;
   const scopeLabel = manufacturingSel?.payload.name ?? "the loaded model (representative element)";
@@ -111,10 +117,13 @@ export default function ManufacturingToolbar() {
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        disabled={upload.phase === "converting"}
+        disabled={upload.phase === "converting" || !uploadPermission.allowed}
         className="rounded-[0.2rem] px-3.5 py-2 text-sm font-medium text-white disabled:opacity-60"
         style={{ background: "var(--ff-accent)" }}
-        title="Upload a .blend file — converts via a local Blender bridge and replaces the loaded model"
+        title={
+          uploadPermission.reason ??
+          "Upload a .blend file — converts via a local Blender bridge and replaces the loaded model"
+        }
       >
         {upload.phase === "converting" ? "Converting…" : "Import .blend File"}
       </button>

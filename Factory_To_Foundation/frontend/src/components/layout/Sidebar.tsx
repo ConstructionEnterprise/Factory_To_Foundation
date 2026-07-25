@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { useAuth } from "@/context/AuthContext";
 import { appRoutes } from "@/router/routes";
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -17,6 +18,13 @@ function readStoredCollapsed(): boolean {
 
 function Sidebar() {
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
+  const { hasPermission } = useAuth();
+  // Phase 3c — a nav entry for a route the current role has no access to
+  // (Administration, for a role without administration:read) is just
+  // noise/false-advertising; filtered here rather than shown then blocked.
+  const visibleRoutes = appRoutes.filter(
+    (route) => !route.requiredPermission || hasPermission(route.requiredPermission.module, route.requiredPermission.action)
+  );
 
   useEffect(() => {
     try {
@@ -54,7 +62,7 @@ function Sidebar() {
           collapsed ? "flex flex-col items-center" : ""
         }`}
       >
-        {appRoutes.map((route) => {
+        {visibleRoutes.map((route) => {
           const Icon = route.icon;
 
           return (

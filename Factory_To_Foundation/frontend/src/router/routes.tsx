@@ -34,6 +34,16 @@ export type AppRoute = {
   label: string;
   icon: ComponentType<LucideProps>;
   element: ReactNode;
+  /**
+   * Phase 3c — route-level gating, used only where per-control gating
+   * can't express the real requirement (Administration currently has no
+   * write controls of its own, so there's nothing to disable — hiding the
+   * nav entry and blocking direct navigation is the only way to honor a
+   * role with no `administration:read` grant). UX/honesty layer only, same
+   * as every other Phase 3c gate — nothing else in this app enforces this
+   * route-level restriction server-side.
+   */
+  requiredPermission?: { module: string; action: string };
 };
 
 /**
@@ -120,5 +130,6 @@ export const appRoutes: AppRoute[] = [
     label: "Administration",
     icon: ShieldCheck,
     element: <AdministrationPage />,
+    requiredPermission: { module: "administration", action: "read" },
   },
 ];

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { useManufacturingOutput, type InstructionStep } from "@/context/ManufacturingOutputContext";
+import { usePermission } from "@/context/AuthContext";
 import { useTwinState } from "./useTwinState";
 import { executeStep, type StepExecutionResult } from "./twinExecute";
 
@@ -17,6 +18,13 @@ import { executeStep, type StepExecutionResult } from "./twinExecute";
 export default function FactoryInstructions() {
   const { instructionSet } = useManufacturingOutput();
   const { connected, state } = useTwinState();
+  // Phase 3c — UX/honesty gating only. twin-bridge (localhost:4100), which
+  // this Execute click actually dispatches to, has NO auth of its own —
+  // disabling this button is the entire extent of any protection here.
+  // Checked last, after every real twin-state precondition, so the banner
+  // never claims a permission problem when the twin itself isn't even in a
+  // dispatchable state yet.
+  const executePermission = usePermission("factory", "execute");
 
   if (!instructionSet || instructionSet.steps.length === 0) {
     return (
@@ -26,14 +34,16 @@ export default function FactoryInstructions() {
     );
   }
 
-  const canExecute = connected && state?.mode === "MANUAL" && state?.paused === true;
+  const canExecute = connected && state?.mode === "MANUAL" && state?.paused === true && executePermission.allowed;
   const gateReason = !connected
     ? "Twin bridge not reachable — Execute is unavailable until it's running."
     : state?.mode !== "MANUAL"
       ? `Twin is in ${state?.mode ?? "an unknown"} mode — set it to MANUAL to execute a step.`
       : !state?.paused
         ? "Twin is not paused — pause it before executing a manual command."
-        : null;
+        : !executePermission.allowed
+          ? executePermission.reason
+          : null;
 
   return (
     <div className="w-[28rem] max-h-96 overflow-auto p-3">

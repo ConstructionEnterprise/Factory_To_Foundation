@@ -126,3 +126,28 @@ export function useAuth(): AuthContextValue {
   if (!context) throw new Error("useAuth must be used inside AuthProvider.");
   return context;
 }
+
+export type PermissionCheck = {
+  allowed: boolean;
+  /** A real, specific reason to show the user when `allowed` is false — e.g. as a disabled control's tooltip. Undefined when allowed. */
+  reason: string | undefined;
+};
+
+/**
+ * Phase 3c — the one shared mechanism every module's real write/execute
+ * control gates through, rather than each feature re-deriving its own
+ * disabled/tooltip logic. THIS IS A UX/HONESTY LAYER, NOT SECURITY: the
+ * real protection (where it exists at all) is the backend's
+ * requirePermission middleware — see backend/src/middleware/auth.ts. A
+ * disabled button here only stops the app from *offering* an action the
+ * backend (or, for Manufacturing/Factory's bridge-hosted controls, no
+ * backend at all) would refuse — it enforces nothing by itself.
+ */
+export function usePermission(moduleId: string, action: string): PermissionCheck {
+  const { hasPermission, user } = useAuth();
+  const allowed = hasPermission(moduleId, action);
+  return {
+    allowed,
+    reason: allowed ? undefined : `Requires ${moduleId}:${action} — your role is ${user?.roleName ?? "unknown"}`,
+  };
+}
