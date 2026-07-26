@@ -254,7 +254,17 @@ export default function FileCard({ file, onChanged }: FileCardProps) {
 
           <button
             type="button"
-            onClick={() => setMode("editing")}
+            onClick={() => {
+              // draftFilename/draftCategory/draftSubcategory are only
+              // seeded from `file` once, at mount — a Replace never
+              // remounts this card (keyed by the stable fileId, not the
+              // version), so without this reset the form would silently
+              // reopen showing the pre-replace metadata every time.
+              setDraftFilename(file.originalFilename);
+              setDraftCategory(file.category);
+              setDraftSubcategory(file.subcategory ?? "");
+              setMode("editing");
+            }}
             disabled={!updatePermission.allowed}
             title={updatePermission.reason}
             className="rounded px-2 py-1 text-[0.65rem] font-medium disabled:opacity-50"
