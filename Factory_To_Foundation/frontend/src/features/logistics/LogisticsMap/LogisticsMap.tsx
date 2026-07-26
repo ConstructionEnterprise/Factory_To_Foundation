@@ -103,17 +103,95 @@ function roadsToGeometry(cls: "interstate" | "highway"): THREE.BufferGeometry {
 const INTERSTATE_GEOMETRY = roadsToGeometry("interstate");
 const HIGHWAY_GEOMETRY = roadsToGeometry("highway");
 
-/** Real named interstates only (rarer, more important) get an in-scene label at their real midpoint — every named highway would be too visually busy at this map's scale. */
-function interstateLabels(): { key: string; label: string; pos: MapXZ }[] {
-  const seen = new Set<string>();
-  const out: { key: string; label: string; pos: MapXZ }[] = [];
-  for (const road of PROJECTED_ROADS as ProjectedRoad[]) {
-    if (road.class !== "interstate" || !road.label || seen.has(road.label)) continue;
-    seen.add(road.label);
-    const mid = road.points[Math.floor(road.points.length / 2)];
-    out.push({ key: road.label, label: road.label, pos: mid });
+// ── Label normalization + proximity dedup ──
+// Real bug found live: labels were duplicating/overlapping (e.g.
+// "President George Bush Hwy" and "President George Bush Tpke" both
+// rendering, "I- 635"/"635"/"I-635 Hov" all rendering separately). Root
+// cause, confirmed against the real data: TIGER's own source fields are
+// populated inconsistently across real segments of the SAME corridor (a
+// literal stray-space formatting artifact, a bare route number on some
+// segments vs. "I-<n>" on others, an HOV-lane-specific name for managed-
+// lane segments of the same real interstate, an official corridor
+// alternating between two generic road-type suffixes like "... Tpke" and
+// "... Hwy"). This is NOT a geometric merge failure — differently-labeled
+// real segments were never eligible to merge with each other in Phase 2's
+// line-merge (grouped strictly by exact (class,label)), so the same real
+// corridor legitimately produced multiple separate objects under
+// different exact strings. Confirmed via psql-equivalent direct grep
+// against northTexasRoads.ts before writing this, not assumed.
+
+/** Priority order for which generic road-type suffix wins as the canonical
+ * display name when the same real corridor carries more than one across
+ * its real segments. */
+const ROAD_SUFFIXES = ["Tpke", "Fwy", "Expy", "Pkwy", "Hwy"] as const;
+
+function normalizeRouteLabel(raw: string): string {
+  let s = raw.trim().replace(/\s+/g, " ");
+  s = s.replace(/^I-\s+/, "I-"); // real stray-space artifact ("I- 635" -> "I-635")
+  s = s.replace(/\s+Hov$/i, ""); // real HOV/managed-lane naming for the same real corridor
+  if (/^\d+$/.test(s)) s = `I-${s}`; // bare route number on a real interstate-class segment
+  return s;
+}
+
+/** Strips a trailing generic road-type suffix to detect when two
+ * differently-suffixed real strings actually name the same real corridor. */
+function routeGroupKey(normalized: string): string {
+  for (const suffix of ROAD_SUFFIXES) {
+    if (normalized.endsWith(` ${suffix}`)) return normalized.slice(0, -(suffix.length + 1));
   }
-  return out;
+  return normalized;
+}
+
+function canonicalDisplayLabel(members: string[]): string {
+  for (const suffix of ROAD_SUFFIXES) {
+    const match = members.find((m) => m.endsWith(` ${suffix}`));
+    if (match) return match;
+  }
+  return members[0];
+}
+
+/** Real named interstates only (rarer, more important) get an in-scene label — every named highway would be too visually busy at this map's scale. */
+function interstateLabels(): { key: string; label: string; pos: MapXZ }[] {
+  // Group real fragments by normalized corridor identity first (collapses
+  // known label variants of the same real route to one entry).
+  const groups = new Map<string, { members: string[]; points: MapXZ[] }>();
+  for (const road of PROJECTED_ROADS as ProjectedRoad[]) {
+    if (road.class !== "interstate" || !road.label) continue;
+    const normalized = normalizeRouteLabel(road.label);
+    const groupKey = routeGroupKey(normalized);
+    if (!groups.has(groupKey)) groups.set(groupKey, { members: [], points: [] });
+    const g = groups.get(groupKey)!;
+    g.members.push(normalized);
+    g.points.push(...road.points);
+  }
+
+  const candidates = Array.from(groups.entries()).map(([groupKey, g]) => {
+    // Real centroid across every real fragment sharing this canonical
+    // corridor — more representative than an arbitrary first-fragment
+    // midpoint when a route remains split into many real pieces (e.g. the
+    // 9+3 President George Bush Tpke/Hwy fragments combined).
+    const cx = g.points.reduce((s, p) => s + p.x, 0) / g.points.length;
+    const cz = g.points.reduce((s, p) => s + p.z, 0) / g.points.length;
+    // Real total polyline length — used below to prefer the more
+    // significant real corridor when two labels collide geographically.
+    let length = 0;
+    for (let i = 0; i < g.points.length - 1; i++) length += Math.hypot(g.points[i + 1].x - g.points[i].x, g.points[i + 1].z - g.points[i].z);
+    return { key: groupKey, label: canonicalDisplayLabel(g.members), pos: { x: cx, z: cz }, length };
+  });
+
+  // Real geographic proximity suppression, independent of name — catches
+  // both genuinely-different nearby real names (e.g. N/S Walton Walker
+  // Blvd) and any remaining same-corridor fragments normalization above
+  // didn't group (a real fork/gap, not just a naming inconsistency).
+  // Processed longest-corridor-first so a minor crossing road doesn't
+  // arbitrarily win over a major one it happens to be near.
+  const MIN_LABEL_SPACING_KM = 3.5;
+  const kept: typeof candidates = [];
+  for (const c of [...candidates].sort((a, b) => b.length - a.length)) {
+    const tooClose = kept.some((k) => Math.hypot(k.pos.x - c.pos.x, k.pos.z - c.pos.z) < MIN_LABEL_SPACING_KM);
+    if (!tooClose) kept.push(c);
+  }
+  return kept;
 }
 const INTERSTATE_LABELS = interstateLabels();
 
