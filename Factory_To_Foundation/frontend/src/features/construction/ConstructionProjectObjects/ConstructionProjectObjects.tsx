@@ -2,18 +2,19 @@ import { useEffect, useState } from "react";
 
 import { useSelection } from "@/context/SelectionContext";
 import { usePermission } from "@/context/AuthContext";
-import { DetailRow, PanelCard } from "@/framework/ui";
+import { BrowseList, DetailRow, PanelCard, type BrowseListItem } from "@/framework/ui";
 
+import { constructionProjects, findConstructionNode, type ConstructionTreeNode } from "../constructionData";
 import { FACTORY_NODE, isConstructionProjectId, resolveSite, type SitePrecision } from "../constructionLocations";
 import {
   cancelPlacement,
   clearSite,
+  setHoveredSite,
   setSiteAddress,
   startPlacement,
   useSiteState,
 } from "../constructionSiteStore";
-import { findProjectIdForNode } from "../constructionData";
-import ConstructionDocuments from "../ConstructionDocuments/ConstructionDocuments";
+import { clearDocumentPreview } from "../constructionDocumentPreviewStore";
 
 const PRECISION_LABEL: Record<SitePrecision, string> = {
   unlocated: "Unlocated — no real location data",
@@ -22,6 +23,14 @@ const PRECISION_LABEL: Record<SitePrecision, string> = {
   sited: "Sited — placed on map",
 };
 
+function toBrowseItems(nodes: ConstructionTreeNode[]): BrowseListItem[] {
+  return nodes.map((node) => ({
+    id: node.id,
+    title: node.title,
+    children: node.children ? toBrowseItems(node.children) : undefined,
+  }));
+}
+
 /**
  * "Site this project" — assign/edit an address string and place the
  * project on the Construction Enterprises Map. The address is metadata
@@ -29,25 +38,21 @@ const PRECISION_LABEL: Record<SitePrecision, string> = {
  * map click. Assignments persist to real Postgres via the ff-backend API;
  * clearing falls back to the honest fixture state (county-level for Garden
  * Lofts, unlocated for the rest).
+ *
+ * Unchanged from the old ConstructionInspector.tsx (Construction tab reorg
+ * only moved which panel this renders in, not its own behavior).
  */
 function SiteSection({ projectId }: { projectId: string }) {
   const { overrides, placementFor, loading, error } = useSiteState();
   const site = resolveSite(projectId, overrides);
   const hasOverride = projectId in overrides;
   const placing = placementFor === projectId;
-  // Phase 3c — UX/honesty gating only, mirroring the real enforcement that
-  // already exists server-side (backend/src/routes/constructionSites.ts).
-  // Unlike Manufacturing/Factory's bridge-hosted controls, a real backend
-  // check backs this up regardless of what the UI does — this just stops
-  // the app from offering an action that would 403 anyway.
   const updatePermission = usePermission("construction", "update");
   const deletePermission = usePermission("construction", "delete");
 
   const [draft, setDraft] = useState(site.address ?? "");
   useEffect(() => {
     setDraft(site.address ?? "");
-    // Re-sync the input when the selected project (or its stored address) changes —
-    // also fires once the initial GET /construction-sites resolves.
   }, [projectId, site.address]);
 
   const commitAddress = () => {
@@ -133,19 +138,65 @@ function SiteSection({ projectId }: { projectId: string }) {
   );
 }
 
-export default function ConstructionInspector() {
-  const { selected } = useSelection();
+/**
+ * Construction tab reorganization — new right panel, "Project Objects."
+ * Merges what used to be two separate panels:
+ *  - ConstructionBrowse.tsx's tree (Project -> Building/Floor/Floor Plans),
+ *    including its two-way hover sync with the map and project/building/
+ *    floor selection driving SelectionContext — moved here verbatim.
+ *  - ConstructionInspector.tsx's generic detail view (name/progress/trade/
+ *    inspector/punchlist), SiteSection, and the Factory-node location
+ *    block — moved here verbatim, MINUS the ConstructionDocuments mount,
+ *    which relocated to the new left panel (ConstructionProjects.tsx).
+ *
+ * This is now genuinely "decoupled from documents entirely" — nothing in
+ * this file references projectFilesApi/ConstructionDocuments at all.
+ *
+ * Selecting anything here also clears the document-preview store — moving
+ * within the real project/building/floor structure is exactly the
+ * "clicking elsewhere" the brief describes as reverting the center panel
+ * back to the map.
+ */
+export default function ConstructionProjectObjects() {
+  const { selected, setSelected } = useSelection();
+  const { hoveredId } = useSiteState();
+  const activeId = selected?.feature === "construction" ? selected.objectId : undefined;
+
   const sel = selected?.feature === "construction" ? selected : undefined;
   const isProject = sel !== undefined && isConstructionProjectId(sel.objectId);
   const isFactory = sel?.objectId === FACTORY_NODE.id;
-  // Documents attach to any real tree node (a project root, a building, a
-  // floor) — not just Project rows the way SiteSection is. The backend
-  // needs projectId and treeNodeId as separate real fields; Browse only
-  // ever gives us the selected node's own id, so derive the project here.
-  const documentsProjectId = sel && !isFactory ? findProjectIdForNode(sel.objectId) : undefined;
 
   return (
-    <PanelCard title="Selected Object" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+    <PanelCard title="Project Objects" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+      <BrowseList
+        items={toBrowseItems(constructionProjects)}
+        activeId={activeId}
+        hoveredId={hoveredId ?? undefined}
+        onHover={(id) => setHoveredSite(id && isConstructionProjectId(id) ? id : null)}
+        onSelect={(id) => {
+          const node = findConstructionNode(id);
+          if (!node) return;
+          clearDocumentPreview();
+          if (node.inspectable) {
+            setSelected({
+              feature: "construction",
+              objectType: node.objectType,
+              objectId: node.id,
+              payload: { name: node.title, ...node.inspectable },
+            });
+            return;
+          }
+          if (node.objectType === "Project") {
+            setSelected({
+              feature: "construction",
+              objectType: "Project",
+              objectId: node.id,
+              payload: { name: node.title, progress: "—", trade: "—", inspector: "—", punchListCount: "—" },
+            });
+          }
+        }}
+      />
+
       <div className="mt-4">
         <h2 className="text-xl font-bold" style={{ color: "var(--ff-text-primary)" }}>{sel?.payload.name ?? "Nothing Selected"}</h2>
         <p className="mt-1 font-semibold" style={{ color: "var(--ff-accent)" }}>{sel?.objectType ?? "Select an object"}</p>
@@ -159,10 +210,6 @@ export default function ConstructionInspector() {
       </div>
 
       {isProject && <SiteSection projectId={sel.objectId} />}
-
-      {documentsProjectId && sel && (
-        <ConstructionDocuments projectId={documentsProjectId} treeNodeId={sel.objectId} />
-      )}
 
       {isFactory && (
         <div className="mt-6 border-t pt-4" style={{ borderColor: "var(--ff-panel-border)" }}>

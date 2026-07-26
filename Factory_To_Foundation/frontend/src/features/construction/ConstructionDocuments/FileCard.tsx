@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { usePermission } from "@/context/AuthContext";
 
@@ -12,7 +12,9 @@ import {
   PROJECT_FILE_CATEGORIES,
   type ProjectFile,
 } from "../projectFilesApi";
+import { selectDocumentForPreview, useDocumentPreview } from "../constructionDocumentPreviewStore";
 import { formatBytes, iconForContentType } from "./fileIcons";
+import { useFilePreviewUrl } from "./useFilePreviewUrl";
 
 type Mode = "view" | "editing" | "confirmingDelete";
 
@@ -35,32 +37,20 @@ export default function FileCard({ file, onChanged }: FileCardProps) {
   const [history, setHistory] = useState<ProjectFile[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
   const updatePermission = usePermission("construction", "update");
   const deletePermission = usePermission("construction", "delete");
 
   const Icon = iconForContentType(file.contentType);
-  const isImage = file.contentType.startsWith("image/");
 
-  // Real thumbnail — only for actual image/* files, using the real
-  // presigned download URL as the <img> src. Every other content type
-  // gets the icon above instead of a fabricated preview.
-  useEffect(() => {
-    if (!isImage) return;
-    let cancelled = false;
-    getDownloadUrl(file.fileId)
-      .then((res) => {
-        if (!cancelled) setThumbnailUrl(res.url);
-      })
-      .catch(() => {
-        // Honest fallback: no thumbnail rather than a broken one — the icon still shows.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [file.fileId, isImage]);
+  // Real thumbnail — shared with the center-panel document viewer
+  // (useFilePreviewUrl), only ever populated for real image/* files. Every
+  // other content type gets the icon above instead of a fabricated preview.
+  const thumbnailUrl = useFilePreviewUrl(file);
+
+  const { file: previewedFile } = useDocumentPreview();
+  const isPreviewed = previewedFile?.fileId === file.fileId;
 
   async function handleDownload() {
     setError(null);
@@ -147,8 +137,25 @@ export default function FileCard({ file, onChanged }: FileCardProps) {
   }
 
   return (
-    <div className="rounded border px-3 py-2" style={{ borderColor: "var(--ff-panel-border)" }}>
-      <div className="flex items-start gap-2">
+    <div
+      className="rounded border px-3 py-2"
+      style={{ borderColor: isPreviewed ? "var(--ff-accent)" : "var(--ff-panel-border)" }}
+    >
+      <div
+        className="flex items-start gap-2"
+        role={mode === "view" ? "button" : undefined}
+        tabIndex={mode === "view" ? 0 : undefined}
+        onClick={mode === "view" ? () => selectDocumentForPreview(file) : undefined}
+        onKeyDown={
+          mode === "view"
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") selectDocumentForPreview(file);
+              }
+            : undefined
+        }
+        title={mode === "view" ? "Click to preview in the center panel" : undefined}
+        style={{ cursor: mode === "view" ? "pointer" : undefined }}
+      >
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded" style={{ background: "var(--ff-chrome-bg)" }}>
           {thumbnailUrl ? (
             <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />

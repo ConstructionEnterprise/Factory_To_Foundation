@@ -12,12 +12,21 @@ type ConstructionDocumentsProps = {
 };
 
 /**
- * Construction Document Management (Phase 4) — real category folders (the
- * brief's 4 real values) under whichever tree node is currently selected
- * in Browse, each holding real file cards backed by the real S3-uploaded
- * documents for that exact node. Scaffolding-phase honesty: an empty
- * category is just empty, never a fabricated "no documents" illustration
- * beyond plain text.
+ * Construction Document Management — real category folders (the brief's 4
+ * real values) for a given project, each holding real file cards backed by
+ * the real S3-uploaded documents for that exact project. Scaffolding-phase
+ * honesty: an empty category is just empty, never a fabricated "no
+ * documents" illustration beyond plain text.
+ *
+ * Reused verbatim from Phase 4 of the original build — only its mount
+ * point changed (Construction tab reorg): originally mounted once per
+ * selected tree node inside the old Inspector (any node — project,
+ * building, or floor); now mounted once per project inside the new left
+ * panel (ConstructionProjects.tsx), always with the project's own id as
+ * treeNodeId. The outer "Documents" sub-section wrapper (a top border +
+ * header, styled for appearing after other Inspector content) was removed
+ * since this is now the sole content of its own CollapsibleSection, which
+ * already has its own header.
  */
 export default function ConstructionDocuments({ projectId, treeNodeId }: ConstructionDocumentsProps) {
   const [files, setFiles] = useState<ProjectFile[] | null>(null);
@@ -62,11 +71,7 @@ export default function ConstructionDocuments({ projectId, treeNodeId }: Constru
   }
 
   return (
-    <div className="mt-6 border-t pt-4" style={{ borderColor: "var(--ff-panel-border)" }}>
-      <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ff-text-secondary)" }}>
-        Documents
-      </h3>
-
+    <div>
       {files === null && !error && (
         <p className="mt-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
           Loading documents…
