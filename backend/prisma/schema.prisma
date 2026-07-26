@@ -668,6 +668,13 @@ model LogisticsDispatch {
   /// Placeholder only — not a live traffic-API integration this pass.
   traffic String?
 
+  /// Added when the real Dispatch-creation form was built (not part of
+  /// Phase 4's original schema) — a real, user-entered estimate, never
+  /// computed from route/traffic (neither is structured enough to derive
+  /// one from). Nullable: honestly absent until someone enters one, not
+  /// defaulted to a fabricated time.
+  eta DateTime?
+
   dispatchedAt DateTime @default(now()) @map("dispatched_at")
 
   modules   LogisticsModule[]

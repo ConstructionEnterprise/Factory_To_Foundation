@@ -1,7 +1,10 @@
+import { useState } from "react";
+
 import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 
 import {
   LogisticsBrowse,
+  LogisticsDispatchForm,
   LogisticsInspector,
   LogisticsMap,
   LogisticsToolbar,
@@ -15,15 +18,34 @@ const logisticsKpis: KpiDefinition[] = [
 ];
 
 export default function LogisticsPage() {
+  // Real, provisional Dispatch-creation entry point — see
+  // LogisticsDispatchForm's own doc comment for why it lives here (a
+  // modal triggered from the toolbar) rather than in a real Browse
+  // Logistics panel, which Phase 8 hasn't built yet.
+  const [showDispatchForm, setShowDispatchForm] = useState(false);
+
   return (
-    <FeaturePage
-      pageLabel="Logistics"
-      pageSubtitle="Material & Module Flow"
-      kpis={<KpiList kpis={logisticsKpis} />}
-      toolbar={<LogisticsToolbar />}
-      left={<LogisticsBrowse />}
-      center={<LogisticsMap />}
-      right={<LogisticsInspector />}
-    />
+    <>
+      <FeaturePage
+        pageLabel="Logistics"
+        pageSubtitle="Material & Module Flow"
+        kpis={<KpiList kpis={logisticsKpis} />}
+        toolbar={<LogisticsToolbar onNewDispatch={() => setShowDispatchForm(true)} />}
+        left={<LogisticsBrowse />}
+        center={<LogisticsMap />}
+        right={<LogisticsInspector />}
+      />
+      {showDispatchForm && (
+        <LogisticsDispatchForm
+          onClose={() => setShowDispatchForm(false)}
+          onCreated={() => {
+            // No real dispatch list is rendered anywhere yet (Phase 8) —
+            // nothing to refresh this pass. Kept as an explicit no-op
+            // callback (not omitted) so a future real list only has to
+            // fill this in, not restructure the call site.
+          }}
+        />
+      )}
+    </>
   );
 }
