@@ -98,8 +98,8 @@ model User {
 
   instructionExecutions InstructionExecution[]
   refreshTokens         RefreshToken[]
-  uploadedFiles         ProjectFile[] @relation("ProjectFileUploadedBy")
-  deletedFiles          ProjectFile[] @relation("ProjectFileDeletedBy")
+  uploadedFiles         ProjectFile[]          @relation("ProjectFileUploadedBy")
+  deletedFiles          ProjectFile[]          @relation("ProjectFileDeletedBy")
 
   @@map("user")
 }
@@ -299,9 +299,10 @@ model ConstructionProject {
   /// projects with no real location source anywhere (honest, not guessed).
   realLocationSource String? @map("real_location_source")
 
-  site      ConstructionSite?
-  treeNodes ConstructionTreeNode[]
-  files     ProjectFile[]
+  site                ConstructionSite?
+  treeNodes           ConstructionTreeNode[]
+  files               ProjectFile[]
+  logisticsDispatches LogisticsDispatch[]
 
   @@map("construction_project")
 }
@@ -389,7 +390,7 @@ model ProjectFile {
   /// Drawings & Models | Field Documentation | Quality & Safety. A real,
   /// required classification independent of treeNodeId (which building/
   /// floor) — this is which kind of document it is.
-  category String @map("category")
+  category    String  @map("category")
   /// Real specific document type within category (e.g. "Building Permit",
   /// "RFI") — absent when the category alone is specific enough, never a
   /// fabricated subtype invented to fill the column.
@@ -404,10 +405,10 @@ model ProjectFile {
   originalFilename String @map("original_filename")
   /// Real MIME type as reported by the upload, never guessed from
   /// extension alone if the client provides a real one.
-  contentType String @map("content_type")
+  contentType      String @map("content_type")
   /// Real byte size, confirmed server-side against what S3 actually
   /// stored — never trusted from the client alone.
-  sizeBytes Int @map("size_bytes")
+  sizeBytes        Int    @map("size_bytes")
 
   /// Real S3 object key, following the storage layout convention above —
   /// the only pointer to the actual bytes. Never store bytes in Postgres.
@@ -543,4 +544,131 @@ model ScheduleWire {
   toPort     SchedulePort @relation("ScheduleWireTo", fields: [toPortId], references: [id], onDelete: Cascade)
 
   @@map("schedule_wire")
+}
+
+// ───────────────────── Logistics ─────────────────────
+// Phase 4 of the Logistics brief (Factory_To_Foundation/frontend/CLAUDE.md
+// §17) — real data model for Material (Storage), Module (Yard), Truck,
+// Driver, and Dispatch (Transportation). Zone is expressed by which table a
+// row lives in — matching the real LogisticsZone groupings LogisticsBrowse
+// already uses (receiving/storage/yard/transportation, confirmed in Phase
+// 1) — rather than a duplicated zone column repeated on every row. No
+// Receiving model yet; this phase's brief didn't call for one.
+//
+// Investigated before modeling, per the brief:
+// - Dispatch.destination is a REAL FK to ConstructionProject, not free
+//   text. Phase 3's corridor cross-nav already resolves a real per-project
+//   destination coordinate (constructionLocations.ts's resolveSite()) the
+//   exact same way a dispatch's destination needs to; a free-text field
+//   would be a regression relative to what Phase 3 already established as
+//   real, and would let a dispatch name a destination that doesn't
+//   correspond to any real project. Site precision (unlocated/region/
+//   sited) still stays computed in the frontend, same as everywhere else —
+//   this FK only needs the real project to exist, not a resolved location.
+// - LogisticsModule (Yard) gets NO foreign key to any Manufacturing or
+//   Scheduling concept. CLAUDE.md gap #12 leaves open whether a
+//   Manufacturing "unit" and a Scheduling "module" are even the same
+//   concept — forcing a Logistics "module in the yard" onto either would
+//   silently answer a question this project has deliberately left open.
+//   Kept as its own standalone real table, scoped to Logistics only — same
+//   discipline as not forcing ConstructionTreeNode's fixture ids into a
+//   real FK before that reconciliation is settled.
+// - Module's real lifecycle state (staged in the yard / in transit /
+//   delivered) is derived from whether `dispatchId` is set and that
+//   dispatch's own `status` — deliberately no separate status column on
+//   Module itself, same "derived, never stored" discipline as
+//   ConstructionSite's precision. A real status column only exists once,
+//   on Dispatch, the record that actually changes state.
+// - Dispatch.route ships as a nullable free-text field, not a structured
+//   shape — confirmed no real routing/GPS/directions data exists anywhere
+//   in this codebase to back one (LogisticsMap's own doc comments are
+//   explicit that no real route-a-truck-takes data exists). Same honest-
+//   placeholder treatment as Dispatch.traffic — a real non-decision, not
+//   an oversight.
+//
+// Ships as scaffolding only, per the brief: real migration, zero seeded
+// rows — same "empty is honest, a fabricated row is not" standard already
+// applied to ConstructionSite in Phase 2.
+
+enum LogisticsStatus {
+  staged
+  in_transit
+  delivered
+}
+
+model LogisticsMaterial {
+  id String @id @default(cuid())
+
+  name     String
+  quantity Int?
+  /// Real, free-text current location within Storage (e.g. "Bay A") —
+  /// metadata only, same non-geocoded-metadata posture as
+  /// ConstructionSite.address; no coordinate promotion implied.
+  location String?
+
+  @@map("logistics_material")
+}
+
+model LogisticsModule {
+  id String @id @default(cuid())
+
+  name     String
+  /// Real, free-text current position within the Yard (e.g. "Yard Row 3").
+  location String?
+
+  /// Null while staged in the yard with no haul assigned yet — see the
+  /// derived-status note above for why Module itself carries no status.
+  dispatchId String?            @map("dispatch_id")
+  dispatch   LogisticsDispatch? @relation(fields: [dispatchId], references: [id])
+
+  @@map("logistics_module")
+}
+
+model LogisticsTruck {
+  id String @id @default(cuid())
+
+  /// Real stable unit/plate identifier (e.g. "TRL-118").
+  identifier String @unique
+
+  dispatches LogisticsDispatch[]
+
+  @@map("logistics_truck")
+}
+
+model LogisticsDriver {
+  id   String @id @default(cuid())
+  name String
+
+  dispatches LogisticsDispatch[]
+
+  @@map("logistics_driver")
+}
+
+model LogisticsDispatch {
+  id String @id @default(cuid())
+
+  truckId String         @map("truck_id")
+  truck   LogisticsTruck @relation(fields: [truckId], references: [id])
+
+  driverId String          @map("driver_id")
+  driver   LogisticsDriver @relation(fields: [driverId], references: [id])
+
+  /// Real FK to the real destination project — see the investigation note
+  /// above for why this isn't free text.
+  destinationProjectId String              @map("destination_project_id")
+  destinationProject   ConstructionProject @relation(fields: [destinationProjectId], references: [id])
+
+  status LogisticsStatus @default(staged)
+
+  /// Real, free-text current position (e.g. "Route 45, Mile 12") — no real
+  /// routing/GPS data exists anywhere to back a structured shape.
+  route   String?
+  /// Placeholder only — not a live traffic-API integration this pass.
+  traffic String?
+
+  dispatchedAt DateTime @default(now()) @map("dispatched_at")
+
+  modules LogisticsModule[]
+
+  @@map("logistics_dispatch")
 }
