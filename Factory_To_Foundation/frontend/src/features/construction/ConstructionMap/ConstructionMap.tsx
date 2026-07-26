@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Line, OrbitControls, PerspectiveCamera, Text } from "@react-three/drei";
 import * as THREE from "three";
+import { useNavigate } from "react-router-dom";
 
 import { Legend, PanelCard } from "@/framework/ui";
 import { useSelection } from "@/context/SelectionContext";
@@ -35,6 +36,7 @@ import {
   useSiteState,
 } from "../constructionSiteStore";
 import { constructionProjects } from "../constructionData";
+import type { CorridorTarget, CorridorNavState } from "../corridorNav";
 
 /**
  * Construction Enterprises Map — the Construction feature's viewport.
@@ -967,29 +969,55 @@ function FactoryMassing() {
  * Delivery corridor arc from Chappell International to a project site.
  * Dashed when the endpoint is only county-level approximate.
  *
- * Future hook (NOT v1 scope, deliberately not built): Logistics could
- * animate real module deliveries along these same curves — the curve
- * object here is the natural attachment point for that.
+ * Phase 3 (cross-nav): clickable, same as any other real site object —
+ * reveals the underlying real project (setSelected) and jumps to Logistics'
+ * map framed on this corridor's real endpoints (see corridorNav.ts for why
+ * that second part travels via router state rather than SelectionContext).
+ * The arc itself renders exactly as before — unchanged.
+ *
+ * The real click target is a small marker at the arc's real peak (its
+ * highest, most visually distinct point, already the arc's natural
+ * "midpoint" affordance) using ordinary mesh raycasting, not the arc's own
+ * thin Line2 geometry. Found live that trying to make the thin arc itself
+ * (even with a widened Line2 raycast threshold, even trimmed by real XZ
+ * distance from both endpoints) directly clickable kept winning over the
+ * factory massing's own click zone right at the shared origin — the
+ * elevated curve visually passes close over the factory box from this
+ * camera angle regardless of how it's trimmed, an artifact of screen-space
+ * projection, not real-world distance. A small precise marker mesh, using
+ * the same reliable raycasting SiteGroup/FactoryMassing already use, avoids
+ * that fight entirely and gives users an obvious, discoverable place to
+ * click rather than expecting a precise hit on a 1.6px line.
  */
-function Corridor({ to, approx }: { to: MapXZ; approx: boolean }) {
-  const points = useMemo(() => {
+function Corridor({ to, approx, onSelect }: { to: MapXZ; approx: boolean; onSelect: (e: ThreeEvent<MouseEvent>) => void }) {
+  const curve = useMemo(() => {
     const start = new THREE.Vector3(FACTORY_COORDS.x, COUNTY_DEPTH + 0.6, FACTORY_COORDS.z);
     const end = new THREE.Vector3(to.x, COUNTY_DEPTH + 0.6, to.z);
     const mid = start.clone().lerp(end, 0.5);
     mid.y = Math.max(5, start.distanceTo(end) * 0.2);
-    return new THREE.QuadraticBezierCurve3(start, mid, end).getPoints(48);
+    return new THREE.QuadraticBezierCurve3(start, mid, end);
   }, [to.x, to.z]);
+  const points = useMemo(() => curve.getPoints(48), [curve]);
+  const peak = useMemo(() => curve.getPoint(0.5), [curve]);
+
   return (
-    <Line
-      points={points}
-      color={ACCENT}
-      lineWidth={1.6}
-      transparent
-      opacity={0.65}
-      dashed={approx}
-      dashSize={1.6}
-      gapSize={1.1}
-    />
+    <>
+      <Line points={points} color={ACCENT} lineWidth={1.6} transparent opacity={0.65} dashed={approx} dashSize={1.6} gapSize={1.1} />
+      <mesh
+        position={peak}
+        onClick={onSelect}
+        onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "auto";
+        }}
+      >
+        <sphereGeometry args={[2.6, 12, 12]} />
+        <meshBasicMaterial color={ACCENT} transparent opacity={0.85} />
+      </mesh>
+    </>
   );
 }
 
@@ -1006,6 +1034,7 @@ function MapScene({
   showWetUtilities,
   showRoads,
   setSelected,
+  onCorridorClick,
 }: {
   sites: ResolvedSite[];
   selectedId: string | undefined;
@@ -1017,6 +1046,7 @@ function MapScene({
   showWetUtilities: boolean;
   showRoads: boolean;
   setSelected: SetSelected;
+  onCorridorClick: (target: CorridorTarget) => void;
 }) {
   const titleOf = (projectId: string) => constructionProjects.find((p) => p.id === projectId)?.title ?? projectId;
 
@@ -1110,7 +1140,21 @@ function MapScene({
                 <ApproxRing region={site.region} />
               </group>
             )}
-            {showCorridors && <Corridor to={anchor} approx={site.precision === "region"} />}
+            {showCorridors && (
+              <Corridor
+                to={anchor}
+                approx={site.precision === "region"}
+                onSelect={(e) => {
+                  e.stopPropagation();
+                  onCorridorClick({
+                    projectId: site.projectId,
+                    title: titleOf(site.projectId),
+                    coords: anchor,
+                    approx: site.precision === "region",
+                  });
+                }}
+              />
+            )}
           </group>
         );
       })}
@@ -1121,6 +1165,7 @@ function MapScene({
 export default function ConstructionMap() {
   const { selected, setSelected } = useSelection();
   const { overrides, placementFor, hoveredId } = useSiteState();
+  const navigate = useNavigate();
   const [showCorridors, setShowCorridors] = useState(true);
   const [showGraticule, setShowGraticule] = useState(true);
   const [showContours, setShowContours] = useState(true);
@@ -1133,6 +1178,19 @@ export default function ConstructionMap() {
   const placingTitle = placementFor
     ? constructionProjects.find((p) => p.id === placementFor)?.title ?? placementFor
     : null;
+
+  /**
+   * Phase 3 cross-nav: reuses the Factory→Robotics pattern's real half
+   * (setSelected, with the honest "construction" shape for what was
+   * actually clicked — the real project, not a fabricated logistics
+   * shipment) plus a real navigate() to Logistics — but the corridor's real
+   * endpoint travels via router state, not through setSelected's payload.
+   * See corridorNav.ts for why.
+   */
+  const handleCorridorClick = (target: CorridorTarget) => {
+    setSelected({ feature: "construction", objectType: "Project", objectId: target.projectId, payload: selectionPayload(target.title) });
+    navigate("/logistics", { state: { corridorTarget: target } satisfies CorridorNavState });
+  };
 
   // Esc cancels placement mode.
   useEffect(() => {
@@ -1231,6 +1289,7 @@ export default function ConstructionMap() {
             showWetUtilities={showWetUtilities}
             showRoads={showRoads}
             setSelected={setSelected}
+            onCorridorClick={handleCorridorClick}
           />
           <InitialCamera />
           <CompassTracker needleRef={compassNeedleRef} />

@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Line, OrbitControls, PerspectiveCamera, Text } from "@react-three/drei";
 import * as THREE from "three";
@@ -8,6 +9,7 @@ import { Legend, PanelCard } from "@/framework/ui";
 import { PROJECTED_COUNTIES, PROJECTED_ROADS } from "@/features/construction/projectedMapData";
 import { FACTORY_COORDS, FACTORY_NODE } from "@/features/construction/constructionLocations";
 import type { MapXZ } from "@/features/construction/mapProjection";
+import type { CorridorNavState, CorridorTarget } from "@/features/construction/corridorNav";
 
 /**
  * Logistics Enterprises Map (Phase 2 of the Logistics brief) — real North
@@ -36,6 +38,17 @@ import type { MapXZ } from "@/features/construction/mapProjection";
  * county) clears it. This also sidesteps the earlier proximity-dedup
  * problem entirely — only what's explicitly selected ever shows text, so
  * automatic label clutter can't recur.
+ *
+ * Phase 3 (corridor cross-nav): when arriving here via a click on
+ * Construction map's F»F Corridor arc, `location.state.corridorTarget`
+ * (see corridorNav.ts) carries that corridor's real destination endpoint —
+ * the same real MapXZ coords Construction already computed for that site,
+ * so no new mapping/lookup was needed to make this honest. The camera
+ * frames both the real factory and that real destination; a marker and the
+ * same illustrative corridor arc Construction draws (dashed when the site
+ * is only county-level approximate) render for continuity. This is
+ * deliberately NOT a "here is the real road route a truck takes" claim —
+ * no real data determines that, so nothing here asserts it.
  */
 
 const ACCENT = "#d9631e";
@@ -50,17 +63,33 @@ const COUNTY_BORDER = "#d8dbe0";
 const INTERSTATE_COLOR = "#c0392b";
 const HIGHWAY_COLOR = "#d98a3d";
 const SELECTED_COLOR = "#f2c94c";
+const DESTINATION_COLOR = "#2f80c4";
 const ROADS_Y = 0.03;
 
 const SCENE_TARGET: [number, number, number] = [FACTORY_COORDS.x, 0, FACTORY_COORDS.z];
 const CAMERA_EYE: [number, number, number] = [FACTORY_COORDS.x, 90, FACTORY_COORDS.z + 70];
 
-function InitialCamera() {
+/** Default framing (factory-centered) when no corridor was clicked to get
+ * here; otherwise frames both the real factory and the real corridor
+ * destination regardless of how far apart they are. Pure geometry — no
+ * fabricated data, just camera placement math. */
+function computeFraming(dest: MapXZ | undefined): { eye: [number, number, number]; center: [number, number, number] } {
+  if (!dest) return { eye: CAMERA_EYE, center: SCENE_TARGET };
+  const midX = (FACTORY_COORDS.x + dest.x) / 2;
+  const midZ = (FACTORY_COORDS.z + dest.z) / 2;
+  const span = Math.hypot(dest.x - FACTORY_COORDS.x, dest.z - FACTORY_COORDS.z);
+  const height = Math.max(60, span * 0.75);
+  const back = Math.max(50, span * 0.5);
+  return { eye: [midX, height, midZ + back], center: [midX, 0, midZ] };
+}
+
+function InitialCamera({ eye, center }: { eye: [number, number, number]; center: [number, number, number] }) {
   const camRef = useRef<THREE.PerspectiveCamera>(null);
   useLayoutEffect(() => {
-    camRef.current?.position.set(...CAMERA_EYE);
-    camRef.current?.lookAt(...SCENE_TARGET);
-  }, []);
+    camRef.current?.position.set(...eye);
+    camRef.current?.lookAt(...center);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eye[0], eye[1], eye[2], center[0], center[1], center[2]]);
   return <PerspectiveCamera ref={camRef} makeDefault fov={45} near={1} far={2000} />;
 }
 
@@ -283,7 +312,73 @@ function FactoryLandmark() {
   );
 }
 
-function MapScene({ selectedKeys, onSelect, onClear }: { selectedKeys: Set<string>; onSelect: (key: string, additive: boolean) => void; onClear: () => void }) {
+/** Same illustrative arc Construction map draws from the factory to a
+ * project site (not a real road route — see the doc comment up top).
+ * Carried over here purely for visual continuity with what was clicked;
+ * non-interactive (raycast disabled), since it isn't a new click target. */
+function DestinationCorridor({ dest, approx }: { dest: MapXZ; approx: boolean }) {
+  const points = useMemo(() => {
+    const start = new THREE.Vector3(FACTORY_COORDS.x, 0.6, FACTORY_COORDS.z);
+    const end = new THREE.Vector3(dest.x, 0.6, dest.z);
+    const mid = start.clone().lerp(end, 0.5);
+    mid.y = Math.max(5, start.distanceTo(end) * 0.2);
+    return new THREE.QuadraticBezierCurve3(start, mid, end).getPoints(48);
+  }, [dest.x, dest.z]);
+  return (
+    <Line
+      points={points}
+      color={ACCENT}
+      lineWidth={2}
+      transparent
+      opacity={0.7}
+      dashed={approx}
+      dashSize={1.6}
+      gapSize={1.1}
+      raycast={() => null}
+    />
+  );
+}
+
+/** Real destination endpoint from a clicked corridor — the real project's
+ * real site coords, carried straight through from Construction's map (see
+ * corridorNav.ts). Dashed-arc precedent for approx is mirrored here as a
+ * "(approx.)" suffix on the label, same honesty rule as Construction's map. */
+function DestinationMarker({ target }: { target: CorridorTarget }) {
+  return (
+    <group position={[target.coords.x, 0.02, target.coords.z]}>
+      <mesh position={[0, 1.2, 0]} raycast={() => null}>
+        <coneGeometry args={[0.9, 2.4, 4]} />
+        <meshStandardMaterial color={DESTINATION_COLOR} />
+      </mesh>
+      <Text
+        position={[0, 0.03, 3.4]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        fontSize={1.7}
+        color={DESTINATION_COLOR}
+        fontWeight="bold"
+        anchorX="center"
+        anchorY="top"
+        outlineWidth={0.04}
+        outlineColor="#ffffff"
+      >
+        {target.title}
+        {target.approx ? " (approx. — county-level)" : ""}
+      </Text>
+    </group>
+  );
+}
+
+function MapScene({
+  selectedKeys,
+  onSelect,
+  onClear,
+  corridorTarget,
+}: {
+  selectedKeys: Set<string>;
+  onSelect: (key: string, additive: boolean) => void;
+  onClear: () => void;
+  corridorTarget: CorridorTarget | undefined;
+}) {
   return (
     <group>
       {/* Background plane — any click that isn't on a road/highway lands
@@ -317,12 +412,19 @@ function MapScene({ selectedKeys, onSelect, onClear }: { selectedKeys: Set<strin
       ))}
 
       <FactoryLandmark />
+
+      {corridorTarget && <DestinationCorridor dest={corridorTarget.coords} approx={corridorTarget.approx} />}
+      {corridorTarget && <DestinationMarker target={corridorTarget} />}
     </group>
   );
 }
 
 export default function LogisticsMap() {
+  const location = useLocation();
+  const corridorTarget = (location.state as CorridorNavState | null)?.corridorTarget;
+
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const framing = useMemo(() => computeFraming(corridorTarget?.coords), [corridorTarget]);
 
   const handleSelect = (key: string, additive: boolean) => {
     setSelectedKeys((prev) => {
@@ -341,6 +443,12 @@ export default function LogisticsMap() {
         <Legend color={INTERSTATE_COLOR} label="Interstate / Controlled-Access Highway" />
         <Legend color={HIGHWAY_COLOR} label="US / State Highway" />
         <Legend color={ACCENT} label="Chappell International (F»F hub)" />
+        {corridorTarget && (
+          <Legend
+            color={DESTINATION_COLOR}
+            label={`Delivery destination — ${corridorTarget.title}${corridorTarget.approx ? " (approx.)" : ""}`}
+          />
+        )}
         <span className="text-[0.7rem]" style={{ color: "var(--ff-text-muted)" }}>
           Click a road for its name — Ctrl/Cmd-click to select more than one
         </span>
@@ -350,14 +458,14 @@ export default function LogisticsMap() {
         <Canvas>
           <ambientLight intensity={0.9} />
           <directionalLight position={[120, 200, 80]} intensity={0.75} />
-          <MapScene selectedKeys={selectedKeys} onSelect={handleSelect} onClear={handleClear} />
-          <InitialCamera />
+          <MapScene selectedKeys={selectedKeys} onSelect={handleSelect} onClear={handleClear} corridorTarget={corridorTarget} />
+          <InitialCamera eye={framing.eye} center={framing.center} />
           <RaycastTuning />
           <OrbitControls
             makeDefault
             enableDamping
             dampingFactor={0.08}
-            target={SCENE_TARGET}
+            target={framing.center}
             maxPolarAngle={Math.PI * 0.47}
             minDistance={8}
             maxDistance={400}
