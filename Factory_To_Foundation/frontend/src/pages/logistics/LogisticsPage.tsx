@@ -3,7 +3,7 @@ import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 import {
   LogisticsBrowse,
   LogisticsInspector,
-  LogisticsLayout,
+  LogisticsMap,
   LogisticsToolbar,
 } from "@/features/logistics";
 
@@ -22,7 +22,7 @@ export default function LogisticsPage() {
       kpis={<KpiList kpis={logisticsKpis} />}
       toolbar={<LogisticsToolbar />}
       left={<LogisticsBrowse />}
-      center={<LogisticsLayout />}
+      center={<LogisticsMap />}
       right={<LogisticsInspector />}
     />
   );

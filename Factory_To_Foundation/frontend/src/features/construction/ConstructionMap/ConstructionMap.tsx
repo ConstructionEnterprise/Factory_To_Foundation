@@ -21,6 +21,7 @@ import {
   metersToFeet,
 } from "../northTexasElevation";
 import { USA_STATES } from "../usaStates";
+import { PROJECTED_COUNTIES, PROJECTED_ROADS, countyCentroid, type ProjectedCounty } from "../projectedMapData";
 import {
   FACTORY_COORDS,
   FACTORY_NODE,
@@ -112,25 +113,9 @@ function CompassTracker({ needleRef }: { needleRef: RefObject<HTMLDivElement | n
   return null;
 }
 
-// ── Counties: project the real Census rings into map space once, at module scope ──
-
-type ProjectedCounty = {
-  name: string;
-  core: boolean;
-  centroid: MapXZ;
-  rings: MapXZ[][];
-};
-
-const PROJECTED_COUNTIES: ProjectedCounty[] = NORTH_TEXAS_COUNTIES.map((c) => ({
-  name: c.name,
-  core: c.core,
-  centroid: projectLonLat(c.centroid),
-  rings: c.rings.map((ring) => ring.map((pt) => projectLonLat(pt))),
-}));
-
-export function countyCentroid(name: string): MapXZ | undefined {
-  return PROJECTED_COUNTIES.find((c) => c.name === name)?.centroid;
-}
+// ── Counties: real projected Census rings, promoted to projectedMapData.ts
+// once Logistics' own map (features/logistics/LogisticsMap.tsx) became a
+// real second consumer of the same real county/road geometry. ──
 
 // ── USA backdrop — real Census-derived continental US state outlines. ──
 // Context, not the subject: line outlines only (no fill), washed-out/
@@ -667,6 +652,49 @@ function WetUtilities() {
   );
 }
 
+// ── Roads — real Interstate/US/State highway geometry (USGS TNM /
+// TIGER-Line, see projectedMapData.ts + northTexasRoads.ts for the real
+// source/merge/simplify pipeline). A supporting layer here (subdued,
+// same restraint as Contours/Graticule) — Logistics' own map
+// (features/logistics/LogisticsMap.tsx) renders this same real data far
+// more prominently, since roads are that map's actual subject rather
+// than context. ──
+
+const ROADS_Y = COUNTY_DEPTH + 0.015; // above the Graticule (+0.01), below county labels (+0.05)
+const ROAD_INTERSTATE_COLOR = "#b8763f";
+const ROAD_HIGHWAY_COLOR = "#c9ad8a";
+
+function roadsToGeometry(cls: "interstate" | "highway"): THREE.BufferGeometry {
+  const positions: number[] = [];
+  for (const road of PROJECTED_ROADS) {
+    if (road.class !== cls) continue;
+    for (let i = 0; i < road.points.length - 1; i++) {
+      const a = road.points[i], b = road.points[i + 1];
+      positions.push(a.x, ROADS_Y, a.z, b.x, ROADS_Y, b.z);
+    }
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return geom;
+}
+
+const INTERSTATE_ROAD_GEOMETRY = roadsToGeometry("interstate");
+const HIGHWAY_ROAD_GEOMETRY = roadsToGeometry("highway");
+
+/** Real Interstate/US/State highway lines, pooled into two draw calls (matching ContourLines' regular/index pattern) rather than one <Line> per route. */
+function Roads() {
+  return (
+    <>
+      <lineSegments geometry={HIGHWAY_ROAD_GEOMETRY}>
+        <lineBasicMaterial color={ROAD_HIGHWAY_COLOR} transparent opacity={0.55} />
+      </lineSegments>
+      <lineSegments geometry={INTERSTATE_ROAD_GEOMETRY}>
+        <lineBasicMaterial color={ROAD_INTERSTATE_COLOR} transparent opacity={0.7} linewidth={1.5} />
+      </lineSegments>
+    </>
+  );
+}
+
 function countyGeometry(county: ProjectedCounty): THREE.ExtrudeGeometry {
   // Shape space (x, y) → world (x, 0, -y) under the -90° X rotation, so
   // shape y = -world z keeps the map north-up.
@@ -976,6 +1004,7 @@ function MapScene({
   showGraticule,
   showContours,
   showWetUtilities,
+  showRoads,
   setSelected,
 }: {
   sites: ResolvedSite[];
@@ -986,6 +1015,7 @@ function MapScene({
   showGraticule: boolean;
   showContours: boolean;
   showWetUtilities: boolean;
+  showRoads: boolean;
   setSelected: SetSelected;
 }) {
   const titleOf = (projectId: string) => constructionProjects.find((p) => p.id === projectId)?.title ?? projectId;
@@ -1037,6 +1067,9 @@ function MapScene({
       ))}
 
       {showGraticule && <Graticule />}
+
+      {/* Real Interstate/US/State highway geometry — supporting layer here, see Roads()'s own doc comment. */}
+      {showRoads && <Roads />}
 
       {/* Factory node — real, precise (Saginaw, TX, real geography) */}
       <SiteGroup
@@ -1092,6 +1125,7 @@ export default function ConstructionMap() {
   const [showGraticule, setShowGraticule] = useState(true);
   const [showContours, setShowContours] = useState(true);
   const [showWetUtilities, setShowWetUtilities] = useState(false);
+  const [showRoads, setShowRoads] = useState(true);
   const compassNeedleRef = useRef<HTMLDivElement>(null);
 
   const selectedId = selected?.feature === "construction" ? selected.objectId : undefined;
@@ -1156,6 +1190,19 @@ export default function ConstructionMap() {
         </button>
         <button
           type="button"
+          onClick={() => setShowRoads((v) => !v)}
+          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={
+            showRoads
+              ? { background: "var(--ff-accent)", color: "white" }
+              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+          }
+          title="Real Interstate/US/State highway geometry (USGS National Map Transportation service, real Census TIGER/Line data)"
+        >
+          Roads
+        </button>
+        <button
+          type="button"
           onClick={() => setShowWetUtilities((v) => !v)}
           className="rounded-full px-2.5 py-0.5 text-xs font-medium"
           style={
@@ -1182,6 +1229,7 @@ export default function ConstructionMap() {
             showGraticule={showGraticule}
             showContours={showContours}
             showWetUtilities={showWetUtilities}
+            showRoads={showRoads}
             setSelected={setSelected}
           />
           <InitialCamera />
