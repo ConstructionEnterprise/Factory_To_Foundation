@@ -98,6 +98,8 @@ model User {
 
   instructionExecutions InstructionExecution[]
   refreshTokens         RefreshToken[]
+  uploadedFiles         ProjectFile[] @relation("ProjectFileUploadedBy")
+  deletedFiles          ProjectFile[] @relation("ProjectFileDeletedBy")
 
   @@map("user")
 }
@@ -299,6 +301,7 @@ model ConstructionProject {
 
   site      ConstructionSite?
   treeNodes ConstructionTreeNode[]
+  files     ProjectFile[]
 
   @@map("construction_project")
 }
@@ -348,6 +351,83 @@ model ConstructionTreeNode {
   punchListCount String? @map("punch_list_count")
 
   @@map("construction_tree_node")
+}
+
+/// Construction Document Management (S3-backed), Phase 2. Real per-project
+/// document store — ProjectFile rows only ever reference S3 by key
+/// (`s3Key`), never proxy bytes through Postgres. Uploads/downloads go
+/// client -> S3 directly via presigned URLs (backend/src/lib/s3.ts); this
+/// row is what the backend writes after authenticating + checking
+/// construction:create/update/delete, before handing back a presigned URL.
+///
+/// Storage layout convention (S3 keys):
+///   projects/{projectId}/{treeNodeId}/{fileId}/{version}/{originalFilename}
+/// category/subcategory below are real queryable metadata only — they
+/// deliberately do NOT need to be part of the S3 key, since
+/// treeNodeId/fileId/version together already make every object key
+/// unique on their own.
+///
+/// Scaffolding only this phase — no real document data exists yet to
+/// migrate, so this ships with an honest empty state per project, same
+/// discipline ConstructionSite used at its own equivalent phase.
+model ProjectFile {
+  id String @id @default(cuid())
+
+  projectId String              @map("project_id")
+  project   ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// Real ConstructionTreeNode id this file is attached to (a project
+  /// root, a building, a floor — whatever node was selected in Browse at
+  /// upload time). NOT a foreign key to a Prisma model —
+  /// ConstructionTreeNode is a frontend fixture (constructionData.ts),
+  /// deliberately still not migrated to real backend reads this phase
+  /// (separately scoped). Validated against the real fixture id list at
+  /// the API layer instead (Phase 3), not enforced by a DB constraint.
+  treeNodeId String @map("tree_node_id")
+
+  /// Which Browse "folder" this file is filed under — Project Documents |
+  /// Drawings & Models | Field Documentation | Quality & Safety. A real,
+  /// required classification independent of treeNodeId (which building/
+  /// floor) — this is which kind of document it is.
+  category String @map("category")
+  /// Real specific document type within category (e.g. "Building Permit",
+  /// "RFI") — absent when the category alone is specific enough, never a
+  /// fabricated subtype invented to fill the column.
+  subcategory String? @map("subcategory")
+
+  /// Stable across all versions of the same logical file — what a
+  /// re-upload targets (the app passes the existing fileId when uploading
+  /// a new version), not a fresh one each time.
+  fileId  String @default(uuid()) @map("file_id")
+  version Int    @default(1)
+
+  originalFilename String @map("original_filename")
+  /// Real MIME type as reported by the upload, never guessed from
+  /// extension alone if the client provides a real one.
+  contentType String @map("content_type")
+  /// Real byte size, confirmed server-side against what S3 actually
+  /// stored — never trusted from the client alone.
+  sizeBytes Int @map("size_bytes")
+
+  /// Real S3 object key, following the storage layout convention above —
+  /// the only pointer to the actual bytes. Never store bytes in Postgres.
+  s3Key String @unique @map("s3_key")
+
+  uploadedById String   @map("uploaded_by_id")
+  uploadedBy   User     @relation("ProjectFileUploadedBy", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  /// Soft delete — never a hard row delete. The S3 object for every
+  /// version stays in the bucket regardless of this flag; this only hides
+  /// the row from real listing queries, so a real recovery/re-upload
+  /// scenario never requires touching S3 directly.
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
+  deletedBy   User?     @relation("ProjectFileDeletedBy", fields: [deletedById], references: [id])
+
+  @@unique([fileId, version])
+  @@index([projectId, treeNodeId])
+  @@map("project_file")
 }
 
 // ───────────────────── Genealogy ─────────────────────

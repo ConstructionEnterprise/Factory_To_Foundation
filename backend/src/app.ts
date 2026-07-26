@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 
 import { healthRoutes } from "./routes/health";
 import { constructionSiteRoutes } from "./routes/constructionSites";
+import { projectFileRoutes } from "./routes/projectFiles";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError } from "./lib/httpErrors";
 
@@ -91,6 +92,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(constructionSiteRoutes);
+  await app.register(projectFileRoutes);
 
   return app;
 }

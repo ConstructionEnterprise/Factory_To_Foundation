@@ -128,6 +128,23 @@ export function findConstructionNode(
   return undefined;
 }
 
+/**
+ * Which real project a given tree node belongs to (including the project
+ * itself) — needed by the Construction Document Management extension
+ * (Phase 4), since the backend's ProjectFile API takes projectId and
+ * treeNodeId as separate real fields, but a selected node in Browse only
+ * ever gives you the node's own id. The real tree is only ever two levels
+ * deep (Project -> Building/Floor/Floor Plans), so a direct-children check
+ * is sufficient — would need real recursion if that stopped being true.
+ */
+export function findProjectIdForNode(nodeId: string): string | undefined {
+  for (const project of constructionProjects) {
+    if (project.id === nodeId) return project.id;
+    if (project.children?.some((child) => child.id === nodeId)) return project.id;
+  }
+  return undefined;
+}
+
 // The old block-based "Site Plan" viewport (ConstructionProjectBox /
 // constructionProjectBoxes / toProjectEntityNode / getConstructionBounds)
 // was deleted when the Construction Enterprises Map replaced it — see

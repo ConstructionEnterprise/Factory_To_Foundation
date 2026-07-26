@@ -12,6 +12,8 @@ import {
   startPlacement,
   useSiteState,
 } from "../constructionSiteStore";
+import { findProjectIdForNode } from "../constructionData";
+import ConstructionDocuments from "../ConstructionDocuments/ConstructionDocuments";
 
 const PRECISION_LABEL: Record<SitePrecision, string> = {
   unlocated: "Unlocated — no real location data",
@@ -136,6 +138,11 @@ export default function ConstructionInspector() {
   const sel = selected?.feature === "construction" ? selected : undefined;
   const isProject = sel !== undefined && isConstructionProjectId(sel.objectId);
   const isFactory = sel?.objectId === FACTORY_NODE.id;
+  // Documents attach to any real tree node (a project root, a building, a
+  // floor) — not just Project rows the way SiteSection is. The backend
+  // needs projectId and treeNodeId as separate real fields; Browse only
+  // ever gives us the selected node's own id, so derive the project here.
+  const documentsProjectId = sel && !isFactory ? findProjectIdForNode(sel.objectId) : undefined;
 
   return (
     <PanelCard title="Selected Object" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
@@ -152,6 +159,10 @@ export default function ConstructionInspector() {
       </div>
 
       {isProject && <SiteSection projectId={sel.objectId} />}
+
+      {documentsProjectId && sel && (
+        <ConstructionDocuments projectId={documentsProjectId} treeNodeId={sel.objectId} />
+      )}
 
       {isFactory && (
         <div className="mt-6 border-t pt-4" style={{ borderColor: "var(--ff-panel-border)" }}>
