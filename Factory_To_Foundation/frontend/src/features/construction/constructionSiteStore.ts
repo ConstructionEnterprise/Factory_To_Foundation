@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 import { AUTH_CHANGED_EVENT } from "@/context/AuthContext";
+import { authFetch } from "@/lib/authFetch";
 
 /**
  * In-app site assignments for the Construction Enterprises Map, plus the
@@ -72,7 +73,7 @@ type SiteDto = { projectId: string } & SiteOverride;
 
 async function loadSites() {
   try {
-    const res = await fetch(`${API_BASE}/construction-sites`, { credentials: "include" });
+    const res = await authFetch(`${API_BASE}/construction-sites`);
     if (!res.ok) throw new Error(await describeResponseError(res));
     const sites = (await res.json()) as SiteDto[];
     const overrides: Record<string, SiteOverride> = {};
@@ -131,9 +132,8 @@ export function setSiteAddress(projectId: string, address: string) {
   const trimmed = address.trim();
   emit({ overrides: { ...state.overrides, [projectId]: { ...previous, address: trimmed || undefined } }, error: null });
 
-  void fetch(`${API_BASE}/construction-sites/${projectId}`, {
+  void authFetch(`${API_BASE}/construction-sites/${projectId}`, {
     method: "PATCH",
-    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ address: trimmed }),
   })
@@ -157,9 +157,8 @@ export function setSiteCoords(projectId: string, coords: SiteCoords) {
     error: null,
   });
 
-  void fetch(`${API_BASE}/construction-sites/${projectId}`, {
+  void authFetch(`${API_BASE}/construction-sites/${projectId}`, {
     method: "PUT",
-    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ coords }),
   })
@@ -179,7 +178,7 @@ export function clearSite(projectId: string) {
   delete next[projectId];
   emit({ overrides: next, placementFor: state.placementFor === projectId ? null : state.placementFor, error: null });
 
-  void fetch(`${API_BASE}/construction-sites/${projectId}`, { method: "DELETE", credentials: "include" })
+  void authFetch(`${API_BASE}/construction-sites/${projectId}`, { method: "DELETE" })
     .then(async (res) => {
       if (!res.ok) throw new Error(await describeResponseError(res));
     })

@@ -1,4 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+
+import { authFetch, SESSION_EXPIRED_EVENT } from "@/lib/authFetch";
 
 /**
  * Real auth (Phase 3b of the enterprise migration) — session lives in
@@ -50,7 +52,11 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 async function fetchMe(): Promise<{ user: AuthUser; permissions: Record<string, string[]> } | null> {
-  const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+  // Real fix: routed through authFetch so a merely-expired access token
+  // (with the real 30-day refresh-token cookie still valid) silently
+  // recovers here — a page reload or a fresh tab after >15 idle minutes no
+  // longer forces a real sign-in when the underlying session is still good.
+  const res = await authFetch(`${API_BASE}/auth/me`);
   if (!res.ok) return null;
   return res.json();
 }
@@ -59,6 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  // Mirrors `status` for handleSessionExpired below, which needs the real
+  // CURRENT value at call time — its own effect registers the listener
+  // once ([] deps), so a closure over `status` directly would always see
+  // whatever status was at mount, not whatever it later becomes.
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +88,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Real session death, not just a transient 401: authFetch already tried
+  // one real refresh and it failed (refresh token itself expired/revoked).
+  // Flips to a genuinely signed-out state and broadcasts the same
+  // AUTH_CHANGED_EVENT a real logout does, so every other store (site
+  // store, document lists) resets rather than keeps showing stale data
+  // for a user who's no longer really authenticated.
+  //
+  // REAL BUG FOUND AND FIXED LIVE, before this shipped: broadcasting
+  // unconditionally here created a genuine infinite loop — confirmed live
+  // (the backend log grew by ~43,500 lines in a few seconds). The cycle:
+  // a failed request fires SESSION_EXPIRED_EVENT -> this handler broadcasts
+  // AUTH_CHANGED_EVENT unconditionally -> constructionSiteStore.ts's own
+  // AUTH_CHANGED_EVENT listener unconditionally refetches (it has no
+  // concept of "did the status actually change") -> that refetch, still
+  // unauthenticated, 401s again -> authFetch tries another refresh, fails
+  // again -> SESSION_EXPIRED_EVENT fires again -> repeat, as fast as the
+  // network round-trip allows. The guard below breaks the cycle at its
+  // real source: only broadcast when this is a genuine authenticated ->
+  // unauthenticated transition, never on a redundant "still logged out"
+  // re-confirmation.
+  useEffect(() => {
+    function handleSessionExpired() {
+      if (statusRef.current === "unauthenticated") return;
+      setUser(null);
+      setPermissions({});
+      setStatus("unauthenticated");
+      broadcastAuthChanged();
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {

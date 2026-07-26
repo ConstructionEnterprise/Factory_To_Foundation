@@ -1,12 +1,16 @@
+import { authFetch } from "@/lib/authFetch";
+
 /**
  * Real API client for Construction Document Management (Phase 4) — talks
  * to the real backend's 7 routes (backend/src/routes/projectFiles.ts):
  * list, download, upload, replace-version, version history, rename,
- * delete. Every call sends `credentials: "include"` (same reasoning as
- * constructionSiteStore.ts — without it, the httpOnly auth cookies never
- * leave the browser cross-origin at all) and surfaces the backend's real
- * `{ error }` body instead of a generic "server responded 4xx", so a 403
- * reads as "which permission is missing," not a silent failure.
+ * delete. Every call goes through authFetch (credentials always included,
+ * same reasoning as constructionSiteStore.ts — without it, the httpOnly
+ * auth cookies never leave the browser cross-origin at all — plus a
+ * transparent retry-after-refresh on a real 401, see lib/authFetch.ts) and
+ * surfaces the backend's real `{ error }` body instead of a generic
+ * "server responded 4xx", so a 403 reads as "which permission is missing,"
+ * not a silent failure.
  */
 const API_BASE = "http://localhost:4300";
 
@@ -45,7 +49,7 @@ async function describeResponseError(res: Response): Promise<string> {
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { credentials: "include", ...init });
+  const res = await authFetch(`${API_BASE}${path}`, init);
   if (!res.ok) throw new Error(await describeResponseError(res));
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
