@@ -4,7 +4,8 @@ import AppLayout from "./layouts/AppLayout";
 import { SelectionProvider } from "./context/SelectionContext";
 import { ManufacturingOutputProvider } from "./context/ManufacturingOutputContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import LoginPage from "./features/auth/LoginPage";
+import { AccountMenu } from "./framework/ui";
+import "./framework/ui/CommandRibbon.css";
 import { appRoutes, type AppRoute } from "./router/routes";
 
 /**
@@ -33,16 +34,44 @@ function RouteGuard({ route }: { route: AppRoute }) {
   return <>{route.element}</>;
 }
 
+/**
+ * Signed-out state — replaces the old full-page LoginPage. Deliberately
+ * reuses CommandRibbon's own bar/avatar markup (same CSS classes, same
+ * `AccountMenu` component every authenticated page's CommandRibbon
+ * renders) so the real login control lives in the exact same top-right
+ * spot regardless of auth state — no separate page to remember, and
+ * signing back in never depends on knowing a different URL exists.
+ */
+function SignedOutShell() {
+  return (
+    <div className="flex h-screen flex-col" style={{ background: "var(--ff-content-bg)" }}>
+      <div className="command-ribbon">
+        <div className="command-ribbon-menus">
+          <span className="command-ribbon-page-label">Factory » Foundation</span>
+        </div>
+        <div className="command-ribbon-right">
+          <AccountMenu />
+        </div>
+      </div>
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-sm" style={{ color: "var(--ff-text-muted)" }}>
+          Sign in from the account menu, top right, to continue.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Gate() {
   const { status } = useAuth();
 
-  // Deliberately blank rather than a spinner/flash of the login form —
+  // Deliberately blank rather than a spinner/flash of the signed-out shell —
   // this resolves almost instantly against a local backend, and briefly
-  // showing (then hiding) a login form on every real page load would be
-  // more distracting than a beat of nothing.
+  // showing (then hiding) it on every real page load would be more
+  // distracting than a beat of nothing.
   if (status === "loading") return null;
 
-  if (status === "unauthenticated") return <LoginPage />;
+  if (status === "unauthenticated") return <SignedOutShell />;
 
   return (
     <SelectionProvider>

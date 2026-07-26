@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-import { useAuth } from "@/context/AuthContext";
-
+import AccountMenu from "./AccountMenu";
 import DropdownMenu from "./DropdownMenu";
 import "./CommandRibbon.css";
 
@@ -31,7 +30,6 @@ export default function CommandRibbon({
   menus,
 }: CommandRibbonProps) {
   const [openLabel, setOpenLabel] = useState<string | null>(null);
-  const { user, logout } = useAuth();
 
   return (
     <div className="command-ribbon">
@@ -62,12 +60,7 @@ export default function CommandRibbon({
           {pageLabel}
         </span>
 
-        <button
-          type="button"
-          className="command-ribbon-avatar"
-          title={user ? `${user.displayName} — ${user.roleName} (click to sign out)` : undefined}
-          onClick={() => void logout()}
-        ></button>
+        <AccountMenu />
       </div>
 
     </div>

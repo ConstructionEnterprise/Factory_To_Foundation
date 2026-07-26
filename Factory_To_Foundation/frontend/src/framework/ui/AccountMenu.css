@@ -1,0 +1,91 @@
+.account-menu {
+    position: relative;
+}
+
+.account-menu-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+
+    min-width: 220px;
+
+    background: var(--ff-panel-bg);
+    border: var(--ff-border-width) solid var(--ff-panel-border);
+    border-radius: var(--ff-radius);
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+    padding: 0.75rem;
+
+    z-index: 40;
+}
+
+.account-menu-identity {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ff-text-primary);
+    margin: 0 0 0.6rem;
+}
+
+.account-menu-role {
+    font-weight: 400;
+    color: var(--ff-text-muted);
+}
+
+.account-menu-signout {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.2rem;
+    border: var(--ff-border-width) solid var(--ff-panel-border);
+    background: var(--ff-chrome-bg);
+    color: var(--ff-text-primary);
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.account-menu-login {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.account-menu-label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--ff-text-secondary);
+}
+
+.account-menu-input {
+    margin-top: 0.25rem;
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.2rem;
+    border: var(--ff-border-width) solid var(--ff-panel-border);
+    font-size: 0.78rem;
+    color: var(--ff-text-primary);
+}
+
+.account-menu-error {
+    font-size: 0.65rem;
+    color: var(--ff-status-critical);
+    margin: 0;
+}
+
+.account-menu-submit {
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.2rem;
+    border: none;
+    background: var(--ff-accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.account-menu-submit:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
