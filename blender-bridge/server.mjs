@@ -96,7 +96,11 @@ function runBlender(inputBlendPath, outputGlbPath) {
     proc.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`Blender exited with code ${code}. stderr: ${stderr.slice(-2000)}`));
+        // Blender's own Python tracebacks (e.g. an unrecognized exporter
+        // kwarg on a given Blender version - confirmed live, not
+        // hypothetical) print to stdout under --python, not stderr -
+        // reporting stderr alone here previously hid the real cause.
+        reject(new Error(`Blender exited with code ${code}. stdout: ${stdout.slice(-2000)} stderr: ${stderr.slice(-2000)}`));
         return;
       }
       const start = stdout.indexOf("===BLENDER_BRIDGE_REPORT_START===");

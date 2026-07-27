@@ -43,19 +43,35 @@ all_collections = list(bpy.data.collections) + [bpy.context.scene.collection]
 for c in all_collections:
     c["__source_name"] = c.name
 
-bpy.ops.export_scene.gltf(
-    filepath=out_path,
-    export_format="GLB",
-    use_renderable=True,
-    export_extras=True,
-    export_hierarchy_full_collections=True,
-    export_yup=True,
-)
+# export_hierarchy_full_collections doesn't exist on every real Blender
+# build this pipeline runs against (confirmed absent on Ubuntu 24.04's
+# apt-packaged Blender 4.0.2 via a live AWS deploy, present on the local
+# dev machine's 5.1.2) - it's a newer glTF-exporter-addon feature, not a
+# rename. Introspected at runtime (get_rna_type().properties) rather than
+# assumed present, same standing discipline as everywhere else in this
+# pipeline. Real, disclosed effect when absent: only Collection-organized
+# source files (e.g. Modern Heritage) lose full nested-Collection grouping
+# on export - object-parented files (e.g. Garden Lofts) are unaffected,
+# since this flag never controlled their hierarchy in the first place.
+export_kwargs = {
+    "filepath": out_path,
+    "export_format": "GLB",
+    "use_renderable": True,
+    "export_extras": True,
+    "export_yup": True,
+}
+gltf_props = {p.identifier for p in bpy.ops.export_scene.gltf.get_rna_type().properties}
+hierarchy_flag_supported = "export_hierarchy_full_collections" in gltf_props
+if hierarchy_flag_supported:
+    export_kwargs["export_hierarchy_full_collections"] = True
+
+bpy.ops.export_scene.gltf(**export_kwargs)
 
 report = {
     "totalObjectCount": total_object_count,
     "meshObjectCount": mesh_object_count,
     "hiddenRenderCount": hidden_render_count,
+    "hierarchyFullCollectionsSupported": hierarchy_flag_supported,
 }
 
 print("===BLENDER_BRIDGE_REPORT_START===")
