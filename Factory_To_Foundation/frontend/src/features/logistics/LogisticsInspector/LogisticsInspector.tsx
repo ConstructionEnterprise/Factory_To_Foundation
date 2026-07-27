@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSelection } from "@/context/SelectionContext";
 import { DetailRow, PanelCard, StatusBadge, type StatusTone } from "@/framework/ui";
 
+import LogisticsDocuments from "../LogisticsDocuments";
 import { listCustodyEvents, type LogisticsCustodyEvent } from "../logisticsOperationsApi";
 
 /** Real vocabulary — matches the backend's own LogisticsStatus enum exactly (staged/in_transit/delivered), not the old fixture's hyphenated in-transit/staged/delivered strings. */
@@ -139,6 +140,7 @@ export default function LogisticsInspector() {
             <DetailRow label="Dispatched" value={new Date(sel.payload.dispatchedAt).toLocaleString()} />
           </div>
           <CustodyTrail dispatchId={sel.objectId.split(":")[1]} />
+          <LogisticsDocuments dispatchId={sel.objectId.split(":")[1]} />
         </>
       )}
     </PanelCard>
