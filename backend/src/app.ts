@@ -11,7 +11,7 @@ import { logisticsTruckRoutes } from "./routes/logisticsTrucks";
 import { logisticsDriverRoutes } from "./routes/logisticsDrivers";
 import { logisticsDispatchRoutes } from "./routes/logisticsDispatches";
 import { authRoutes } from "./routes/auth";
-import { AuthError, ForbiddenError, NotFoundError } from "./lib/httpErrors";
+import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
 // Matches twin-bridge's/blender-bridge's own ALLOWED_ORIGIN convention —
 // one real dev frontend origin, not a wildcard.
@@ -82,6 +82,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
     if (err instanceof ForbiddenError) {
       reply.code(403).send({ error: err.message });
+      return;
+    }
+    if (err instanceof ValidationError) {
+      reply.code(400).send({ error: err.message });
       return;
     }
     if (isPrismaKnownRequestError(err)) {

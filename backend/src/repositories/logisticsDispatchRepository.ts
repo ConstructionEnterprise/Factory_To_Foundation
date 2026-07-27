@@ -1,9 +1,13 @@
-import type { LogisticsDispatch } from "@prisma/client";
+import type { LogisticsCustodyEvent, LogisticsDispatch, LogisticsStatus } from "@prisma/client";
 
 import { prisma } from "../lib/prisma";
 
 export function findAllDispatches(): Promise<LogisticsDispatch[]> {
   return prisma.logisticsDispatch.findMany({ orderBy: { dispatchedAt: "desc" } });
+}
+
+export function findDispatchById(id: string): Promise<LogisticsDispatch | null> {
+  return prisma.logisticsDispatch.findUnique({ where: { id } });
 }
 
 export function findTruckById(id: string) {
@@ -26,8 +30,76 @@ export type CreateDispatchInput = {
   eta: Date | null;
   route: string | null;
   traffic: string | null;
+  createdById: string;
 };
 
-export function createDispatch(data: CreateDispatchInput): Promise<LogisticsDispatch> {
-  return prisma.logisticsDispatch.create({ data });
+/**
+ * Real, atomic: the dispatch row and its own real chain-of-custody creation
+ * event (fromStatus null -> toStatus staged) are written in one
+ * transaction, so a dispatch can never exist without a matching first
+ * custody event (or vice versa) even if the process crashes mid-write.
+ */
+export async function createDispatch(data: CreateDispatchInput): Promise<{ dispatch: LogisticsDispatch; event: LogisticsCustodyEvent }> {
+  return prisma.$transaction(async (tx) => {
+    const dispatch = await tx.logisticsDispatch.create({
+      data: {
+        truckId: data.truckId,
+        driverId: data.driverId,
+        destinationProjectId: data.destinationProjectId,
+        eta: data.eta,
+        route: data.route,
+        traffic: data.traffic,
+      },
+    });
+    const event = await tx.logisticsCustodyEvent.create({
+      data: {
+        dispatchId: dispatch.id,
+        fromStatus: null,
+        toStatus: dispatch.status,
+        changedById: data.createdById,
+      },
+    });
+    return { dispatch, event };
+  });
+}
+
+export type TransitionStatusInput = {
+  dispatchId: string;
+  fromStatus: LogisticsStatus;
+  toStatus: LogisticsStatus;
+  changedById: string;
+  notes: string | null;
+};
+
+/**
+ * Real, atomic: the status update and its own custody event are written in
+ * one transaction — the two can never drift apart (a crash between them
+ * would otherwise leave either a status change with no recorded reason, or
+ * an orphaned event that doesn't match the dispatch's actual current
+ * status).
+ */
+export async function transitionStatus(
+  input: TransitionStatusInput
+): Promise<{ dispatch: LogisticsDispatch; event: LogisticsCustodyEvent }> {
+  return prisma.$transaction(async (tx) => {
+    const dispatch = await tx.logisticsDispatch.update({
+      where: { id: input.dispatchId },
+      data: { status: input.toStatus },
+    });
+    const event = await tx.logisticsCustodyEvent.create({
+      data: {
+        dispatchId: input.dispatchId,
+        fromStatus: input.fromStatus,
+        toStatus: input.toStatus,
+        changedById: input.changedById,
+        notes: input.notes,
+      },
+    });
+    return { dispatch, event };
+  });
+}
+
+/** Every real custody event for one dispatch, oldest first — the actual chain-of-custody reading order (creation, then each real transition in the order they happened). */
+export function findCustodyEvents(dispatchId: string): Promise<LogisticsCustodyEvent[]> {
+  return prisma.logisticsCustodyEvent.findMany({ where: { dispatchId }, orderBy: { changedAt: "asc" } });
 }

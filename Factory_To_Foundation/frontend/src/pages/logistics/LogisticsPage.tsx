@@ -5,6 +5,7 @@ import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 import {
   LogisticsBrowse,
   LogisticsDispatchForm,
+  LogisticsDispatchTracker,
   LogisticsInspector,
   LogisticsMap,
   LogisticsToolbar,
@@ -23,6 +24,9 @@ export default function LogisticsPage() {
   // modal triggered from the toolbar) rather than in a real Browse
   // Logistics panel, which Phase 8 hasn't built yet.
   const [showDispatchForm, setShowDispatchForm] = useState(false);
+  // Real, provisional chain-of-custody tracker — same reasoning, see
+  // LogisticsDispatchTracker's own doc comment (Phase 7).
+  const [showDispatchTracker, setShowDispatchTracker] = useState(false);
 
   return (
     <>
@@ -30,7 +34,12 @@ export default function LogisticsPage() {
         pageLabel="Logistics"
         pageSubtitle="Material & Module Flow"
         kpis={<KpiList kpis={logisticsKpis} />}
-        toolbar={<LogisticsToolbar onNewDispatch={() => setShowDispatchForm(true)} />}
+        toolbar={
+          <LogisticsToolbar
+            onNewDispatch={() => setShowDispatchForm(true)}
+            onTrackDispatches={() => setShowDispatchTracker(true)}
+          />
+        }
         left={<LogisticsBrowse />}
         center={<LogisticsMap />}
         right={<LogisticsInspector />}
@@ -46,6 +55,7 @@ export default function LogisticsPage() {
           }}
         />
       )}
+      {showDispatchTracker && <LogisticsDispatchTracker onClose={() => setShowDispatchTracker(false)} />}
     </>
   );
 }

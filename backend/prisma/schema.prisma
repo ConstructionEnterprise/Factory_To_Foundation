@@ -98,10 +98,11 @@ model User {
 
   instructionExecutions      InstructionExecution[]
   refreshTokens              RefreshToken[]
-  uploadedFiles              ProjectFile[]          @relation("ProjectFileUploadedBy")
-  deletedFiles               ProjectFile[]          @relation("ProjectFileDeletedBy")
-  uploadedLogisticsDocuments LogisticsDocument[]    @relation("LogisticsDocumentUploadedBy")
-  deletedLogisticsDocuments  LogisticsDocument[]    @relation("LogisticsDocumentDeletedBy")
+  uploadedFiles              ProjectFile[]           @relation("ProjectFileUploadedBy")
+  deletedFiles               ProjectFile[]           @relation("ProjectFileDeletedBy")
+  uploadedLogisticsDocuments LogisticsDocument[]     @relation("LogisticsDocumentUploadedBy")
+  deletedLogisticsDocuments  LogisticsDocument[]     @relation("LogisticsDocumentDeletedBy")
+  logisticsCustodyEvents     LogisticsCustodyEvent[]
 
   @@map("user")
 }
@@ -677,10 +678,49 @@ model LogisticsDispatch {
 
   dispatchedAt DateTime @default(now()) @map("dispatched_at")
 
-  modules   LogisticsModule[]
-  documents LogisticsDocument[]
+  modules       LogisticsModule[]
+  documents     LogisticsDocument[]
+  custodyEvents LogisticsCustodyEvent[]
 
   @@map("logistics_dispatch")
+}
+
+/// Real chain-of-custody audit trail (Phase 7). Before this, Dispatch had
+/// exactly one status column and no way to ever change it (Phase 6's own
+/// investigation confirmed only GET/POST existed — no transition route at
+/// all) — a single mutable field with no record of who moved a real haul
+/// from staged -> in transit -> delivered, or when, is not a chain of
+/// custody. This table is the durable log that column was always missing;
+/// the status TRANSITION route (see logisticsDispatchService.ts's
+/// transitionStatus()) writes exactly one of these per real change, in the
+/// same transaction as the status update itself, so the two can never
+/// drift apart.
+///
+/// One real row per real transition — including a real row for a
+/// dispatch's own creation (fromStatus null, toStatus staged), so a
+/// dispatch's full custody history is always readable from this table
+/// alone, never "everything except the first event."
+model LogisticsCustodyEvent {
+  id String @id @default(cuid())
+
+  dispatchId String            @map("dispatch_id")
+  dispatch   LogisticsDispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+
+  /// Null only for the one real creation event — every subsequent real
+  /// transition has a real prior status to record moving away from.
+  fromStatus LogisticsStatus? @map("from_status")
+  toStatus   LogisticsStatus  @map("to_status")
+
+  changedById String   @map("changed_by_id")
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now()) @map("changed_at")
+
+  /// Real, optional free-text note (e.g. a reason for an unusual
+  /// transition) — never required, never fabricated when absent.
+  notes String?
+
+  @@index([dispatchId])
+  @@map("logistics_custody_event")
 }
 
 /// Logistics Document Management (S3-backed), Phase 5. Scoped to

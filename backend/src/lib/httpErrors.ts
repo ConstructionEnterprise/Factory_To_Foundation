@@ -21,3 +21,11 @@ export class ForbiddenError extends Error {
     this.name = "ForbiddenError";
   }
 }
+
+/** Thrown for a real business-rule violation on an otherwise well-shaped request — e.g. an illegal LogisticsDispatch status transition (Phase 7's chain-of-custody rules). Distinct from Zod's shape-validation 400s: the request body was valid JSON matching the schema, but the real state machine rejects the specific transition requested. Mapped to a real 400. */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}

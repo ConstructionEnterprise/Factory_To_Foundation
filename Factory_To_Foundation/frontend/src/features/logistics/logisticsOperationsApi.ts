@@ -76,3 +76,34 @@ export function createDispatch(input: CreateDispatchInput): Promise<LogisticsDis
     body: JSON.stringify(input),
   });
 }
+
+export function listDispatches(): Promise<LogisticsDispatch[]> {
+  return requestJson("/logistics-dispatches");
+}
+
+/** Real vocabulary — matches the backend's own closed state machine (logisticsDispatchService.ts's VALID_TRANSITIONS): staged -> in_transit -> delivered only, no skipping, no going backward. */
+export type LogisticsCustodyEvent = {
+  id: string;
+  dispatchId: string;
+  fromStatus: string | null;
+  toStatus: string;
+  changedById: string;
+  changedAt: string;
+  notes: string | null;
+};
+
+export function transitionDispatchStatus(
+  dispatchId: string,
+  toStatus: string,
+  notes?: string
+): Promise<LogisticsDispatch> {
+  return requestJson(`/logistics-dispatches/${dispatchId}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toStatus, notes }),
+  });
+}
+
+export function listCustodyEvents(dispatchId: string): Promise<LogisticsCustodyEvent[]> {
+  return requestJson(`/logistics-dispatches/${dispatchId}/events`);
+}
