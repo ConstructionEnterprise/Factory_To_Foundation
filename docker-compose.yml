@@ -1,0 +1,38 @@
+# Real single-instance deployment (AWS Phase 4, simplified path): backend,
+# blender-bridge, and twin-bridge as three containers on one EC2 host. No
+# Postgres service here - that's RDS (Phase 2), reached over the network
+# like any other real client.
+#
+# twin-bridge's shared-filesystem requirement with Construction_Enterprises
+# (state.json/cell_manifest.json/command_queue.json) is satisfied by
+# mounting that repo's real host checkout straight into the container -
+# same host, same volume, no special handling needed. Construction_Enterprises
+# is deliberately NOT baked into twin-bridge's image so it can be updated
+# (git pull) independently of a rebuild.
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "4300:4300"
+    env_file:
+      - ./backend/.env
+
+  blender-bridge:
+    build: ./blender-bridge
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+    env_file:
+      - ./blender-bridge/.env
+
+  twin-bridge:
+    build: ./twin-bridge
+    restart: unless-stopped
+    ports:
+      - "4100:4100"
+    environment:
+      - TWIN_STATE_DIR=/construction-enterprises/state
+      - TWIN_MODULE_PATH=/construction-enterprises/Chappell_Robotics/CE_Integrated_Cell_V3_0-6.py
+    volumes:
+      - ../construction-enterprises:/construction-enterprises

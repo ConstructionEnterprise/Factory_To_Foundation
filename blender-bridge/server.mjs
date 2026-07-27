@@ -30,7 +30,12 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const BLENDER_EXE = "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe";
+// Configurable so this same code runs unchanged on this Windows dev
+// machine (default below) and on a Linux container (BLENDER_EXE=/opt/blender/blender
+// in the real Dockerfile) — out of Phase 3's original code-portability
+// scope (that pass only redirected the *output*, not this path), fixed
+// here since actually deploying to Linux makes it a real blocker.
+const BLENDER_EXE = process.env.BLENDER_EXE ?? "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe";
 const CONVERT_SCRIPT = join(__dirname, "convert_to_gltf.py");
 
 // Phase 3 portability rewrite: the converted model no longer lands on the
