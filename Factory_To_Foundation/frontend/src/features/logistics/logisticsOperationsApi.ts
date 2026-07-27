@@ -1,4 +1,5 @@
 import { authFetch } from "@/lib/authFetch";
+import { BACKEND_URL } from "@/lib/env";
 
 /**
  * Real API client for all 5 Logistics operational models — talks to the
@@ -11,7 +12,7 @@ import { authFetch } from "@/lib/authFetch";
  * real Browse Logistics panel needed a real Storage/Yard data source,
  * closing the gap Phase 6 explicitly flagged as unbuilt.
  */
-const API_BASE = "http://localhost:4300";
+const API_BASE = BACKEND_URL;
 
 export type LogisticsTruck = { id: string; identifier: string };
 export type LogisticsDriver = { id: string; name: string };

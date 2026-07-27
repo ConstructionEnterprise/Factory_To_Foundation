@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
-const BRIDGE_URL = "http://localhost:4100/twin-state";
+import { TWIN_BRIDGE_URL } from "@/lib/env";
+
+const BRIDGE_URL = `${TWIN_BRIDGE_URL}/twin-state`;
 
 // Browser-side poll cadence — deliberately slower than the twin's own
 // ~100-150ms write cadence (confirmed in Step 0). A first UI slice doesn't

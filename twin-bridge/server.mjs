@@ -16,23 +16,29 @@
 //   node twin-bridge/server.mjs
 
 import { createServer } from "node:http";
-import { readFile, writeFile, rename } from "node:fs/promises";
+import { readFile, writeFile, rename, readdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const STATE_PATH = "C:\\Users\\jchap\\Dev\\Construction_Enterprises\\state\\state.json";
-const MANIFEST_PATH = "C:\\Users\\jchap\\Dev\\Construction_Enterprises\\state\\cell_manifest.json";
+// Configurable so this same code runs unchanged on this Windows dev machine
+// (default below) and on wherever it eventually deploys (Linux EC2 — see
+// FF_Frontend_OS_Handoff/CLAUDE.md's AWS migration roadmap) — a real env
+// var, not a second hardcoded path for the new target.
+const STATE_DIR =
+  process.env.TWIN_STATE_DIR ?? "C:\\Users\\jchap\\Dev\\Construction_Enterprises\\state";
+const STATE_PATH = path.join(STATE_DIR, "state.json");
+const MANIFEST_PATH = path.join(STATE_DIR, "cell_manifest.json");
 // Real path, confirmed directly against the twin's own _CMD_FILE
 // (CE_Integrated_Cell_V3_0-6.py: os.path.join(_STATE_DIR, "command_queue.json"))
-// -- same real state/ directory as STATE_PATH/MANIFEST_PATH above.
-const COMMAND_PATH = "C:\\Users\\jchap\\Dev\\Construction_Enterprises\\state\\command_queue.json";
+// -- same real state dir as STATE_PATH/MANIFEST_PATH above.
+const COMMAND_PATH = path.join(STATE_DIR, "command_queue.json");
 const COMMAND_TMP_PATH = COMMAND_PATH + ".tmp";
 const DRIVER_PATH = path.join(__dirname, "twin_headless_driver.py");
 const PORT = 4100;
-const ALLOWED_ORIGIN = "http://localhost:5173";
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
 
 // Real strings the twin can be launched as — matched against a live
 // process's real command line to detect it whether it was started by
@@ -76,7 +82,7 @@ let trackedChild = null; // { proc, pid, startedAt }
  * real PowerShell spawn per call, so callers only run it when trackedChild
  * is null (a bridge-owned child needs no external scan).
  */
-function detectExternalTwinProcess() {
+function detectExternalTwinProcessWindows() {
   return new Promise((resolve) => {
     const ps = spawn("powershell.exe", [
       "-NoProfile",
@@ -101,8 +107,42 @@ function detectExternalTwinProcess() {
   });
 }
 
+/**
+ * Linux equivalent of the Windows scan above: reads /proc directly rather
+ * than shelling out to anything (no ps/pgrep dependency needed — /proc is
+ * a real kernel-provided filesystem on every Linux target). Same
+ * contract: returns the real match or null, never throws. A process can
+ * legitimately exit between readdir() and the read of its own /proc/<pid>
+ * entry — that's not an error, just means it's no longer a candidate.
+ */
+async function detectExternalTwinProcessLinux() {
+  let entries;
+  try {
+    entries = await readdir("/proc");
+  } catch {
+    return null; // /proc not readable — honest "couldn't check", not "found nothing"
+  }
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue;
+    try {
+      const raw = await readFile(`/proc/${entry}/cmdline`, "utf-8");
+      const commandLine = raw.split("\0").filter(Boolean).join(" ");
+      if (TWIN_PROCESS_MARKERS.some((m) => commandLine.includes(m))) {
+        return { pid: Number(entry), commandLine };
+      }
+    } catch {
+      continue; // process exited mid-scan, or unreadable — skip, not an error
+    }
+  }
+  return null;
+}
+
+function detectExternalTwinProcess() {
+  return process.platform === "win32" ? detectExternalTwinProcessWindows() : detectExternalTwinProcessLinux();
+}
+
 function startTwin() {
-  const proc = spawn("python", [DRIVER_PATH], { windowsHide: true });
+  const proc = spawn("python3", [DRIVER_PATH], { windowsHide: true });
   trackedChild = { proc, pid: proc.pid, startedAt: Date.now() };
   proc.stdout.on("data", (d) => process.stdout.write(`[twin] ${d}`));
   proc.stderr.on("data", (d) => process.stderr.write(`[twin:err] ${d}`));

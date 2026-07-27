@@ -7,7 +7,7 @@
 // whenever it ran outside the one invocation path that happened to load
 // them first).
 import "dotenv/config";
-import { GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 function requireEnv(name: string): string {
@@ -45,4 +45,15 @@ export function getPresignedDownloadUrl(key: string): Promise<string> {
 /** Real reachability check — confirms the bucket actually exists and these real credentials can actually reach it, not assumed reachable just because the SDK didn't throw at import time. */
 export async function checkBucketReachable(): Promise<void> {
   await s3Client.send(new HeadBucketCommand({ Bucket: S3_BUCKET_NAME }));
+}
+
+/** Real existence check for a fixed, well-known key (e.g. the Manufacturing model) — lets a caller honestly distinguish "nothing uploaded yet" from "here's a real presigned URL", rather than handing back a presigned URL for an object that was never written. */
+export async function objectExists(key: string): Promise<boolean> {
+  try {
+    await s3Client.send(new HeadObjectCommand({ Bucket: S3_BUCKET_NAME, Key: key }));
+    return true;
+  } catch (err) {
+    if (err instanceof Error && err.name === "NotFound") return false;
+    throw err;
+  }
 }

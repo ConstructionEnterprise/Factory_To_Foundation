@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 
 import { AUTH_CHANGED_EVENT } from "@/context/AuthContext";
 import { authFetch } from "@/lib/authFetch";
+import { BACKEND_URL } from "@/lib/env";
 
 /**
  * In-app site assignments for the Construction Enterprises Map, plus the
@@ -33,7 +34,7 @@ import { authFetch } from "@/lib/authFetch";
  * manufacturingModel's version counter — small, no context provider needed.
  */
 
-const API_BASE = "http://localhost:4300";
+const API_BASE = BACKEND_URL;
 
 export type SiteCoords = { x: number; z: number };
 export type SiteOverride = { address?: string; coords?: SiteCoords };

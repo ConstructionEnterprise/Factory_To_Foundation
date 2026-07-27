@@ -1,4 +1,5 @@
 import { authFetch } from "@/lib/authFetch";
+import { BACKEND_URL } from "@/lib/env";
 
 /**
  * Real API client for Construction Document Management (Phase 4) — talks
@@ -12,7 +13,7 @@ import { authFetch } from "@/lib/authFetch";
  * "server responded 4xx", so a 403 reads as "which permission is missing,"
  * not a silent failure.
  */
-const API_BASE = "http://localhost:4300";
+const API_BASE = BACKEND_URL;
 
 // Matches the real, closed 4-value vocabulary the backend validates
 // against (services/projectFileService.ts's PROJECT_FILE_CATEGORIES) —

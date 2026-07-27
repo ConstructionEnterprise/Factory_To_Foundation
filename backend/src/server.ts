@@ -27,7 +27,13 @@ const PORT = Number(process.env.PORT ?? 4300);
 
 const app = await buildApp();
 
-app.listen({ port: PORT, host: "127.0.0.1" }, (err) => {
+// Was 127.0.0.1 (loopback-only — wouldn't even accept LAN connections).
+// Phase 3 portability rewrite: 0.0.0.0 so this is reachable from inside a
+// container network / behind a load balancer once containerized (Phase 4)
+// — real requirement found during the AWS local-assumption audit, not a
+// hardening step (the network boundary is the security group/ALB, not
+// this bind address).
+app.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
   if (err) {
     app.log.error(err);
     process.exit(1);

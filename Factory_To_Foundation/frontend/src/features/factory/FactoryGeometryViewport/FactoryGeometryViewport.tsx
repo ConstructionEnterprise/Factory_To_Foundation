@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { Legend, PanelCard } from "@/framework/ui";
 import { useSelection } from "@/context/SelectionContext";
 import { usePermission } from "@/context/AuthContext";
+import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 import { translateManifest, type LiveFactoryNode, type FactoryStatus } from "../twinTranslator";
 import { useTwinManifest } from "../useTwinManifest";
@@ -655,7 +656,7 @@ function RunSimulationButton({ twinControl }: { twinControl: UseTwinControlResul
       <span
         className="rounded-full px-2.5 py-0.5 text-xs font-medium"
         style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
-        title="twin-bridge not reachable at localhost:4100 — start it with: node twin-bridge/server.mjs"
+        title={`twin-bridge not reachable at ${TWIN_BRIDGE_URL} — start it with: node twin-bridge/server.mjs`}
       >
         Twin Bridge Offline
       </span>

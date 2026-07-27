@@ -3,6 +3,8 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { Object3D } from "three";
 
+import { BACKEND_URL } from "@/lib/env";
+
 /**
  * The one place that knows how to read whatever real geometry and real
  * metadata the currently-loaded model actually contains — agnostic to
@@ -25,40 +27,66 @@ import type { Object3D } from "three";
  * conversion) lives entirely in `blender-bridge/`, a sibling service
  * outside this repo — see ManufacturingToolbar for the upload flow.
  */
-export const MANUFACTURING_MODEL_URL = "/models/manufacturing-model.glb";
+/**
+ * The committed local default — Manufacturing's original ingested model,
+ * shipped with the app and always available even with the backend down.
+ * No longer the *only* real model source: Phase 3's portability rewrite
+ * moved blender-bridge's upload target to S3 (it used to overwrite this
+ * exact file in place — see git history — which only worked because
+ * blender-bridge and the Vite dev server happened to share a filesystem,
+ * not true once blender-bridge runs as its own container).
+ */
+export const MANUFACTURING_MODEL_LOCAL_DEFAULT = "/models/manufacturing-model.glb";
 
 /**
- * Replace semantics: a successful upload overwrites the file at
- * MANUFACTURING_MODEL_URL in place (see ManufacturingToolbar/blender-bridge),
- * but `useGLTF` caches by URL string, so the three panels reading the old
- * URL would otherwise keep serving their already-parsed scene forever.
- * `bumpManufacturingModelVersion()` appends a cache-busting query string
- * and notifies every subscriber via `useSyncExternalStore`, so a fresh
- * upload actually reaches the viewport/Browse/Inspector without a full
- * page reload.
+ * Real source of truth for "which model should be showing right now":
+ * checks the backend's /manufacturing-model/download-url route, which
+ * itself checks S3 for real existence before ever handing back a
+ * presigned URL (see backend/src/routes/manufacturingModel.ts) — so a
+ * fresh environment, or a page reload after the presigned URL from a
+ * prior session has since expired, both correctly re-resolve to whatever
+ * is really there right now instead of trusting stale in-memory state.
+ * Falls back to the local default on a `null` url (nothing real uploaded
+ * yet) or a network failure (backend unreachable) — never a fabricated
+ * error state, matching Factory's own "Twin Offline" honesty convention.
  */
-let modelVersion = 0;
-const modelVersionListeners = new Set<() => void>();
+let modelUrl: string = MANUFACTURING_MODEL_LOCAL_DEFAULT;
+const modelUrlListeners = new Set<() => void>();
 
-function subscribeToModelVersion(listener: () => void) {
-  modelVersionListeners.add(listener);
+function subscribeToModelUrl(listener: () => void) {
+  modelUrlListeners.add(listener);
   return () => {
-    modelVersionListeners.delete(listener);
+    modelUrlListeners.delete(listener);
   };
 }
 
-function getModelVersionSnapshot() {
-  return modelVersion;
+function getModelUrlSnapshot() {
+  return modelUrl;
 }
+
+async function refreshModelUrl(): Promise<void> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/manufacturing-model/download-url`);
+    const body: { url: string | null } = await res.json();
+    modelUrl = body.url ?? MANUFACTURING_MODEL_LOCAL_DEFAULT;
+  } catch {
+    modelUrl = MANUFACTURING_MODEL_LOCAL_DEFAULT;
+  }
+  modelUrlListeners.forEach((listener) => listener());
+}
+
+// Real check on module load — not assumed from whatever this session
+// happens to remember, since a page reload starts with no memory of a
+// prior upload at all.
+void refreshModelUrl();
 
 export function useManufacturingModelUrl(): string {
-  const version = useSyncExternalStore(subscribeToModelVersion, getModelVersionSnapshot);
-  return version === 0 ? MANUFACTURING_MODEL_URL : `${MANUFACTURING_MODEL_URL}?v=${version}`;
+  return useSyncExternalStore(subscribeToModelUrl, getModelUrlSnapshot);
 }
 
+/** Called right after a real, verified-successful blender-bridge upload — re-checks S3 for the real new object instead of just assuming the upload that just succeeded is what a presigned URL will resolve to. */
 export function bumpManufacturingModelVersion() {
-  modelVersion += 1;
-  modelVersionListeners.forEach((listener) => listener());
+  void refreshModelUrl();
 }
 
 export type GenericExtras = Record<string, string | number | boolean>;
@@ -310,4 +338,4 @@ export function orientationForNode(box: THREE.Box3): CameraOrientation {
   return { kind: "elevation", direction, up: new THREE.Vector3(0, 1, 0) };
 }
 
-useGLTF.preload(MANUFACTURING_MODEL_URL);
+useGLTF.preload(MANUFACTURING_MODEL_LOCAL_DEFAULT);

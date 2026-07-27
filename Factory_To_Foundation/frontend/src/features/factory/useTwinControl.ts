@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-const CONTROL_BASE = "http://localhost:4100/twin-control";
+import { TWIN_BRIDGE_URL } from "@/lib/env";
+
+const CONTROL_BASE = `${TWIN_BRIDGE_URL}/twin-control`;
 const STATUS_POLL_MS = 2000;
 
 /**
@@ -69,7 +71,7 @@ export function useTwinControl(): UseTwinControlResult {
       }
       await poll();
     } catch {
-      setLastError("twin-bridge not reachable at localhost:4100 — start it with: node twin-bridge/server.mjs");
+      setLastError(`twin-bridge not reachable at ${TWIN_BRIDGE_URL} — start it with: node twin-bridge/server.mjs`);
     } finally {
       setStarting(false);
     }
@@ -83,7 +85,7 @@ export function useTwinControl(): UseTwinControlResult {
       setLastError(body.note ?? null);
       await poll();
     } catch {
-      setLastError("twin-bridge not reachable at localhost:4100 — start it with: node twin-bridge/server.mjs");
+      setLastError(`twin-bridge not reachable at ${TWIN_BRIDGE_URL} — start it with: node twin-bridge/server.mjs`);
     } finally {
       setStopping(false);
     }

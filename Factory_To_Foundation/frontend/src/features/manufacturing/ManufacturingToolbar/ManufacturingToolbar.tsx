@@ -5,11 +5,12 @@ import { useSelection } from "@/context/SelectionContext";
 import { useManufacturingOutput } from "@/context/ManufacturingOutputContext";
 import { usePermission } from "@/context/AuthContext";
 import { useTwinManifest } from "@/features/factory/useTwinManifest";
+import { BLENDER_BRIDGE_URL } from "@/lib/env";
 
 import { generateInstructionSet } from "../instructionGeneration";
 import { bumpManufacturingModelVersion } from "../manufacturingModel";
 
-const BLENDER_BRIDGE_CONVERT_URL = "http://localhost:4200/convert";
+const BLENDER_BRIDGE_CONVERT_URL = `${BLENDER_BRIDGE_URL}/convert`;
 
 type UploadState =
   | { phase: "idle" }
@@ -96,7 +97,7 @@ export default function ManufacturingToolbar() {
     } catch {
       setUpload({
         phase: "error",
-        message: "blender-bridge not reachable at localhost:4200 — start it with: node blender-bridge/server.mjs",
+        message: `blender-bridge not reachable at ${BLENDER_BRIDGE_URL} — start it with: node blender-bridge/server.mjs`,
       });
     }
   }

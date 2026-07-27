@@ -1,4 +1,5 @@
 import { authFetch } from "@/lib/authFetch";
+import { BACKEND_URL } from "@/lib/env";
 
 /**
  * Real API client for Logistics Document Management (Phase 5's backend,
@@ -12,7 +13,7 @@ import { authFetch } from "@/lib/authFetch";
  * documents are a distinct concern, matching Construction's own split
  * between constructionSiteStore.ts and projectFilesApi.ts.
  */
-const API_BASE = "http://localhost:4300";
+const API_BASE = BACKEND_URL;
 
 // Matches the real, closed vocabulary the backend validates against
 // (services/logisticsDocumentService.ts's LOGISTICS_DOCUMENT_CATEGORIES) —

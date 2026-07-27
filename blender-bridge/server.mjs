@@ -1,9 +1,12 @@
 // Real local conversion service — separate from twin-bridge, which is
 // read-only telemetry. This one does one real thing: take an uploaded
-// source file, convert it to glTF via real headless Blender, write the
-// result to the frontend's fixed model path (replace semantics — the
-// new upload replaces whatever was loaded, no multi-asset library), and
-// report real generic findings about what it found.
+// source file, convert it to glTF via real headless Blender, upload the
+// result to S3 at a fixed key (replace semantics — the new upload
+// replaces whatever was loaded, no multi-asset library — Phase 3
+// portability rewrite; used to write straight to the frontend's local
+// public/models path, which only worked because this bridge and the
+// Vite dev server shared a filesystem), and report real generic findings
+// about what it found.
 //
 // `.blend` is the only real source format with a conversion path today.
 // convert_to_gltf.py is the one place that knows anything Blender-specific
@@ -15,6 +18,7 @@
 // Dev-time only. Run manually alongside `npm run dev`:
 //   node blender-bridge/server.mjs
 
+import "dotenv/config";
 import { createServer } from "node:http";
 import { writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -22,18 +26,40 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const BLENDER_EXE = "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe";
 const CONVERT_SCRIPT = join(__dirname, "convert_to_gltf.py");
-// Fixed target the frontend always loads from — see
-// features/manufacturing/manufacturingModel.ts's MANUFACTURING_MODEL_URL.
-const TARGET_GLB_PATH =
-  "C:\\Dev\\Factory_Foundation_design_pass\\Factory_To_Foundation\\frontend\\public\\models\\manufacturing-model.glb";
+
+// Phase 3 portability rewrite: the converted model no longer lands on the
+// local frontend/public/models path (that only worked because this bridge
+// and the Vite dev server happened to share a filesystem — not true once
+// this runs as its own Fargate task, Phase 4). Same real S3 pattern as
+// backend/src/lib/s3.ts (plain S3Client + PutObjectCommand, no new upload
+// mechanism invented) — real fixed key, same "replace semantics, no
+// multi-asset library" behavior the old local path had.
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not set — see .env.example`);
+  return value;
+}
+const S3_BUCKET_NAME = requireEnv("S3_BUCKET_NAME");
+const s3Client = new S3Client({
+  region: requireEnv("AWS_REGION"),
+  credentials: {
+    accessKeyId: requireEnv("AWS_ACCESS_KEY_ID"),
+    secretAccessKey: requireEnv("AWS_SECRET_ACCESS_KEY"),
+  },
+});
+// Real fixed key — must stay in sync with backend/src/routes/manufacturingModel.ts's
+// own copy of this same literal (separate processes, can't share a constant
+// directly) and features/manufacturing/manufacturingModel.ts for the read side.
+const MANUFACTURING_MODEL_S3_KEY = "manufacturing-models/manufacturing-model.glb";
 
 const PORT = 4200;
-const ALLOWED_ORIGIN = "http://localhost:5173";
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
 const CONVERT_TIMEOUT_MS = 180_000;
 
 function runBlender(inputBlendPath, outputGlbPath) {
@@ -127,10 +153,18 @@ async function handleConvert(req, res) {
     const glbBuf = await readFile(outputPath);
     const glbReport = inspectGlb(glbBuf);
 
-    // Replace semantics: this write is the only thing that changes what
-    // the frontend loads. Happens only after a real, verified-successful
-    // conversion — a failed upload never touches the currently-loaded model.
-    await writeFile(TARGET_GLB_PATH, glbBuf);
+    // Replace semantics: this upload is the only thing that changes what
+    // the frontend loads (same fixed key every time). Happens only after a
+    // real, verified-successful conversion — a failed upload never
+    // touches the currently-loaded model in S3.
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: S3_BUCKET_NAME,
+        Key: MANUFACTURING_MODEL_S3_KEY,
+        Body: glbBuf,
+        ContentType: "model/gltf-binary",
+      })
+    );
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
@@ -179,7 +213,7 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[blender-bridge] Blender: ${BLENDER_EXE}`);
-  console.log(`[blender-bridge] writes converted models to: ${TARGET_GLB_PATH}`);
+  console.log(`[blender-bridge] uploads converted models to: s3://${S3_BUCKET_NAME}/${MANUFACTURING_MODEL_S3_KEY}`);
   console.log(`[blender-bridge] GET  http://localhost:${PORT}/health`);
   console.log(`[blender-bridge] POST http://localhost:${PORT}/convert  (body: raw file bytes, header X-Filename)`);
 });

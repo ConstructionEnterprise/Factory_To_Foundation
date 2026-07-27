@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { authFetch, SESSION_EXPIRED_EVENT } from "@/lib/authFetch";
+import { BACKEND_URL } from "@/lib/env";
 
 /**
  * Real auth (Phase 3b of the enterprise migration) — session lives in
@@ -10,7 +11,7 @@ import { authFetch, SESSION_EXPIRED_EVENT } from "@/lib/authFetch";
  * role, and their real resolved permissions (module -> granted actions),
  * for the frontend to know what to show/hide/gate.
  */
-const API_BASE = "http://localhost:4300";
+const API_BASE = BACKEND_URL;
 
 /**
  * Fired on every real auth transition (initial resolve, a fresh login, a

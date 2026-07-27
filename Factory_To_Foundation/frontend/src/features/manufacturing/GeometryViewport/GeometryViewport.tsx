@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { PanelCard } from "@/framework/ui";
 import { useSelection } from "@/context/SelectionContext";
 
-import { MANUFACTURING_MODEL_URL, useManufacturingModelUrl, useManufacturingTree } from "../manufacturingModel";
+import { MANUFACTURING_MODEL_LOCAL_DEFAULT, useManufacturingModelUrl, useManufacturingTree } from "../manufacturingModel";
 
 /** Selected-object outline — a real Box3 computed each time the selection changes, not a shader trick. Works identically for a leaf mesh or a group (a group's box is the union of its real children). */
 function SelectionOutline({ target }: { target: THREE.Object3D | undefined }) {
@@ -135,4 +135,4 @@ export default function GeometryViewport() {
   );
 }
 
-useGLTF.preload(MANUFACTURING_MODEL_URL);
+useGLTF.preload(MANUFACTURING_MODEL_LOCAL_DEFAULT);

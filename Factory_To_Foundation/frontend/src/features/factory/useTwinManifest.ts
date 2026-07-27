@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
-const BRIDGE_URL = "http://localhost:4100/twin-manifest";
+import { TWIN_BRIDGE_URL } from "@/lib/env";
+
+const BRIDGE_URL = `${TWIN_BRIDGE_URL}/twin-manifest`;
 
 // cell_manifest.json is only rewritten when the twin-side export script is
 // manually re-run (see Construction_Enterprises) — the object graph is

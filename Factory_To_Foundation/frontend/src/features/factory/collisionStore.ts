@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { aabbsOverlap, mergeAabbs, primAabb, testBodies, type Aabb } from "./collisionEngine";
 import { buildCollisionBodies, isExcludedPair, pairKey, type CollisionBody } from "./collisionGeometry";
 import type { TwinState } from "./useTwinState";
+import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 /**
  * Live collision monitor — polls the twin bridge on its own fast cadence
@@ -18,7 +19,7 @@ import type { TwinState } from "./useTwinState";
  * those gaps: a fast transient that starts and ends entirely between
  * two written snapshots is honestly invisible to this monitor.
  */
-const BRIDGE_URL = "http://localhost:4100/twin-state";
+const BRIDGE_URL = `${TWIN_BRIDGE_URL}/twin-state`;
 const POLL_MS = 150;
 const BROAD_PHASE_MARGIN = 0.05;
 

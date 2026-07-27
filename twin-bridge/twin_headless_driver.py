@@ -28,10 +28,17 @@ import matplotlib
 matplotlib.use("Agg")
 
 import importlib.util
+import os
 import sys
 import time
 
-TWIN_PATH = r"C:\Users\jchap\Dev\Construction_Enterprises\Chappell_Robotics\CE_Integrated_Cell_V3_0-6.py"
+# Configurable so this same script runs unchanged on this Windows dev
+# machine (default below) and on wherever it eventually deploys (Linux
+# EC2) — a real env var, not a second hardcoded path for the new target.
+TWIN_PATH = os.environ.get(
+    "TWIN_MODULE_PATH",
+    r"C:\Users\jchap\Dev\Construction_Enterprises\Chappell_Robotics\CE_Integrated_Cell_V3_0-6.py",
+)
 
 spec = importlib.util.spec_from_file_location("ce_cell", TWIN_PATH)
 mod = importlib.util.module_from_spec(spec)

@@ -1,5 +1,6 @@
 import type { InstructionStep } from "@/context/ManufacturingOutputContext";
 import type { TwinState } from "./useTwinState";
+import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 /**
  * Real, human-triggered dispatch of one InstructionStep's real command(s)
@@ -16,7 +17,7 @@ import type { TwinState } from "./useTwinState";
  * stops the remaining commands in this step rather than firing them
  * against a twin state that didn't reach what the next command assumes.
  */
-const BRIDGE_BASE = "http://localhost:4100";
+const BRIDGE_BASE = TWIN_BRIDGE_URL;
 const POLL_INTERVAL_MS = 200;
 const TIMEOUT_MS = 20000;
 // Real settle delay before the first poll — guarantees at least one real
@@ -96,7 +97,7 @@ async function dispatchOne(command: string, params: Record<string, unknown>): Pr
       return { command, params, ok: false, reason: body.reason ?? `dispatch failed (HTTP ${res.status})` };
     }
   } catch {
-    return { command, params, ok: false, reason: "twin-bridge not reachable at localhost:4100 — start it with: node twin-bridge/server.mjs" };
+    return { command, params, ok: false, reason: `twin-bridge not reachable at ${TWIN_BRIDGE_URL} — start it with: node twin-bridge/server.mjs` };
   }
 
   await sleep(SETTLE_MS);

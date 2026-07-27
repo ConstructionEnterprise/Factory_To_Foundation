@@ -1,3 +1,9 @@
+// Same reasoning as lib/prisma.ts/lib/s3.ts: this file now reads
+// process.env.ALLOWED_ORIGIN directly at module-load time, before any
+// transitively-imported route/service/repository file is guaranteed to
+// have loaded dotenv first — load it explicitly here too rather than
+// relying on import-order luck.
+import "dotenv/config";
 import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
@@ -12,12 +18,15 @@ import { logisticsDriverRoutes } from "./routes/logisticsDrivers";
 import { logisticsDispatchRoutes } from "./routes/logisticsDispatches";
 import { logisticsMaterialRoutes } from "./routes/logisticsMaterials";
 import { logisticsModuleRoutes } from "./routes/logisticsModules";
+import { manufacturingModelRoutes } from "./routes/manufacturingModel";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
 // Matches twin-bridge's/blender-bridge's own ALLOWED_ORIGIN convention —
-// one real dev frontend origin, not a wildcard.
-const ALLOWED_ORIGIN = "http://localhost:5173";
+// one real dev frontend origin, not a wildcard. Env-driven so Phase 4/5
+// can point this at the real deployed frontend origin without a code
+// change; defaults to local dev so nothing breaks before that lands.
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
 
 function isPrismaKnownRequestError(err: unknown): err is { code: string; meta?: unknown } {
   return (
@@ -109,6 +118,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(logisticsDispatchRoutes);
   await app.register(logisticsMaterialRoutes);
   await app.register(logisticsModuleRoutes);
+  await app.register(manufacturingModelRoutes);
 
   return app;
 }

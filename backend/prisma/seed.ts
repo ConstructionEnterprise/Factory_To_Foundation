@@ -16,7 +16,13 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+// Same conditional-SSL reasoning as src/lib/prisma.ts: RDS enforces SSL,
+// local Docker Postgres doesn't support it at all.
+const isLocalDb = /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL ?? "");
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+  ...(isLocalDb ? {} : { ssl: { rejectUnauthorized: false } }),
+});
 const prisma = new PrismaClient({ adapter });
 
 const MODULES = [

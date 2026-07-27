@@ -24,7 +24,9 @@
  * needs to call authFetch, never has to import this module in a cycle
  * either way — it just listens for the event).
  */
-const API_BASE = "http://localhost:4300";
+import { BACKEND_URL } from "./env";
+
+const API_BASE = BACKEND_URL;
 
 export const SESSION_EXPIRED_EVENT = "ff:session-expired";
 
