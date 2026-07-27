@@ -1,12 +1,15 @@
 import { authFetch } from "@/lib/authFetch";
 
 /**
- * Real API client for the Logistics Dispatch-creation flow — talks to the
- * 3 real backend route files added alongside the dispatch-creation form
- * (backend/src/routes/logisticsTrucks.ts, logisticsDrivers.ts,
- * logisticsDispatches.ts). Same authFetch/describeResponseError pattern as
+ * Real API client for all 5 Logistics operational models — talks to the
+ * real backend route files added across Phases 5-8 (logisticsTrucks.ts,
+ * logisticsDrivers.ts, logisticsDispatches.ts, logisticsMaterials.ts,
+ * logisticsModules.ts). Same authFetch/describeResponseError pattern as
  * projectFilesApi.ts: credentials always included, a real `{ error }` body
- * surfaced on failure instead of a generic "server responded 4xx".
+ * surfaced on failure instead of a generic "server responded 4xx". Phase 8
+ * is this file's first real consumer for Material/Module — added once the
+ * real Browse Logistics panel needed a real Storage/Yard data source,
+ * closing the gap Phase 6 explicitly flagged as unbuilt.
  */
 const API_BASE = "http://localhost:4300";
 
@@ -106,4 +109,46 @@ export function transitionDispatchStatus(
 
 export function listCustodyEvents(dispatchId: string): Promise<LogisticsCustodyEvent[]> {
   return requestJson(`/logistics-dispatches/${dispatchId}/events`);
+}
+
+export type LogisticsMaterial = {
+  id: string;
+  name: string;
+  quantity: number | null;
+  location: string | null;
+};
+
+export function listMaterials(): Promise<LogisticsMaterial[]> {
+  return requestJson("/logistics-materials");
+}
+
+export type CreateMaterialInput = { name: string; quantity?: number; location?: string };
+
+export function createMaterial(input: CreateMaterialInput): Promise<LogisticsMaterial> {
+  return requestJson("/logistics-materials", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export type LogisticsModule = {
+  id: string;
+  name: string;
+  location: string | null;
+  dispatchId: string | null;
+};
+
+export function listModules(): Promise<LogisticsModule[]> {
+  return requestJson("/logistics-modules");
+}
+
+export type CreateModuleInput = { name: string; location?: string; dispatchId?: string };
+
+export function createModule(input: CreateModuleInput): Promise<LogisticsModule> {
+  return requestJson("/logistics-modules", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }

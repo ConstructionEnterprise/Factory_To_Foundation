@@ -50,10 +50,10 @@ export const dataProvenance: FeatureProvenance[] = [
   },
   {
     feature: "Logistics",
-    status: "fixture",
+    status: "real-live",
     summary:
-      "Fixture yard/dock/transportation data end to end. Browse is grouped by the real “zone” field, but the underlying records themselves are fixture, not live.",
-    source: "features/logistics/logisticsData.ts",
+      "Browse/Inspector read real Postgres rows (LogisticsMaterial/Module/Truck/Driver/Dispatch, plus the real chain-of-custody event log) through the real ff-backend API — Storage/Yard/Transportation zones show whatever real rows actually exist, honestly empty otherwise; Receiving stays a disclosed empty zone since no real model exists for it. The KPI row above Browse (Modules Staged/In Transit/Dock Utilization/Deliveries) is a separate, still-fixture concern (gap #4), not wired to these real counts yet.",
+    source: "features/logistics/logisticsOperationsApi.ts (backend/src/routes/logistics{Materials,Modules,Trucks,Drivers,Dispatches}.ts)",
   },
   {
     feature: "Construction",

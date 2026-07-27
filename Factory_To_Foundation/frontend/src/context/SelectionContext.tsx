@@ -30,13 +30,50 @@ export type RoboticsPayload = {
   robotName: string;
 };
 
-export type LogisticsPayload = {
+/**
+ * Real, closed set of Logistics entity kinds (Phase 8) — one variant per
+ * real Prisma model a Browse row can now come from
+ * (LogisticsMaterial/Module/Dispatch; Truck/Driver are real too but only
+ * ever surface as resolved display fields on a Dispatch selection, never
+ * as their own top-level Browse row — see LogisticsBrowse.tsx). Replaces
+ * the original fixture-shaped flat payload (name/status/location/
+ * destination/loadInfo) that every kind was forced through before any of
+ * this was real. `kind` is a real discriminant here (unlike
+ * ManufacturingPayload's deliberately-generic extras bag) because these
+ * are genuinely distinct real database tables, not an open question about
+ * whether two concepts are "the same thing."
+ */
+export type LogisticsMaterialPayload = {
+  kind: "material";
   name: string;
-  status: "in-transit" | "staged" | "delivered";
-  location: string;
-  destination: string;
-  loadInfo: string;
+  quantity: number | null;
+  location: string | null;
 };
+
+export type LogisticsModulePayload = {
+  kind: "module";
+  name: string;
+  location: string | null;
+  /** Real dispatch id if one's assigned, else null (staged in the Yard, unassigned). Real dispatch-derived label/status resolved by the consumer, not stored here — matches LogisticsModule's own "derived, never stored" schema design. */
+  dispatchId: string | null;
+  dispatchLabel: string | null;
+  dispatchStatus: string | null;
+};
+
+export type LogisticsDispatchPayload = {
+  kind: "dispatch";
+  /** Real resolved display labels — LogisticsBrowse looks these up from the same real truck/driver/project lists it already fetches, so Inspector never needs a second round-trip or a raw id shown as if it were a name. */
+  truckIdentifier: string;
+  driverName: string;
+  destinationTitle: string;
+  status: string;
+  route: string | null;
+  traffic: string | null;
+  eta: string | null;
+  dispatchedAt: string;
+};
+
+export type LogisticsPayload = LogisticsMaterialPayload | LogisticsModulePayload | LogisticsDispatchPayload;
 
 export type ConstructionPayload = {
   name: string;

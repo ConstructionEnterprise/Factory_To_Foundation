@@ -10,6 +10,8 @@ import { logisticsDocumentRoutes } from "./routes/logisticsDocuments";
 import { logisticsTruckRoutes } from "./routes/logisticsTrucks";
 import { logisticsDriverRoutes } from "./routes/logisticsDrivers";
 import { logisticsDispatchRoutes } from "./routes/logisticsDispatches";
+import { logisticsMaterialRoutes } from "./routes/logisticsMaterials";
+import { logisticsModuleRoutes } from "./routes/logisticsModules";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
@@ -105,6 +107,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(logisticsTruckRoutes);
   await app.register(logisticsDriverRoutes);
   await app.register(logisticsDispatchRoutes);
+  await app.register(logisticsMaterialRoutes);
+  await app.register(logisticsModuleRoutes);
 
   return app;
 }
