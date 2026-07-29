@@ -142,10 +142,15 @@ function detectExternalTwinProcess() {
 }
 
 function startTwin() {
-  const proc = spawn("python3", [DRIVER_PATH], { windowsHide: true });
+  const pythonBin = process.platform === "win32" ? "python" : "python3";
+  const proc = spawn(pythonBin, [DRIVER_PATH], { windowsHide: true });
   trackedChild = { proc, pid: proc.pid, startedAt: Date.now() };
   proc.stdout.on("data", (d) => process.stdout.write(`[twin] ${d}`));
   proc.stderr.on("data", (d) => process.stderr.write(`[twin:err] ${d}`));
+  proc.on("error", (err) => {
+    console.error(`[twin-bridge] failed to spawn twin process (${pythonBin}):`, err.message);
+    if (trackedChild?.pid === proc.pid) trackedChild = null;
+  });
   proc.on("exit", (code, signal) => {
     console.log(`[twin-bridge] tracked twin process exited (code=${code}, signal=${signal})`);
     if (trackedChild?.pid === proc.pid) trackedChild = null;
