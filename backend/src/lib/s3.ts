@@ -18,12 +18,22 @@ function requireEnv(name: string): string {
 
 export const S3_BUCKET_NAME = requireEnv("S3_BUCKET_NAME");
 
+// Scale-readiness audit finding (CLAUDE.md §24): AWS_ACCESS_KEY_ID/
+// AWS_SECRET_ACCESS_KEY are now optional, not required. When both are
+// present (local dev, where there's no EC2 instance role to fall back
+// on), they're used explicitly. When absent (the real deployed
+// instance), the SDK's own default credential provider chain resolves
+// real temporary credentials from the attached EC2 instance role
+// instead — no long-lived key ever needs to live in a file that gets
+// copied onto every future cloned instance.
+const explicitAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
+const explicitSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
 export const s3Client = new S3Client({
   region: requireEnv("AWS_REGION"),
-  credentials: {
-    accessKeyId: requireEnv("AWS_ACCESS_KEY_ID"),
-    secretAccessKey: requireEnv("AWS_SECRET_ACCESS_KEY"),
-  },
+  ...(explicitAccessKeyId && explicitSecretAccessKey
+    ? { credentials: { accessKeyId: explicitAccessKeyId, secretAccessKey: explicitSecretAccessKey } }
+    : {}),
 });
 
 // Long enough for a real upload/download to complete, short enough not to

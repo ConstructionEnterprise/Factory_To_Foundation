@@ -51,12 +51,18 @@ function requireEnv(name) {
   return value;
 }
 const S3_BUCKET_NAME = requireEnv("S3_BUCKET_NAME");
+// Scale-readiness audit finding (CLAUDE.md §24) — same real reasoning as
+// backend/src/lib/s3.ts: explicit keys are optional now, used only when
+// both are actually set (local dev); the real deployed instance omits
+// them and the SDK's default credential chain picks up the attached EC2
+// instance role instead.
+const explicitAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
+const explicitSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 const s3Client = new S3Client({
   region: requireEnv("AWS_REGION"),
-  credentials: {
-    accessKeyId: requireEnv("AWS_ACCESS_KEY_ID"),
-    secretAccessKey: requireEnv("AWS_SECRET_ACCESS_KEY"),
-  },
+  ...(explicitAccessKeyId && explicitSecretAccessKey
+    ? { credentials: { accessKeyId: explicitAccessKeyId, secretAccessKey: explicitSecretAccessKey } }
+    : {}),
 });
 // Real fixed key — must stay in sync with backend/src/routes/manufacturingModel.ts's
 // own copy of this same literal (separate processes, can't share a constant
