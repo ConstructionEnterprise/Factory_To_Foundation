@@ -8,6 +8,12 @@ import * as authService from "../services/authService";
 const ACCESS_TOKEN_MAX_AGE_SEC = 15 * 60;
 const REFRESH_TOKEN_MAX_AGE_SEC = REFRESH_TOKEN_TTL_MS / 1000;
 
+// Real, env-driven per Phase 3 (public HTTPS access) — the app runs behind
+// nginx TLS termination on the real deployed instance now, so cookies must
+// actually set Secure there; local dev stays plain http, where Secure would
+// silently prevent the browser from ever storing the cookie at all.
+const COOKIES_SECURE = process.env.NODE_ENV === "production";
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -17,14 +23,14 @@ function setAuthCookies(reply: FastifyReply, tokens: { accessToken: string; refr
   reply.setCookie(ACCESS_TOKEN_COOKIE, tokens.accessToken, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false, // local dev over http — a real deployment behind https must flip this
+    secure: COOKIES_SECURE,
     path: "/",
     maxAge: ACCESS_TOKEN_MAX_AGE_SEC,
   });
   reply.setCookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: COOKIES_SECURE,
     // Scoped to /auth only — this token never needs to leave the two
     // routes that actually consume it, unlike the access token.
     path: "/auth",
