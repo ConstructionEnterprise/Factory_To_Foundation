@@ -10,6 +10,7 @@ import {
   Network,
   Package,
   ShieldCheck,
+  Lock,
   Truck,
   Cog,
   Wifi,
@@ -27,6 +28,7 @@ import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
 import AdministrationPage from "@/pages/administration/AdministrationPage";
 import ReportsPage from "@/pages/reports/ReportsPage";
 import NetworkingPage from "@/pages/networking/NetworkingPage";
+import PermissionsPage from "@/pages/permissions/PermissionsPage";
 // ComingSoonPage (src/pages/ComingSoonPage.tsx) is no longer used by any
 // route now that Analytics/Administration/Reports are real pages — left
 // on disk, not deleted, for whatever feature is unbuilt next.
@@ -110,14 +112,30 @@ export const appRoutes: AppRoute[] = [
     element: <SchedulingPage />,
   },
   {
+    path: "/permissions",
+    label: "Permissions",
+    icon: Lock,
+    element: <PermissionsPage />,
+    // A3 — Roles & Permissions/User Management are real RBAC administration
+    // (renamed from Networking in the Permissions Migration — this route
+    // used to live at /networking under module id "networking"; both the
+    // route and the module id were renamed together, atomically, with the
+    // real role_permission rows repointed in the same migration). Same
+    // route-level gating precedent as Administration below (nothing
+    // per-control to hide/disable on this page's own read view; the write
+    // controls inside User Management are separately gated per-action too).
+    requiredPermission: { module: "permissions", action: "read" },
+  },
+  {
     path: "/networking",
     label: "Networking",
     icon: Wifi,
     element: <NetworkingPage />,
-    // A3 — Roles & Permissions/User Management are real RBAC administration,
-    // same route-level gating precedent as Administration below (nothing
-    // per-control to hide/disable on this page's own read view; the write
-    // controls inside User Management are separately gated per-action too).
+    // Real, genuinely distinct module (Permissions Migration + Real
+    // Networking Module build) — factory IT/OT network infrastructure,
+    // sourced from the real Cisco Packet Tracer diagram
+    // CE_Factory_Production_LAN. Read-only, so nothing per-control to gate
+    // beyond this route-level read check.
     requiredPermission: { module: "networking", action: "read" },
   },
   {

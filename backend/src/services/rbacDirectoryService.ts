@@ -13,7 +13,7 @@ export type RbacDirectoryDto = {
   grants: RoleGrantDto[];
 };
 
-/** Real RBAC directory (Networking's Roles & Permissions view, A3) — everything needed to render a real role x module x action grant matrix client-side, from the actual seeded tables (backend/prisma/seed.ts), not a duplicated/hand-maintained copy. Read is always real-time (not cached), so a grant just toggled shows up on the very next fetch. */
+/** Real RBAC directory (Permissions' Roles & Permissions view, A3, renamed from Networking) — everything needed to render a real role x module x action grant matrix client-side, from the actual seeded tables (backend/prisma/seed.ts), not a duplicated/hand-maintained copy. Read is always real-time (not cached), so a grant just toggled shows up on the very next fetch. */
 export async function getRbacDirectory(): Promise<RbacDirectoryDto> {
   const [roles, modules, permissions, grants] = await Promise.all([
     repo.listRoles(),

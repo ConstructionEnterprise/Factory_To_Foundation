@@ -964,3 +964,99 @@ model ComplianceDocument {
   @@unique([fileId, version])
   @@map("compliance_document")
 }
+
+// ───────────────────── Networking (real IT/OT infrastructure) ─────────────────────
+// Built from the real Cisco Packet Tracer diagram CE_Factory_Production_LAN
+// (read directly, a screenshot, not a parseable .pkt file) — see the
+// Permissions-migration/Networking-module report for the full investigation.
+// This is a genuinely different concept from the `networking` RBAC module
+// id that existed before this migration: that module was always the real
+// Roles & Permissions/User Management RBAC subsystem wearing the wrong
+// name — renamed to `permissions` in this same migration, freeing the
+// `networking` module id to mean networking for the first time.
+//
+// Scope, explicit and narrow, per the brief: static device inventory + VLAN
+// topology as real seeded data, read-only visualization. No live SNMP/
+// telemetry polling, no switch monitoring, no firewall management, no PLC
+// communications — all future work, not built here.
+//
+// Real, disclosed limitation: Packet Tracer's own topology-summary panel in
+// the diagram totals 31 devices (by its internal category counts); only 29
+// devices could be directly confirmed by name/IP from the screenshot at
+// this resolution. Seeded here are the 29 confirmed devices — the 2-device
+// gap is disclosed in the frontend UI, not silently forced to reconcile
+// (same posture as Manufacturing's own disclosed 272-vs-340 unit
+// discrepancy, CLAUDE.md gap #11).
+//
+// Real, disclosed inference: the diagram confirms 3 real access switches
+// each trunking multiple VLANs via 802.1Q, but the exact per-switch VLAN
+// assignment wasn't legible at this screenshot's resolution. Endpoints are
+// grouped 3 VLANs per access switch (10/20/30 → A, 40/50/60 → B, 70/80/90 →
+// C) as a reasonable, disclosed assumption — every device name/IP/VLAN/
+// subnet is real; this specific grouping is inferred, not read directly.
+
+enum NetworkDeviceRole {
+  firewall
+  core_switch
+  distribution_switch
+  access_switch
+  server
+  workstation
+  plc
+  remote_io
+  robot_controller
+  hmi
+  vision_system
+  quality_station
+  scanner
+  shipping_pc
+  access_point
+  tablet
+  laptop
+  camera
+  door_controller
+  card_reader
+  supervisor_pc
+  printer
+}
+
+model NetworkVlan {
+  id     String @id @default(cuid())
+  /// Real VLAN number from the diagram (e.g. 10, 20 ... 90).
+  number Int    @unique
+  name   String
+  /// Real /24 subnet, e.g. "10.10.10.0/24".
+  subnet String
+
+  devices NetworkDevice[]
+
+  @@map("network_vlan")
+}
+
+model NetworkDevice {
+  id    String            @id @default(cuid())
+  /// Real label from the diagram, e.g. "PLC-01", "Core L3 Switch".
+  name  String
+  role  NetworkDeviceRole
+  /// Real hardware model where the diagram shows one (e.g. "3560-24PS",
+  /// "2960-X-24PS", "5506-X") — null for devices with no model shown.
+  model String?
+  /// Real IP from the diagram — null for devices with none shown (e.g. the
+  /// Industrial AP).
+  ipAddress String? @map("ip_address")
+
+  vlanId String?      @map("vlan_id")
+  vlan   NetworkVlan? @relation(fields: [vlanId], references: [id])
+
+  /// Real parent in the topology tree — the diagram's topology is a real
+  /// tree (no redundant/mesh links anywhere in it), so a self-referencing
+  /// parent pointer is sufficient and simpler than a separate edge table.
+  /// Null only for the Edge Firewall, the real root.
+  uplinkDeviceId  String?         @map("uplink_device_id")
+  uplinkDevice    NetworkDevice?  @relation("NetworkDeviceUplink", fields: [uplinkDeviceId], references: [id])
+  downlinkDevices NetworkDevice[] @relation("NetworkDeviceUplink")
+
+  @@index([vlanId])
+  @@index([uplinkDeviceId])
+  @@map("network_device")
+}

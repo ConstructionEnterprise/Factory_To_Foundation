@@ -8,7 +8,7 @@ export function findById(id: string) {
   return prisma.user.findUnique({ where: { id }, include: { role: true } });
 }
 
-/** Real User Management list (Networking, A3) — real rows, never passwordHash (selected out explicitly, not filtered after the fact). */
+/** Real User Management list (Permissions, A3, renamed from Networking) — real rows, never passwordHash (selected out explicitly, not filtered after the fact). */
 export function listUsers() {
   return prisma.user.findMany({
     select: { id: true, email: true, displayName: true, roleId: true, createdAt: true, role: { select: { name: true } } },

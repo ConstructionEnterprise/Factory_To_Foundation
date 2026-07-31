@@ -4,7 +4,8 @@ import { prisma } from "../lib/prisma";
  * Real, already-seeded RBAC reference data (backend/prisma/seed.ts).
  * Originally read-only by design (a naive editable UI risked corrupting
  * the real seeded grant matrix) — real edit mutations (grant/revoke) were
- * added below on explicit user request, gated on networking:update same
+ * added below on explicit user request, gated on permissions:update (module
+ * renamed from networking in the Permissions Migration) same
  * as everything else in this feature, and real, not fabricated: every
  * toggle is a genuine row create/delete against role_permission, the
  * exact table every route's own requirePermission check reads per

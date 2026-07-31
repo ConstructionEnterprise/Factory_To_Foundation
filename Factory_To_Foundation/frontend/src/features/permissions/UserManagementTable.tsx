@@ -9,9 +9,11 @@ import type { ManagedUser } from "./userManagementApi";
 /**
  * Real User Management (A3) — real CRUD against backend/src/routes/users.ts,
  * replacing the manual create-user.ts CLI/psql workflow the brief names
- * directly. Every write control is gated the same UX/honesty way every
- * other real write control in this app is (usePermission) — real
- * enforcement is still the backend's requirePermission middleware.
+ * directly. Renamed from Networking to Permissions (Permissions Migration +
+ * Real Networking Module build) — same real feature, corrected module id.
+ * Every write control is gated the same UX/honesty way every other real
+ * write control in this app is (usePermission) — real enforcement is still
+ * the backend's requirePermission middleware.
  */
 export default function UserManagementTable() {
   const { user: currentUser } = useAuth();
@@ -21,9 +23,9 @@ export default function UserManagementTable() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const createPermission = usePermission("networking", "create");
-  const updatePermission = usePermission("networking", "update");
-  const deletePermission = usePermission("networking", "delete");
+  const createPermission = usePermission("permissions", "create");
+  const updatePermission = usePermission("permissions", "update");
+  const deletePermission = usePermission("permissions", "delete");
 
   function reload() {
     setError(null);

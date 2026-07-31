@@ -20,14 +20,18 @@ function grantKey(roleId: string, moduleId: string, permissionId: string): strin
 
 /**
  * Real Roles & Permissions matrix (A3) — the actual seeded Module/Role/
- * Permission/RolePermission tables (10 roles, 12 modules post-Phase-1, 166
- * real grant rows), not a mockup. Originally deliberately read-only (a
- * naive editable grid risked corrupting the real seeded matrix every
- * route's server-side enforcement depends on) — real edit mode added on
- * explicit user request: each toggle is a genuine create/delete against
- * role_permission, gated on networking:update, with the same real,
- * disclosed recovery path (`prisma db seed`) if a role ever locks itself
- * out of further edits noted in the backend's own doc comments.
+ * Permission/RolePermission tables (10 roles, 13 modules post-Permissions-
+ * Migration, 176 real grant rows), not a mockup. Renamed from Networking to
+ * Permissions (Permissions Migration + Real Networking Module build) — this
+ * is, and was always, the real RBAC/Permissions subsystem; "Networking" is
+ * now a separate, genuinely distinct real module (factory IT/OT
+ * infrastructure). Originally deliberately read-only (a naive editable grid
+ * risked corrupting the real seeded matrix every route's own server-side
+ * enforcement depends on) — real edit mode added on explicit user request:
+ * each toggle is a genuine create/delete against role_permission, gated on
+ * permissions:update, with the same real, disclosed recovery path
+ * (`prisma db seed`) if a role ever locks itself out of further edits noted
+ * in the backend's own doc comments.
  */
 export default function RolesPermissionsMatrix() {
   const [directory, setDirectory] = useState<RbacDirectory | null>(null);
@@ -35,7 +39,7 @@ export default function RolesPermissionsMatrix() {
   const [editMode, setEditMode] = useState(false);
   const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
 
-  const updatePermission = usePermission("networking", "update");
+  const updatePermission = usePermission("permissions", "update");
 
   useEffect(() => {
     fetchRbacDirectory()

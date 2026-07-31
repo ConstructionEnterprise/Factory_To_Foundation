@@ -18,14 +18,15 @@ const updateUserSchema = z.object({
 
 /**
  * Real User Management (A3) — replaces the manual create-user.ts CLI/psql
- * workflow. Gated on the new `networking` module (Phase 1) rather than
- * `administration`, matching Roles & Permissions' own module.
+ * workflow. Gated on the `permissions` module (renamed from `networking` in
+ * the Permissions Migration — see prisma/seed.ts's MODULES comment) rather
+ * than `administration`, matching Roles & Permissions' own module.
  */
 export async function userManagementRoutes(app: FastifyInstance) {
-  const readPreHandler = [authenticate, requirePermission("networking", "read")];
-  const createPreHandler = [authenticate, requirePermission("networking", "create")];
-  const updatePreHandler = [authenticate, requirePermission("networking", "update")];
-  const deletePreHandler = [authenticate, requirePermission("networking", "delete")];
+  const readPreHandler = [authenticate, requirePermission("permissions", "read")];
+  const createPreHandler = [authenticate, requirePermission("permissions", "create")];
+  const updatePreHandler = [authenticate, requirePermission("permissions", "update")];
+  const deletePreHandler = [authenticate, requirePermission("permissions", "delete")];
 
   app.get("/users", { preHandler: readPreHandler }, async () => {
     return service.listUsers();

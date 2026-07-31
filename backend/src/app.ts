@@ -25,6 +25,7 @@ import { rbacDirectoryRoutes } from "./routes/rbacDirectory";
 import { userManagementRoutes } from "./routes/users";
 import { complianceDocumentRoutes } from "./routes/complianceDocuments";
 import { scheduleTaskRoutes } from "./routes/scheduleTasks";
+import { networkRoutes } from "./routes/network";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
@@ -131,6 +132,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(userManagementRoutes);
   await app.register(complianceDocumentRoutes);
   await app.register(scheduleTaskRoutes);
+  await app.register(networkRoutes);
 
   return app;
 }

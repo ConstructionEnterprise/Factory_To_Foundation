@@ -43,6 +43,23 @@ const MODULES = [
   // what is a genuinely different concern from Administration's own
   // Document Templates/Compliance scope, and deserves its own grant
   // granularity (a role could plausibly need one without the other).
+  //
+  // RENAMED (Permissions Migration + Real Networking Module build): this
+  // module shipped as id "networking" but was always the real RBAC/
+  // Permissions subsystem wearing the wrong name — Roles & Permissions,
+  // User Management, real backend enforcement. Migration
+  // 20260731120000_permissions_rename_and_networking_module did a true
+  // rename (Option A): repointed all 12 real role_permission rows from
+  // moduleId "networking" to "permissions", deleted the old row, then
+  // recreated "networking" as the real 13th module below — a genuine
+  // factory IT/OT network-infrastructure module, sourced from the real
+  // Cisco Packet Tracer diagram CE_Factory_Production_LAN, not a rebuild of
+  // this one.
+  { id: "permissions", name: "Permissions" },
+  // Real 13th module (Networking Module build) — factory IT/OT network
+  // infrastructure (device inventory + VLAN topology), read-only
+  // visualization only. See prisma/schema.prisma's own Networking section
+  // header comment for the full real source/scope disclosure.
   { id: "networking", name: "Networking" },
 ] as const;
 
@@ -85,12 +102,16 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
   },
   {
     // Unchanged from the original draft: full on Administration only, read
-    // elsewhere. Extended (Phase 1, this build) with full on the new
-    // Networking module too — Roles & Permissions/User Management is the
-    // same class of "administers the system" concern Administration already
-    // covers, and Administrator is the one non-CEO role built for it.
+    // elsewhere. Extended (Phase 1, this build) with full on Permissions too
+    // (renamed from "networking" in the Permissions Migration — see
+    // MODULES's own comment above) — Roles & Permissions/User Management is
+    // the same class of "administers the system" concern Administration
+    // already covers, and Administrator is the one non-CEO role built for
+    // it. Gets real Networking (the new, genuinely distinct IT/OT module)
+    // at plain read via the uniform(R) base, same as every other module
+    // Administrator doesn't specifically administer.
     name: "Administrator",
-    permissions: { ...uniform(R), administration: FULL, networking: FULL },
+    permissions: { ...uniform(R), administration: FULL, permissions: FULL },
   },
   {
     name: "Manufacturing Engineer",
@@ -106,7 +127,12 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
-      networking: NONE,
+      permissions: NONE,
+      // Real, disclosed judgment call (Networking Module build): read
+      // access to the new real Networking module for roles that already
+      // have factory-floor visibility (factory: R here) — the factory's
+      // IT/OT network is part of what they already operationally see.
+      networking: R,
     },
   },
   {
@@ -137,7 +163,9 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
-      networking: NONE,
+      permissions: NONE,
+      // Judgment call, same reasoning as Manufacturing Engineer above.
+      networking: R,
     },
   },
   {
@@ -154,7 +182,9 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
-      networking: NONE,
+      permissions: NONE,
+      // Judgment call, same reasoning as Manufacturing Engineer above.
+      networking: R,
     },
   },
   {
@@ -171,6 +201,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: NONE,
       reports: R,
       administration: NONE,
+      permissions: NONE,
       networking: NONE,
     },
   },
@@ -188,6 +219,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: NONE,
       reports: R,
       administration: NONE,
+      permissions: NONE,
       networking: NONE,
     },
   },
@@ -208,6 +240,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: NONE,
       reports: R,
       administration: NONE,
+      permissions: NONE,
       networking: NONE,
     },
   },
@@ -225,6 +258,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
+      permissions: NONE,
       networking: NONE,
     },
   },
@@ -248,6 +282,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
+      permissions: NONE,
       networking: NONE,
     },
   },
@@ -388,6 +423,103 @@ const CONSTRUCTION_TREE: ConstructionTreeNodeSeed[] = [
   ...floorNodes(40, "skyline"),
 ];
 
+// ───────────────────── Networking (real IT/OT infrastructure) ─────────────────────
+// Real device/VLAN data from the real Cisco Packet Tracer diagram
+// CE_Factory_Production_LAN (read directly as a screenshot, per the
+// Permissions Migration + Real Networking Module brief). See
+// schema.prisma's own Networking section header for the disclosed 29-vs-31
+// device-count gap and the disclosed per-switch VLAN-grouping inference —
+// every device name/IP/VLAN/subnet below is real, only the specific
+// access-switch-to-VLAN grouping (10/20/30→A, 40/50/60→B, 70/80/90→C) is an
+// inferred, disclosed assumption.
+
+type NetworkVlanSeed = { id: string; number: number; name: string; subnet: string };
+
+const NETWORK_VLANS: NetworkVlanSeed[] = [
+  { id: "vlan-10", number: 10, name: "PLC Network", subnet: "10.10.10.0/24" },
+  { id: "vlan-20", number: 20, name: "Industrial Robots", subnet: "10.10.20.0/24" },
+  { id: "vlan-30", number: 30, name: "HMIs", subnet: "10.10.30.0/24" },
+  { id: "vlan-40", number: 40, name: "Quality Control", subnet: "10.10.40.0/24" },
+  { id: "vlan-50", number: 50, name: "Warehouse / Scanners", subnet: "10.10.50.0/24" },
+  { id: "vlan-60", number: 60, name: "Industrial Wi-Fi", subnet: "10.10.60.0/24" },
+  { id: "vlan-70", number: 70, name: "IP Cameras", subnet: "10.10.70.0/24" },
+  { id: "vlan-80", number: 80, name: "Access Control", subnet: "10.10.80.0/24" },
+  { id: "vlan-90", number: 90, name: "OT Management", subnet: "10.10.90.0/24" },
+];
+
+type NetworkDeviceRoleSeed =
+  | "firewall" | "core_switch" | "distribution_switch" | "access_switch" | "server"
+  | "workstation" | "plc" | "remote_io" | "robot_controller" | "hmi" | "vision_system"
+  | "quality_station" | "scanner" | "shipping_pc" | "access_point" | "tablet" | "laptop"
+  | "camera" | "door_controller" | "card_reader" | "supervisor_pc" | "printer";
+
+type NetworkDeviceSeed = {
+  id: string;
+  name: string;
+  role: NetworkDeviceRoleSeed;
+  model: string | null;
+  ipAddress: string | null;
+  vlanId: string | null;
+  uplinkDeviceId: string | null;
+};
+
+// Real topology tree, parent-first (each row's uplinkDeviceId FK must
+// already exist). Real per the diagram: Internet -> Edge Firewall -> Core
+// L3 Switch (Factory Server + Engineering Workstation attach directly here)
+// -> Production Distribution Switch -> 3 Access Switches (802.1Q trunks) ->
+// VLAN endpoints. Wireless clients (Tech Tablet, Maintenance Laptop)
+// uplink through the real Industrial AP, not directly to a switch.
+const NETWORK_DEVICES: NetworkDeviceSeed[] = [
+  // Core infrastructure
+  { id: "net-edge-firewall", name: "Edge Firewall", role: "firewall", model: "5506-X", ipAddress: null, vlanId: null, uplinkDeviceId: null },
+  { id: "net-core-l3-switch", name: "Core L3 Switch", role: "core_switch", model: "3560-24PS", ipAddress: null, vlanId: null, uplinkDeviceId: "net-edge-firewall" },
+  { id: "net-factory-server", name: "Factory Server (SCADA/Historian)", role: "server", model: null, ipAddress: null, vlanId: null, uplinkDeviceId: "net-core-l3-switch" },
+  { id: "net-engineering-workstation", name: "Engineering Workstation", role: "workstation", model: null, ipAddress: null, vlanId: null, uplinkDeviceId: "net-core-l3-switch" },
+  { id: "net-dist-switch", name: "Production Distribution Switch", role: "distribution_switch", model: "3560-24PS", ipAddress: null, vlanId: null, uplinkDeviceId: "net-core-l3-switch" },
+  { id: "net-access-switch-a", name: "Access Switch A", role: "access_switch", model: "2960-X-24PS", ipAddress: null, vlanId: null, uplinkDeviceId: "net-dist-switch" },
+  { id: "net-access-switch-b", name: "Access Switch B", role: "access_switch", model: "2960-X-24PS", ipAddress: null, vlanId: null, uplinkDeviceId: "net-dist-switch" },
+  { id: "net-access-switch-c", name: "Access Switch C", role: "access_switch", model: "2960-X-24PS", ipAddress: null, vlanId: null, uplinkDeviceId: "net-dist-switch" },
+
+  // VLAN 10 — PLC Network (Access Switch A)
+  { id: "net-plc-01", name: "PLC-01", role: "plc", model: null, ipAddress: "10.10.10.11", vlanId: "vlan-10", uplinkDeviceId: "net-access-switch-a" },
+  { id: "net-plc-02", name: "PLC-02", role: "plc", model: null, ipAddress: "10.10.10.12", vlanId: "vlan-10", uplinkDeviceId: "net-access-switch-a" },
+  { id: "net-remote-io-rack", name: "Remote I/O Rack", role: "remote_io", model: null, ipAddress: "10.10.10.13", vlanId: "vlan-10", uplinkDeviceId: "net-access-switch-a" },
+
+  // VLAN 20 — Industrial Robots (Access Switch A)
+  { id: "net-robot-controller-1", name: "Robot Controller 1", role: "robot_controller", model: null, ipAddress: "10.10.20.11", vlanId: "vlan-20", uplinkDeviceId: "net-access-switch-a" },
+  { id: "net-robot-controller-2", name: "Robot Controller 2", role: "robot_controller", model: null, ipAddress: "10.10.20.12", vlanId: "vlan-20", uplinkDeviceId: "net-access-switch-a" },
+
+  // VLAN 30 — HMIs (Access Switch A)
+  { id: "net-hmi-01", name: "HMI-01", role: "hmi", model: null, ipAddress: "10.10.30.11", vlanId: "vlan-30", uplinkDeviceId: "net-access-switch-a" },
+  { id: "net-hmi-02", name: "HMI-02", role: "hmi", model: null, ipAddress: "10.10.30.12", vlanId: "vlan-30", uplinkDeviceId: "net-access-switch-a" },
+  { id: "net-hmi-03", name: "HMI-03", role: "hmi", model: null, ipAddress: "10.10.30.13", vlanId: "vlan-30", uplinkDeviceId: "net-access-switch-a" },
+
+  // VLAN 40 — Quality Control (Access Switch B)
+  { id: "net-vision-system", name: "Vision System", role: "vision_system", model: null, ipAddress: "10.10.40.11", vlanId: "vlan-40", uplinkDeviceId: "net-access-switch-b" },
+  { id: "net-qc-station", name: "QC Station", role: "quality_station", model: null, ipAddress: "10.10.40.12", vlanId: "vlan-40", uplinkDeviceId: "net-access-switch-b" },
+
+  // VLAN 50 — Warehouse / Scanners (Access Switch B)
+  { id: "net-barcode-scanner-1", name: "Barcode Scanner 1", role: "scanner", model: null, ipAddress: "10.10.50.11", vlanId: "vlan-50", uplinkDeviceId: "net-access-switch-b" },
+  { id: "net-shipping-pc", name: "Shipping PC", role: "shipping_pc", model: null, ipAddress: "10.10.50.12", vlanId: "vlan-50", uplinkDeviceId: "net-access-switch-b" },
+
+  // VLAN 60 — Industrial Wi-Fi (Access Switch B; Tablet/Laptop associate via the AP)
+  { id: "net-industrial-ap", name: "Industrial AP", role: "access_point", model: "43C-PT", ipAddress: null, vlanId: "vlan-60", uplinkDeviceId: "net-access-switch-b" },
+  { id: "net-tech-tablet", name: "Tech Tablet", role: "tablet", model: null, ipAddress: "10.10.60.21", vlanId: "vlan-60", uplinkDeviceId: "net-industrial-ap" },
+  { id: "net-maintenance-laptop", name: "Maintenance Laptop", role: "laptop", model: null, ipAddress: "10.10.60.22", vlanId: "vlan-60", uplinkDeviceId: "net-industrial-ap" },
+
+  // VLAN 70 — IP Cameras (Access Switch C)
+  { id: "net-ip-camera-1", name: "IP Camera 1", role: "camera", model: null, ipAddress: "10.10.70.11", vlanId: "vlan-70", uplinkDeviceId: "net-access-switch-c" },
+  { id: "net-ip-camera-2", name: "IP Camera 2", role: "camera", model: null, ipAddress: "10.10.70.12", vlanId: "vlan-70", uplinkDeviceId: "net-access-switch-c" },
+
+  // VLAN 80 — Access Control (Access Switch C)
+  { id: "net-door-controller", name: "Door Controller", role: "door_controller", model: null, ipAddress: "10.10.80.11", vlanId: "vlan-80", uplinkDeviceId: "net-access-switch-c" },
+  { id: "net-card-reader-1", name: "Card Reader 1", role: "card_reader", model: null, ipAddress: "10.10.80.21", vlanId: "vlan-80", uplinkDeviceId: "net-access-switch-c" },
+
+  // VLAN 90 — OT Management (Access Switch C)
+  { id: "net-supervisor-pc", name: "Supervisor PC", role: "supervisor_pc", model: null, ipAddress: "10.10.90.11", vlanId: "vlan-90", uplinkDeviceId: "net-access-switch-c" },
+  { id: "net-network-printer", name: "Network Printer", role: "printer", model: null, ipAddress: "10.10.90.12", vlanId: "vlan-90", uplinkDeviceId: "net-access-switch-c" },
+];
+
 async function main() {
   for (const m of MODULES) {
     await prisma.module.upsert({ where: { id: m.id }, update: { name: m.name }, create: m });
@@ -445,6 +577,23 @@ async function main() {
     });
   }
 
+  for (const v of NETWORK_VLANS) {
+    await prisma.networkVlan.upsert({
+      where: { id: v.id },
+      update: { number: v.number, name: v.name, subnet: v.subnet },
+      create: v,
+    });
+  }
+  // Parent-first order in NETWORK_DEVICES already guarantees each row's
+  // uplinkDeviceId FK exists before it's inserted.
+  for (const d of NETWORK_DEVICES) {
+    await prisma.networkDevice.upsert({
+      where: { id: d.id },
+      update: d,
+      create: d,
+    });
+  }
+
   const roleCount = await prisma.role.count();
   const moduleCount = await prisma.module.count();
   const permissionCount = await prisma.permission.count();
@@ -475,6 +624,16 @@ async function main() {
   const constructionProjectCount = await prisma.constructionProject.count();
   const constructionTreeNodeCount = await prisma.constructionTreeNode.count();
   console.log(`Seeded: ${constructionProjectCount} construction projects, ${constructionTreeNodeCount} construction tree nodes.`);
+
+  const networkVlanCount = await prisma.networkVlan.count();
+  const networkDeviceCount = await prisma.networkDevice.count();
+  console.log(`Seeded: ${networkVlanCount} network VLANs, ${networkDeviceCount} network devices.`);
+
+  const permissionsGrants = await prisma.rolePermission.count({ where: { moduleId: "permissions" } });
+  const networkingGrants = await prisma.rolePermission.count({ where: { moduleId: "networking" } });
+  console.log(
+    `Post-rename check — role_permission rows: moduleId="permissions" (renamed from "networking"): ${permissionsGrants} (expected 12, matching the pre-migration count exactly); moduleId="networking" (the real, new module): ${networkingGrants}.`
+  );
 }
 
 main()
