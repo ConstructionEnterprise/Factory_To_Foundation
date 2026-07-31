@@ -45,6 +45,7 @@ model Module {
 
   rolePermissions RolePermission[]
   scheduleStages  ScheduleStage[]
+  scheduleTasks   ScheduleTask[]
 
   @@map("module")
 }
@@ -103,8 +104,34 @@ model User {
   uploadedLogisticsDocuments LogisticsDocument[]     @relation("LogisticsDocumentUploadedBy")
   deletedLogisticsDocuments  LogisticsDocument[]     @relation("LogisticsDocumentDeletedBy")
   logisticsCustodyEvents     LogisticsCustodyEvent[]
+  uploadedComplianceDocuments ComplianceDocument[]   @relation("ComplianceDocumentUploadedBy")
+  deletedComplianceDocuments  ComplianceDocument[]   @relation("ComplianceDocumentDeletedBy")
+  scheduleTaskStatusEvents   ScheduleTaskStatusEvent[]
+  preference                 UserPreference?
 
   @@map("user")
+}
+
+/// Settings panel (A2), Phase 1 of the Ribbon/Networking/Settings build.
+/// One real row per user — each of the panel's 5 sections stored as its own
+/// nullable JSON blob rather than 20+ individual columns, matching
+/// InstructionSet.elementSpecJson's own "a snapshot of real preferences, not
+/// a separately-queried entity" precedent. Absent (null) means the user
+/// never touched that section yet — the frontend applies its own real
+/// defaults in that case, never a fabricated stored default.
+model UserPreference {
+  userId String @id @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workspaceJson     Json? @map("workspace_json")
+  appearanceJson    Json? @map("appearance_json")
+  notificationsJson Json? @map("notifications_json")
+  accessibilityJson Json? @map("accessibility_json")
+  preferencesJson   Json? @map("preferences_json")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_preference")
 }
 
 /// Real, server-side, revocable refresh-token store (Phase 3b) — a JWT
@@ -157,6 +184,11 @@ model InstructionSet {
 
   steps InstructionStep[]
 
+  // Added Phase 1 (Networking/Settings/Analytics build) — lets the new real
+  // execution-logging endpoint upsert idempotently by real generation
+  // identity instead of minting a fresh row per Execute click on the same
+  // generated set.
+  @@unique([sourceObjectId, generatedAt])
   @@map("instruction_set")
 }
 
@@ -213,6 +245,10 @@ model InstructionStep {
 
   executions InstructionExecution[]
 
+  // Added Phase 1, same reason as InstructionSet's own new @@unique above —
+  // lets a real step be upserted by (set, sequence) instead of needing a
+  // client-supplied id the frontend never had a reason to mint before now.
+  @@unique([instructionSetId, sequence])
   @@map("instruction_step")
 }
 
@@ -510,6 +546,7 @@ model ScheduleStage {
   ownedByModule   Module? @relation(fields: [ownedByModuleId], references: [id])
 
   ports SchedulePort[]
+  tasks ScheduleTask[]
 
   @@map("schedule_stage")
 }
@@ -547,6 +584,98 @@ model ScheduleWire {
   toPort     SchedulePort @relation("ScheduleWireTo", fields: [toPortId], references: [id], onDelete: Cascade)
 
   @@map("schedule_wire")
+}
+
+// ───────────────── Scheduling — real tasks (Phase 1, Networking/Settings/Analytics build) ─────────────────
+// ScheduleStage/Port/Wire above model a static 5-stage PIPELINE TAXONOMY —
+// confirmed via direct investigation to carry no date/duration/dependency
+// concept at all. ScheduleTask is the new, additive, per-instance layer
+// underneath it: a real schedulable item with real planned/actual dates,
+// optionally filed under one of the existing 5 stages and/or owned by one
+// of the real 11 Module rows (reusing ScheduleStage.ownedByModuleId's own
+// "null = genuinely no owner yet" discipline, not a placeholder). This is
+// what unblocks Delay Impact Simulation, a real Interactive Gantt Timeline,
+// Schedule Heat Map, and Critical Path — none of which can honestly exist
+// without real task/dependency data to read.
+
+enum ScheduleTaskStatus {
+  planned
+  in_progress
+  complete
+  blocked
+}
+
+model ScheduleTask {
+  id    String @id @default(cuid())
+  title String
+
+  /// Optional — a task can exist before/without being filed under one of
+  /// the 5 real pipeline stages (mirrors ScheduleStage.ownedByModuleId's own
+  /// nullable-FK convention: null is a real state, not a placeholder).
+  stageId String?       @map("stage_id")
+  stage   ScheduleStage? @relation(fields: [stageId], references: [id])
+
+  /// Reuses the real Module table — same join key `scheduleData.ts`'s
+  /// OwningModule union already models on the frontend today.
+  ownedByModuleId String? @map("owned_by_module_id")
+  ownedByModule   Module? @relation(fields: [ownedByModuleId], references: [id])
+
+  plannedStart DateTime  @map("planned_start")
+  plannedEnd   DateTime  @map("planned_end")
+  /// Null until real work genuinely starts/finishes — never defaulted to
+  /// the planned date. This is what makes a real Heat Map (planned vs.
+  /// actual) possible instead of fabricated.
+  actualStart  DateTime? @map("actual_start")
+  actualEnd    DateTime? @map("actual_end")
+
+  status ScheduleTaskStatus @default(planned)
+
+  predecessorLinks ScheduleTaskDependency[] @relation("DependencySuccessor")
+  successorLinks   ScheduleTaskDependency[] @relation("DependencyPredecessor")
+  statusEvents     ScheduleTaskStatusEvent[]
+
+  @@index([stageId])
+  @@index([ownedByModuleId])
+  @@map("schedule_task")
+}
+
+/// Real predecessor -> successor edges — a task can have more than one of
+/// each (a true dependency DAG, not a single "previous task" pointer), the
+/// same "don't collapse a real multi-parent shape" discipline Genealogy's
+/// own edge table already established.
+model ScheduleTaskDependency {
+  id String @id @default(cuid())
+
+  predecessorId String       @map("predecessor_id")
+  predecessor   ScheduleTask @relation("DependencyPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successorId   String       @map("successor_id")
+  successor     ScheduleTask @relation("DependencySuccessor", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorId, successorId])
+  @@map("schedule_task_dependency")
+}
+
+/// Real audit trail for a task's status transitions — same atomic
+/// status-update-plus-event pattern as LogisticsCustodyEvent, reused
+/// directly rather than re-invented.
+model ScheduleTaskStatusEvent {
+  id     String       @id @default(cuid())
+  taskId String       @map("task_id")
+  task   ScheduleTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  /// Null only for a task's own real creation event, same convention as
+  /// LogisticsCustodyEvent.fromStatus.
+  fromStatus ScheduleTaskStatus? @map("from_status")
+  toStatus   ScheduleTaskStatus  @map("to_status")
+
+  changedById String   @map("changed_by_id")
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now()) @map("changed_at")
+
+  notes String?
+
+  @@index([taskId])
+  @@map("schedule_task_status_event")
 }
 
 // ───────────────────── Logistics ─────────────────────
@@ -787,4 +916,51 @@ model LogisticsDocument {
   @@unique([fileId, version])
   @@index([dispatchId])
   @@map("logistics_document")
+}
+
+// ───────────────────── Compliance & Records (Phase 1, Administration/Networking build) ─────────────────────
+// A standalone S3-backed document model, deliberately NOT FK'd to
+// ConstructionProject or LogisticsDispatch — OSHA docs/certifications/
+// licenses are company/employee-wide records, not per-project or per-haul
+// documents the way Document Templates (RFIs/Submittals/Change Orders) are.
+// User-confirmed decision, not a default: forcing this onto ProjectFile or
+// LogisticsDocument would misrepresent it as belonging to a project/dispatch
+// it has no real relationship to. Mirrors ProjectFile's/LogisticsDocument's
+// real shape otherwise (S3-key-only rows, stable fileId versioned
+// separately from the surrogate id, soft delete only) — only the
+// attachment target differs, not the storage discipline.
+
+model ComplianceDocument {
+  id String @id @default(cuid())
+
+  /// Real, closed vocabulary in code (OSHA / Certification / License), not
+  /// a DB enum — same "closed vocab lives in the service layer" convention
+  /// as ProjectFileCategory/LogisticsDocumentCategory.
+  category String @map("category")
+  /// Free text — who/what this document is about (an employee name, an
+  /// equipment id, a site) — deliberately not a real FK to any employee/
+  /// equipment table, since neither exists yet (see gap B7).
+  subject     String? @map("subject")
+  subcategory String? @map("subcategory")
+
+  fileId  String @default(uuid()) @map("file_id")
+  version Int    @default(1)
+
+  originalFilename String @map("original_filename")
+  contentType      String @map("content_type")
+  sizeBytes        Int    @map("size_bytes")
+
+  /// Real S3 object key — compliance-documents/{fileId}/{version}/{originalFilename}.
+  s3Key String @unique @map("s3_key")
+
+  uploadedById String   @map("uploaded_by_id")
+  uploadedBy   User     @relation("ComplianceDocumentUploadedBy", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
+  deletedBy   User?     @relation("ComplianceDocumentDeletedBy", fields: [deletedById], references: [id])
+
+  @@unique([fileId, version])
+  @@map("compliance_document")
 }

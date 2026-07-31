@@ -8,7 +8,7 @@ export default function ScheduleBrowse() {
   const activeId = selected?.feature === "scheduling" ? selected.objectId : undefined;
 
   return (
-    <PanelCard title="Browse Schedules" className="h-[560px]">
+    <PanelCard title="Browse Schedules" className="h-full">
       <BrowseList
         items={scheduleNodes.map((n) => ({ id: n.id, title: n.title, indent: 0 }))}
         activeId={activeId}

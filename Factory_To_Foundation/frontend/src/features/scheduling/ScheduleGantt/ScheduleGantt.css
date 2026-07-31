@@ -1,0 +1,68 @@
+.schedule-gantt-grid {
+    display: grid;
+}
+
+.schedule-gantt-ruler {
+    position: relative;
+    height: 24px;
+    border-bottom: 1px solid var(--ff-panel-border);
+}
+
+.schedule-gantt-tick {
+    position: absolute;
+    top: 0;
+    font-size: 0.62rem;
+    color: var(--ff-text-muted);
+    white-space: nowrap;
+}
+
+.schedule-gantt-tick-mark {
+    width: 1px;
+    height: 6px;
+    background: var(--ff-panel-border);
+}
+
+.schedule-gantt-label {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 0.5rem 0.4rem 0;
+    font-size: 0.72rem;
+    color: var(--ff-text-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.schedule-gantt-label:disabled {
+    cursor: default;
+}
+
+.schedule-gantt-label-status {
+    color: var(--ff-text-muted);
+    font-weight: 400;
+}
+
+.schedule-gantt-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.schedule-gantt-bar {
+    position: absolute;
+    height: 18px;
+    border-radius: 0.2rem;
+    background: var(--ff-accent);
+    display: flex;
+    align-items: center;
+}
+
+.schedule-gantt-resize-handle {
+    position: absolute;
+    right: -3px;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    cursor: ew-resize;
+}

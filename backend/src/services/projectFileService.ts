@@ -6,12 +6,28 @@ import { NotFoundError } from "../lib/httpErrors";
 import { getPresignedDownloadUrl, getPresignedUploadUrl } from "../lib/s3";
 import * as repo from "../repositories/projectFileRepository";
 
-/** The real, closed set of Browse "folders" a file can be filed under — from the brief, not invented. subcategory stays a free string (examples given, not an exhaustive list). */
+/**
+ * The real, closed set of Browse "folders" a file can be filed under — the
+ * original 4 from the Phase 2 brief, plus 5 real Document Templates (A4,
+ * Administration expansion): RFI/Submittal/Change Order/Inspection Report/
+ * Purchase Order. Bill of Lading is deliberately NOT added here — it
+ * already exists as a real Logistics document category
+ * (LOGISTICS_DOCUMENT_CATEGORIES, logisticsDocumentService.ts), so adding a
+ * second copy under Construction would duplicate, not extend, real
+ * coverage. Purchase Order attaches here (Construction procurement is
+ * real, per-project data; Logistics has no per-project procurement
+ * concept) — a disclosed judgment call, not an oversight.
+ */
 export const PROJECT_FILE_CATEGORIES = [
   "Project Documents",
   "Drawings & Models",
   "Field Documentation",
   "Quality & Safety",
+  "RFI",
+  "Submittal",
+  "Change Order",
+  "Inspection Report",
+  "Purchase Order",
 ] as const;
 export type ProjectFileCategory = (typeof PROJECT_FILE_CATEGORIES)[number];
 

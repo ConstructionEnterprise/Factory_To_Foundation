@@ -15,15 +15,20 @@ import { BACKEND_URL } from "@/lib/env";
  */
 const API_BASE = BACKEND_URL;
 
-// Matches the real, closed 4-value vocabulary the backend validates
-// against (services/projectFileService.ts's PROJECT_FILE_CATEGORIES) —
-// kept here as the single source of truth the UI reads from, not
-// duplicated ad hoc at each call site.
+// Matches the real, closed vocabulary the backend validates against
+// (services/projectFileService.ts's PROJECT_FILE_CATEGORIES, extended in
+// Phase 4/A4 with 5 real Document Templates) — kept here as the single
+// source of truth the UI reads from, not duplicated ad hoc at each call site.
 export const PROJECT_FILE_CATEGORIES = [
   "Project Documents",
   "Drawings & Models",
   "Field Documentation",
   "Quality & Safety",
+  "RFI",
+  "Submittal",
+  "Change Order",
+  "Inspection Report",
+  "Purchase Order",
 ] as const;
 export type ProjectFileCategory = (typeof PROJECT_FILE_CATEGORIES)[number];
 

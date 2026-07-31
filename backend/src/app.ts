@@ -19,6 +19,12 @@ import { logisticsDispatchRoutes } from "./routes/logisticsDispatches";
 import { logisticsMaterialRoutes } from "./routes/logisticsMaterials";
 import { logisticsModuleRoutes } from "./routes/logisticsModules";
 import { manufacturingModelRoutes } from "./routes/manufacturingModel";
+import { instructionExecutionRoutes } from "./routes/instructionExecutions";
+import { userPreferenceRoutes } from "./routes/userPreferences";
+import { rbacDirectoryRoutes } from "./routes/rbacDirectory";
+import { userManagementRoutes } from "./routes/users";
+import { complianceDocumentRoutes } from "./routes/complianceDocuments";
+import { scheduleTaskRoutes } from "./routes/scheduleTasks";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
@@ -119,6 +125,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(logisticsMaterialRoutes);
   await app.register(logisticsModuleRoutes);
   await app.register(manufacturingModelRoutes);
+  await app.register(instructionExecutionRoutes);
+  await app.register(userPreferenceRoutes);
+  await app.register(rbacDirectoryRoutes);
+  await app.register(userManagementRoutes);
+  await app.register(complianceDocumentRoutes);
+  await app.register(scheduleTaskRoutes);
 
   return app;
 }

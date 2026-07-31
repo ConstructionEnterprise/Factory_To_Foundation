@@ -47,3 +47,83 @@
   --ff-radius: 0.3rem;
   --ff-border-width: 1px;
 }
+
+/**
+ * Settings panel (A2) — real, global appearance/accessibility overrides.
+ * All four apply on the root element via a data attribute the Settings
+ * panel sets (features/settings/applyAppearance.ts), so a saved preference
+ * takes effect immediately across every page without any per-component
+ * change — everything already consumes these same ~19 tokens.
+ */
+
+/* Dark theme — same token set as :root above, real distinct values, not a
+   fabricated palette (kept muted/restrained, matching the light theme's
+   own "not a SaaS dashboard" discipline). */
+:root[data-theme="dark"] {
+  --ff-chrome-bg: #202225;
+  --ff-chrome-border: #34373c;
+  --ff-content-bg: #17181a;
+  --ff-panel-bg: #212327;
+  --ff-panel-border: #34373c;
+
+  --ff-text-primary: #e8e9ec;
+  --ff-text-secondary: #a7adb8;
+  --ff-text-muted: #767c87;
+
+  --ff-accent: #e07a3f;
+  --ff-accent-hover: #ec8c54;
+  --ff-accent-soft: #3a2a1e;
+
+  --ff-tier-material: #7c9bc2;
+  --ff-tier-framing-package: #8d8dc4;
+  --ff-tier-component: #7bab84;
+  --ff-tier-subassembly: #c99a68;
+  --ff-tier-module: #a689bc;
+  --ff-tier-building: #6dabaf;
+  --ff-tier-project: #9aa1ab;
+
+  --ff-status-positive: #7bb684;
+  --ff-status-warning: #d1a563;
+  --ff-status-critical: #cf786c;
+  --ff-status-neutral: #767c87;
+}
+
+/* Compact mode — real density reduction on the two shell primitives every
+   page shares (CommandRibbon height, PanelCard header/body padding), not a
+   per-component setting nothing else consumes. */
+:root[data-compact="true"] .command-ribbon {
+  height: 32px;
+}
+:root[data-compact="true"] .ff-panel-card-header {
+  padding: 0.35rem 0.6rem;
+}
+:root[data-compact="true"] .ff-panel-card-body {
+  padding: 0.5rem;
+}
+
+/* High contrast — real contrast increase relative to whichever theme is
+   active (darker borders/secondary text in light mode, lighter in dark),
+   not a third unrelated palette. */
+:root[data-contrast="high"] {
+  --ff-panel-border: #6b7280;
+  --ff-chrome-border: #6b7280;
+  --ff-text-secondary: #1f2328;
+  --ff-text-muted: #3a4048;
+}
+:root[data-theme="dark"][data-contrast="high"] {
+  --ff-panel-border: #9aa1ab;
+  --ff-chrome-border: #9aa1ab;
+  --ff-text-secondary: #e8e9ec;
+  --ff-text-muted: #c7cbd2;
+}
+
+/* Reduced motion / UI animations off — real global kill switch, set when
+   either Accessibility's "Reduced Motion" or Appearance's "UI Animations"
+   (inverted) is on. */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

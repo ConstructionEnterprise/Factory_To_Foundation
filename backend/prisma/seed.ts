@@ -37,6 +37,13 @@ const MODULES = [
   { id: "analytics", name: "Analytics" },
   { id: "reports", name: "Reports" },
   { id: "administration", name: "Administration" },
+  // Added Phase 1 of the Ribbon/Networking/Settings/Analytics build — a
+  // real, distinct 12th module rather than folding Roles & Permissions/
+  // User Management under Administration, since managing who has access to
+  // what is a genuinely different concern from Administration's own
+  // Document Templates/Compliance scope, and deserves its own grant
+  // granularity (a role could plausibly need one without the other).
+  { id: "networking", name: "Networking" },
 ] as const;
 
 type ModuleId = (typeof MODULES)[number]["id"];
@@ -78,9 +85,12 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
   },
   {
     // Unchanged from the original draft: full on Administration only, read
-    // elsewhere.
+    // elsewhere. Extended (Phase 1, this build) with full on the new
+    // Networking module too — Roles & Permissions/User Management is the
+    // same class of "administers the system" concern Administration already
+    // covers, and Administrator is the one non-CEO role built for it.
     name: "Administrator",
-    permissions: { ...uniform(R), administration: FULL },
+    permissions: { ...uniform(R), administration: FULL, networking: FULL },
   },
   {
     name: "Manufacturing Engineer",
@@ -96,6 +106,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
   {
@@ -126,6 +137,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
   {
@@ -142,6 +154,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
   {
@@ -158,6 +171,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: NONE,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
   {
@@ -174,6 +188,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: NONE,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
   {
@@ -193,6 +208,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: NONE,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
   {
@@ -209,6 +225,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
   {
@@ -231,6 +248,7 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       analytics: R,
       reports: R,
       administration: NONE,
+      networking: NONE,
     },
   },
 ];

@@ -1,9 +1,10 @@
 import { useState } from "react";
 
-import { useManufacturingOutput, type InstructionStep } from "@/context/ManufacturingOutputContext";
+import { useManufacturingOutput, type InstructionSet, type InstructionStep } from "@/context/ManufacturingOutputContext";
 import { usePermission } from "@/context/AuthContext";
 import { useTwinState } from "./useTwinState";
 import { executeStep, type StepExecutionResult } from "./twinExecute";
+import { logInstructionExecution } from "./instructionExecutionsApi";
 
 /**
  * Content for Factory's "Instructions" CommandRibbon dropdown — the third
@@ -89,14 +90,22 @@ export default function FactoryInstructions() {
           .slice()
           .sort((a, b) => a.sequence - b.sequence)
           .map((step) => (
-            <InstructionStepRow key={step.id} step={step} canExecute={canExecute} />
+            <InstructionStepRow key={step.id} instructionSet={instructionSet} step={step} canExecute={canExecute} />
           ))}
       </ol>
     </div>
   );
 }
 
-function InstructionStepRow({ step, canExecute }: { step: InstructionStep; canExecute: boolean }) {
+function InstructionStepRow({
+  instructionSet,
+  step,
+  canExecute,
+}: {
+  instructionSet: InstructionSet;
+  step: InstructionStep;
+  canExecute: boolean;
+}) {
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<StepExecutionResult | null>(null);
 
@@ -106,6 +115,10 @@ function InstructionStepRow({ step, canExecute }: { step: InstructionStep; canEx
     const r = await executeStep(step);
     setResult(r);
     setExecuting(false);
+    // Real audit-trail write — logs both a success and a failure, fire-
+    // and-forget from the UI's point of view (see instructionExecutionsApi's
+    // own doc comment on why a logging failure never blocks/alarms here).
+    void logInstructionExecution(instructionSet, step, r);
   }
 
   return (

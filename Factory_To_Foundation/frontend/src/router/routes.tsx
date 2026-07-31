@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Truck,
   Cog,
+  Wifi,
 } from "lucide-react";
 
 import Dashboard from "@/pages/dashboard/Dashboard";
@@ -25,6 +26,7 @@ import AssetsPage from "@/pages/assets/AssetsPage";
 import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
 import AdministrationPage from "@/pages/administration/AdministrationPage";
 import ReportsPage from "@/pages/reports/ReportsPage";
+import NetworkingPage from "@/pages/networking/NetworkingPage";
 // ComingSoonPage (src/pages/ComingSoonPage.tsx) is no longer used by any
 // route now that Analytics/Administration/Reports are real pages — left
 // on disk, not deleted, for whatever feature is unbuilt next.
@@ -106,6 +108,17 @@ export const appRoutes: AppRoute[] = [
     label: "Scheduling",
     icon: Calendar,
     element: <SchedulingPage />,
+  },
+  {
+    path: "/networking",
+    label: "Networking",
+    icon: Wifi,
+    element: <NetworkingPage />,
+    // A3 — Roles & Permissions/User Management are real RBAC administration,
+    // same route-level gating precedent as Administration below (nothing
+    // per-control to hide/disable on this page's own read view; the write
+    // controls inside User Management are separately gated per-action too).
+    requiredPermission: { module: "networking", action: "read" },
   },
   {
     path: "/assets",

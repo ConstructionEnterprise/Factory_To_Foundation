@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 
 import AccountMenu from "./AccountMenu";
+import SettingsMenu from "./SettingsMenu";
 import DropdownMenu from "./DropdownMenu";
 import "./CommandRibbon.css";
 
@@ -60,6 +61,7 @@ export default function CommandRibbon({
           {pageLabel}
         </span>
 
+        <SettingsMenu />
         <AccountMenu />
       </div>
 

@@ -1,4 +1,4 @@
-import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
+import { FeaturePage, KpiList } from "@/framework/ui";
 
 import {
   GenealogyBrowser,
@@ -6,15 +6,13 @@ import {
   RelationshipGraph,
   SelectedObject,
 } from "@/features/genealogy";
+import { getGenealogyKpis } from "@/features/genealogy/genealogySummary";
 
-const genealogyKpis: KpiDefinition[] = [
-  { title: "Objects Tracked", value: "128,451" },
-  { title: "Complete Lineage", value: "96.7%" },
-  { title: "Scans (MTD)", value: "24,782" },
-  { title: "Auto Associations", value: "8,312" },
-  { title: "Exceptions", value: "42" },
-  { title: "Data Integrity", value: "99.2%" },
-];
+// Real, computed summary stats (A6) — replaces the old fixture KPIs
+// (128,451 "Objects Tracked", 96.7% "Complete Lineage", etc.), which had
+// no real backing at all (this thread has 13 real nodes total). See
+// genealogySummary.ts for what's actually computed.
+const genealogyKpis = getGenealogyKpis();
 
 export default function Dashboard() {
   return (

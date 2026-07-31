@@ -4,6 +4,9 @@ import AppLayout from "./layouts/AppLayout";
 import { SelectionProvider } from "./context/SelectionContext";
 import { ManufacturingOutputProvider } from "./context/ManufacturingOutputContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { SettingsProvider } from "./context/SettingsContext";
+import RouteVisitRecorder from "./features/settings/RouteVisitRecorder";
+import StartupRedirect from "./features/settings/StartupRedirect";
 import { AccountMenu } from "./framework/ui";
 import "./framework/ui/CommandRibbon.css";
 import { appRoutes, type AppRoute } from "./router/routes";
@@ -74,19 +77,34 @@ function Gate() {
   if (status === "unauthenticated") return <SignedOutShell />;
 
   return (
-    <SelectionProvider>
-      <ManufacturingOutputProvider>
-        <BrowserRouter>
-          <AppLayout>
-            <Routes>
-              {appRoutes.map((route) => (
-                <Route key={route.path} path={route.path} element={<RouteGuard route={route} />} />
-              ))}
-            </Routes>
-          </AppLayout>
-        </BrowserRouter>
-      </ManufacturingOutputProvider>
-    </SelectionProvider>
+    <SettingsProvider>
+      <SelectionProvider>
+        <ManufacturingOutputProvider>
+          <BrowserRouter>
+            <RouteVisitRecorder />
+            <AppLayout>
+              <Routes>
+                {appRoutes.map((route) => (
+                  <Route
+                    key={route.path}
+                    path={route.path}
+                    element={
+                      route.path === "/" ? (
+                        <StartupRedirect>
+                          <RouteGuard route={route} />
+                        </StartupRedirect>
+                      ) : (
+                        <RouteGuard route={route} />
+                      )
+                    }
+                  />
+                ))}
+              </Routes>
+            </AppLayout>
+          </BrowserRouter>
+        </ManufacturingOutputProvider>
+      </SelectionProvider>
+    </SettingsProvider>
   );
 }
 

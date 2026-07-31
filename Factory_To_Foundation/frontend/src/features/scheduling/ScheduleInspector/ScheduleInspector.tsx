@@ -16,7 +16,7 @@ export default function ScheduleInspector() {
   const sel = selected?.feature === "scheduling" ? selected : undefined;
 
   return (
-    <PanelCard title="Selected Schedule" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+    <PanelCard title="Selected Schedule" className="h-full" bodyClassName="flex-1 overflow-auto p-5">
       <div className="mt-1">
         <h2 className="text-2xl font-bold text-gray-900">{sel?.payload.name ?? "Nothing Selected"}</h2>
         <p className="mt-1 font-semibold" style={{ color: "var(--ff-accent)" }}>{sel?.objectType ?? "Select a schedule"}</p>

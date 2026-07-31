@@ -1,0 +1,79 @@
+.genealogy-flow-node {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.15rem;
+
+    padding: 0 0.85rem;
+
+    border-radius: var(--ff-radius);
+    border-width: 1.5px;
+    border-style: solid;
+    background: var(--ff-panel-bg);
+
+    cursor: pointer;
+    text-align: left;
+
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.genealogy-flow-node:hover {
+    background: var(--ff-chrome-bg);
+}
+
+.genealogy-flow-node--active {
+    outline: 2px solid var(--ff-accent);
+    outline-offset: 1px;
+}
+
+/* Real DAG lineage highlighting — a node NOT on the selected node's real
+   ancestor/descendant path dims instead of disappearing, so the graph's
+   real shape stays visible even while one lineage is highlighted. */
+.genealogy-flow-node--dimmed {
+    opacity: 0.3;
+}
+
+.genealogy-flow-node-title {
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--ff-text-primary);
+}
+
+.genealogy-flow-node-subtitle {
+    font-size: 0.65rem;
+    color: var(--ff-text-muted);
+}
+
+.genealogy-flow-node-collapse {
+    position: absolute;
+    bottom: -0.9rem;
+    left: 50%;
+    transform: translateX(-50%);
+
+    width: 1.2rem;
+    height: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9999px;
+    border: 1px solid var(--ff-panel-border);
+    background: var(--ff-panel-bg);
+    color: var(--ff-text-secondary);
+    font-size: 0.6rem;
+    line-height: 1;
+
+    cursor: pointer;
+    z-index: 10;
+}
+
+.genealogy-flow-node--material { border-color: var(--ff-tier-material); }
+.genealogy-flow-node--framing-package { border-color: var(--ff-tier-framing-package); }
+.genealogy-flow-node--component { border-color: var(--ff-tier-component); }
+.genealogy-flow-node--subassembly { border-color: var(--ff-tier-subassembly); }
+.genealogy-flow-node--module { border-color: var(--ff-tier-module); }
+.genealogy-flow-node--building { border-color: var(--ff-tier-building); }
+.genealogy-flow-node--project { border-color: var(--ff-tier-project); }

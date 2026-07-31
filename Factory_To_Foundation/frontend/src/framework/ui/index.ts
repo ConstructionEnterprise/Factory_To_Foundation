@@ -12,6 +12,7 @@ export { default as CollapsibleSection } from "./CollapsibleSection";
 export { default as CommandRibbon } from "./CommandRibbon";
 export type { RibbonMenu } from "./CommandRibbon";
 export { default as AccountMenu } from "./AccountMenu";
+export { default as SettingsMenu } from "./SettingsMenu";
 export { default as DropdownMenu } from "./DropdownMenu";
 export { default as BrowseList } from "./BrowseList";
 export type { BrowseListItem } from "./BrowseList";

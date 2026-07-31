@@ -10,7 +10,7 @@ export default function ScheduleLayout() {
   const selectedId = selected?.feature === "scheduling" ? selected.objectId : undefined;
 
   return (
-    <PanelCard title="Schedule Function Blocks" className="h-[560px]" bodyClassName="flex flex-col flex-1">
+    <PanelCard title="Schedule Function Blocks" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="px-6 py-4 border-b text-sm text-gray-500" style={{ borderColor: "var(--ff-panel-border)" }}>
         Material → Production → Storage → Construction — five function blocks, wired port-to-port, matching the real pipeline these schedules form.
       </div>
