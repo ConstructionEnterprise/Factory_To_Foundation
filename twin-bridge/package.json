@@ -1,0 +1,11 @@
+{
+  "name": "ff-twin-bridge",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Real digital-twin telemetry bridge. This bridge was zero-dependency by design until real request authentication was added (Responsive UI milestone, \"expose the twin properly\" pass) - `jose` is the one real exception, matching the exact library the backend itself uses for JWT verification, since hand-rolling JWT verification is a real, well-known source of security bugs.",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "jose": "^6.2.4"
+  }
+}

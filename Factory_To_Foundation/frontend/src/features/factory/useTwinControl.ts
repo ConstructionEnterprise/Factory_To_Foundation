@@ -42,7 +42,7 @@ export function useTwinControl(): UseTwinControlResult {
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch(`${CONTROL_BASE}/status`);
+      const res = await fetch(`${CONTROL_BASE}/status`, { credentials: "include" });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = (await res.json()) as TwinControlStatus;
       setBridgeReachable(true);
@@ -62,7 +62,7 @@ export function useTwinControl(): UseTwinControlResult {
   const start = useCallback(async () => {
     setStarting(true);
     try {
-      const res = await fetch(`${CONTROL_BASE}/start`, { method: "POST" });
+      const res = await fetch(`${CONTROL_BASE}/start`, { method: "POST", credentials: "include" });
       const body = await res.json();
       if (!res.ok || !body.ok) {
         setLastError(body.reason ?? `start failed (HTTP ${res.status})`);
@@ -80,7 +80,7 @@ export function useTwinControl(): UseTwinControlResult {
   const stop = useCallback(async () => {
     setStopping(true);
     try {
-      const res = await fetch(`${CONTROL_BASE}/stop`, { method: "POST" });
+      const res = await fetch(`${CONTROL_BASE}/stop`, { method: "POST", credentials: "include" });
       const body = await res.json();
       setLastError(body.note ?? null);
       await poll();

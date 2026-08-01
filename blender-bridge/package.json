@@ -6,6 +6,7 @@
   "description": "Real .blend -> glTF conversion service. Zero other dependencies by design (dev-time-only bridge, matching twin-bridge's convention) — the AWS SDK is the one real exception, needed to upload the converted model to S3 instead of a local frontend path (Phase 3 portability rewrite).",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "jose": "^6.2.4"
   }
 }

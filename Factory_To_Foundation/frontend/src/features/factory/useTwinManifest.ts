@@ -40,7 +40,7 @@ export function useTwinManifest(): UseTwinManifestResult {
 
     async function poll() {
       try {
-        const res = await fetch(BRIDGE_URL);
+        const res = await fetch(BRIDGE_URL, { credentials: "include" });
         if (!res.ok) throw new Error(`bridge responded ${res.status}`);
         const data = (await res.json()) as TwinManifest;
         if (!cancelled) setResult({ connected: true, manifest: data });

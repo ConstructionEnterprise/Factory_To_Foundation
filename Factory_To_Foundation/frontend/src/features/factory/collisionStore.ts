@@ -198,7 +198,7 @@ function processFrame(state: TwinState) {
 
 async function poll() {
   try {
-    const res = await fetch(BRIDGE_URL);
+    const res = await fetch(BRIDGE_URL, { credentials: "include" });
     if (!res.ok) throw new Error(`bridge ${res.status}`);
     const state = (await res.json()) as TwinState;
     if (state.frame === snapshot.lastFrame) {

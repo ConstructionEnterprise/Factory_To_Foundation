@@ -13,9 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --no-cache-dir --break-system-packages numpy matplotlib
 
 WORKDIR /app
-# No package.json - twin-bridge has zero npm dependencies by design
-# (matches its original zero-dependency-bridge convention; this Dockerfile
-# doesn't change that).
+# One real npm dependency now (jose, for real request-auth JWT
+# verification - see package.json) - the original zero-dependency
+# convention held until real auth needed a real, non-hand-rolled JWT
+# library. npm ci (not install) for the same reproducible-build reason
+# blender-bridge's own Dockerfile already uses it.
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 
 # Construction_Enterprises is deliberately NOT baked into this image -

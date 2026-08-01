@@ -114,7 +114,7 @@ export function useTwinState(): UseTwinStateResult {
 
     async function poll() {
       try {
-        const res = await fetch(BRIDGE_URL);
+        const res = await fetch(BRIDGE_URL, { credentials: "include" });
         if (!res.ok) throw new Error(`bridge responded ${res.status}`);
         const data = (await res.json()) as TwinState;
         if (!cancelled) setResult({ connected: true, state: data });

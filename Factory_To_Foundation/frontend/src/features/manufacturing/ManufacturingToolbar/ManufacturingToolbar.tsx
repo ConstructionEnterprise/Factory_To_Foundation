@@ -77,6 +77,7 @@ export default function ManufacturingToolbar() {
     try {
       const res = await fetch(BLENDER_BRIDGE_CONVERT_URL, {
         method: "POST",
+        credentials: "include",
         headers: { "X-Filename": file.name },
         body: file,
       });

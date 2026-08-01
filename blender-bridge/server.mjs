@@ -27,8 +27,53 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { jwtVerify } from "jose";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Real auth (Responsive UI milestone, "expose the twin properly" pass) —
+// same real mechanism as twin-bridge's own copy of this: reuses the
+// backend's exact JWT (same JWT_SECRET, same ff_access_token cookie, same
+// `jose` library) for authentication, and the backend's own real /auth/me
+// (forwarding the caller's real cookie) for the one real permission this
+// bridge's write endpoint needs — no second role_permission lookup here.
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4300";
+
+function getJwtSecret() {
+  const raw = process.env.JWT_SECRET;
+  if (!raw) throw new Error("JWT_SECRET is not set — this bridge cannot authenticate real requests without it");
+  return new TextEncoder().encode(raw);
+}
+
+function readAccessTokenCookie(req) {
+  const header = req.headers.cookie ?? "";
+  const match = header.match(/(?:^|;\s*)ff_access_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function authenticateRequest(req) {
+  const token = readAccessTokenCookie(req);
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, getJwtSecret());
+    return { sub: payload.sub, roleId: payload.roleId, roleName: payload.roleName };
+  } catch {
+    return null;
+  }
+}
+
+async function hasPermission(req, moduleId, action) {
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/me`, {
+      headers: { cookie: req.headers.cookie ?? "" },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Array.isArray(data.permissions?.[moduleId]) && data.permissions[moduleId].includes(action);
+  } catch {
+    return false;
+  }
+}
 
 // Configurable so this same code runs unchanged on this Windows dev
 // machine (default below) and on a Linux container (BLENDER_EXE=/opt/blender/blender
@@ -200,7 +245,7 @@ async function handleConvert(req, res) {
   }
 }
 
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "X-Filename, Content-Type");
@@ -211,6 +256,8 @@ const server = createServer((req, res) => {
     return;
   }
 
+  // Real liveness probe stays open — no real data behind it, matches every
+  // other service's own unauthenticated /health convention.
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
@@ -218,6 +265,17 @@ const server = createServer((req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/convert") {
+    const caller = await authenticateRequest(req);
+    if (!caller) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not authenticated" }));
+      return;
+    }
+    if (!(await hasPermission(req, "manufacturing", "update"))) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Role "${caller.roleName}" lacks the "manufacturing:update" permission` }));
+      return;
+    }
     handleConvert(req, res);
     return;
   }

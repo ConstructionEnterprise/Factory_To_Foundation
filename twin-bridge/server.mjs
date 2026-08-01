@@ -12,16 +12,74 @@
 // this bridge is inventing write access to. Both are new bridge
 // capabilities, not twin-code edits.
 //
-// Dev-time only. Run manually alongside `npm run dev`:
+// Real auth (Responsive UI milestone, "expose the twin properly" pass):
+// this bridge now requires a real, valid FF session before doing anything
+// beyond an OPTIONS preflight — reuses the exact same JWT the backend
+// issues (same JWT_SECRET, same ff_access_token cookie, same `jose`
+// library) rather than inventing a second auth mechanism. The three
+// state-changing endpoints (/twin-control/start, /twin-control/stop,
+// /twin-command) additionally require the real `factory:execute` grant,
+// checked by asking the backend's own /auth/me (forwarding the caller's
+// real cookie) rather than duplicating role_permission logic here or
+// giving this bridge its own database connection — the real
+// role_permission table stays the one source of truth.
+//
+// Run manually alongside `npm run dev`:
 //   node twin-bridge/server.mjs
 
+import "dotenv/config";
 import { createServer } from "node:http";
 import { readFile, writeFile, rename, readdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { jwtVerify } from "jose";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4300";
+
+function getJwtSecret() {
+  const raw = process.env.JWT_SECRET;
+  if (!raw) throw new Error("JWT_SECRET is not set — this bridge cannot authenticate real requests without it");
+  return new TextEncoder().encode(raw);
+}
+
+function readAccessTokenCookie(req) {
+  const header = req.headers.cookie ?? "";
+  const match = header.match(/(?:^|;\s*)ff_access_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** Real authentication — verifies the real access token, returns the real caller or null. Never throws; callers decide how to respond. */
+async function authenticateRequest(req) {
+  const token = readAccessTokenCookie(req);
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, getJwtSecret());
+    return { sub: payload.sub, roleId: payload.roleId, roleName: payload.roleName };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Real permission check — asks the backend's own /auth/me, forwarding the
+ * real request cookie, rather than a second role_permission lookup here.
+ * A real backend-unreachable failure is an honest deny, not a silent allow.
+ */
+async function hasPermission(req, moduleId, action) {
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/me`, {
+      headers: { cookie: req.headers.cookie ?? "" },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Array.isArray(data.permissions?.[moduleId]) && data.permissions[moduleId].includes(action);
+  } catch {
+    return false;
+  }
+}
 
 // Configurable so this same code runs unchanged on this Windows dev machine
 // (default below) and on wherever it eventually deploys (Linux EC2 — see
@@ -211,7 +269,22 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Real auth gate — every real route below needs a genuine, currently
+  // valid FF session. Checked once here, not per-route, since there is no
+  // real route in this bridge an unauthenticated caller should ever reach.
+  const caller = await authenticateRequest(req);
+  if (!caller) {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not authenticated" }));
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/twin-control/start") {
+    if (!(await hasPermission(req, "factory", "execute"))) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Role "${caller.roleName}" lacks the "factory:execute" permission` }));
+      return;
+    }
     if (trackedChild) {
       res.writeHead(409, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, reason: "already running (bridge-owned)", pid: trackedChild.pid }));
@@ -236,6 +309,11 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/twin-control/stop") {
+    if (!(await hasPermission(req, "factory", "execute"))) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Role "${caller.roleName}" lacks the "factory:execute" permission` }));
+      return;
+    }
     const stopped = stopTwin();
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
@@ -273,6 +351,11 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/twin-command") {
+    if (!(await hasPermission(req, "factory", "execute"))) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Role "${caller.roleName}" lacks the "factory:execute" permission` }));
+      return;
+    }
     let body = "";
     for await (const chunk of req) body += chunk;
     let parsed;

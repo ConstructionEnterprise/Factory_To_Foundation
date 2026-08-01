@@ -46,7 +46,7 @@ function sleep(ms: number): Promise<void> {
 
 async function fetchState(): Promise<TwinState | null> {
   try {
-    const res = await fetch(`${BRIDGE_BASE}/twin-state`);
+    const res = await fetch(`${BRIDGE_BASE}/twin-state`, { credentials: "include" });
     if (!res.ok) return null;
     return (await res.json()) as TwinState;
   } catch {
@@ -89,6 +89,7 @@ async function dispatchOne(command: string, params: Record<string, unknown>): Pr
   try {
     const res = await fetch(`${BRIDGE_BASE}/twin-command`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command, params }),
     });
