@@ -73,7 +73,7 @@ export default function ManufacturingInspector() {
   const sel = selected?.feature === "manufacturing" ? selected : undefined;
 
   return (
-    <PanelCard title="Selected Geometry" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+    <PanelCard title="Selected Geometry" className="h-full" bodyClassName="flex-1 overflow-auto p-5">
       {!sel && (
         <div className="mt-6 text-center text-sm text-gray-400">
           <p>Nothing selected.</p>

@@ -35,7 +35,7 @@ export default function RoboticsInspector() {
   const status = robotCoarseStatus(robot?.state);
 
   return (
-    <PanelCard title="Selected Robot" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+    <PanelCard title="Selected Robot" className="h-full" bodyClassName="flex-1 overflow-auto p-5">
       <div className="mb-3 flex">
         <span
           className="rounded-full px-2.5 py-0.5 text-xs font-medium"

@@ -1203,7 +1203,7 @@ export default function ConstructionMap() {
   }, [placementFor]);
 
   return (
-    <PanelCard title="Construction Enterprises Map" className="h-[560px]" bodyClassName="flex flex-col flex-1">
+    <PanelCard title="Construction Enterprises Map" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex flex-wrap items-center gap-6 px-6 py-4 border-b border-gray-100">
         <Legend color={PROJECT_COLOR} label="Project" />
         <Legend color={ACCENT} label="Chappell International (F»F hub)" />

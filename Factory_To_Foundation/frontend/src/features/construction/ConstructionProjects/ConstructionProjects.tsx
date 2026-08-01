@@ -29,7 +29,7 @@ import ConstructionDocuments from "../ConstructionDocuments/ConstructionDocument
  */
 export default function ConstructionProjects() {
   return (
-    <PanelCard title="Construction Projects" className="h-[560px]">
+    <PanelCard title="Construction Projects" className="h-full">
       <div className="space-y-1">
         {constructionProjects.map((project) => (
           <CollapsibleSection

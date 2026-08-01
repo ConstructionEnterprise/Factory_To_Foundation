@@ -20,7 +20,7 @@ export default function AssetsBrowse() {
   const activeId = selected?.feature === "assets" ? selected.objectId : undefined;
 
   return (
-    <PanelCard title="Browse Assets" className="h-[560px]">
+    <PanelCard title="Browse Assets" className="h-full">
       <BrowseList
         items={toBrowseItems()}
         activeId={activeId}

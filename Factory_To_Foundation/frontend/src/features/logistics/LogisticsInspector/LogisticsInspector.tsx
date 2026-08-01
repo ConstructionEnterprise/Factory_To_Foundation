@@ -92,7 +92,7 @@ export default function LogisticsInspector() {
     : "Nothing Selected";
 
   return (
-    <PanelCard title="Selected Asset" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+    <PanelCard title="Selected Asset" className="h-full" bodyClassName="flex-1 overflow-auto p-5">
       <div className="mt-4">
         <h2 className="text-xl font-bold" style={{ color: "var(--ff-text-primary)" }}>
           {title}

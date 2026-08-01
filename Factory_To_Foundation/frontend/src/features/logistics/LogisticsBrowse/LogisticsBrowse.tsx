@@ -174,7 +174,7 @@ export default function LogisticsBrowse() {
   }
 
   return (
-    <PanelCard title="Browse Logistics" className="h-[560px]">
+    <PanelCard title="Browse Logistics" className="h-full">
       {error && (
         <p className="p-3 text-xs" style={{ color: "var(--ff-status-critical)" }}>
           Couldn't load real Logistics data ({error}).

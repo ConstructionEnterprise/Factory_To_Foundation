@@ -9,7 +9,7 @@ export default function AssetsMap() {
   const selectedId = selected?.feature === "assets" ? selected.objectId : undefined;
 
   return (
-    <PanelCard title="Asset Map" className="h-[560px]" bodyClassName="flex flex-col flex-1">
+    <PanelCard title="Asset Map" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex flex-wrap gap-6 px-6 py-4 border-b border-gray-100">
         <Legend color="var(--ff-status-positive)" label="Active" />
         <Legend color="var(--ff-status-warning)" label="Maintenance" />

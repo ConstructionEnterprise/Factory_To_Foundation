@@ -3,33 +3,7 @@
     height: 100%;
 }
 
-/* Same horizontal drag-handle visual language as Factory's own
-   resize-handle-horizontal (framework/workspace/Workspace.css's vertical
-   `.resize-handle`, rotated) — row-resize cursor, horizontal grip dot. */
-.resize-handle-horizontal {
-    height: 6px;
-    background: transparent;
-    position: relative;
-    transition: background-color 0.15s ease;
-    cursor: row-resize;
-}
-
-.resize-handle-horizontal:hover {
-    background: var(--ff-chrome-bg);
-}
-
-.resize-handle-horizontal::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 32px;
-    height: 2px;
-    border-radius: 999px;
-    background: var(--ff-panel-border);
-}
-
-.resize-handle-horizontal:hover::after {
-    background: var(--ff-accent);
-}
+/* .resize-handle-horizontal itself now lives in framework/workspace/Workspace.css
+   — it was duplicated verbatim here before that became the shared, canonical
+   home for it (Responsive UI & Mobile Experience milestone, §28.3); removed
+   from here to avoid two copies of the identical rule. */

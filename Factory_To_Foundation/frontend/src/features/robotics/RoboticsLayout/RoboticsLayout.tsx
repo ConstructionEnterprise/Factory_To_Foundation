@@ -43,7 +43,7 @@ export default function RoboticsLayout() {
   const robot = state ? state.robots[selectedRobot] : undefined;
 
   return (
-    <PanelCard title="Isolated Robot — Live Pose" className="h-[560px]" bodyClassName="flex flex-col flex-1">
+    <PanelCard title="Isolated Robot — Live Pose" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
         <span className="text-sm font-semibold" style={{ color: "var(--ff-text-primary)" }}>
           Robot {selectedRobot}

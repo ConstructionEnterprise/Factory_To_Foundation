@@ -36,3 +36,67 @@
 .resize-handle:hover::after {
     background: var(--ff-accent);
 }
+
+/*
+ * Horizontal-divider variant of .resize-handle, for a vertically-oriented
+ * Group (a divider between a top row and a bottom row, dragged up/down)
+ * instead of the default vertically-oriented divider between side-by-side
+ * columns - used by the tablet-portrait workspace layout (useResponsiveMode).
+ */
+.resize-handle-horizontal {
+    height: 6px;
+    background: transparent;
+    position: relative;
+    transition: background-color 0.15s ease;
+    cursor: row-resize;
+}
+
+.resize-handle-horizontal:hover {
+    background: var(--ff-chrome-bg);
+}
+
+.resize-handle-horizontal::after {
+    content: "";
+
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    transform: translate(-50%, -50%);
+
+    width: 32px;
+    height: 2px;
+
+    border-radius: 999px;
+
+    background: var(--ff-panel-border);
+}
+
+.resize-handle-horizontal:hover::after {
+    background: var(--ff-accent);
+}
+
+/*
+ * Phone-portrait stacked layout (useResponsiveMode's "phone-portrait" /
+ * "Inspection Mode") - a plain scrollable column, not react-resizable-panels
+ * (touch drag-to-resize doesn't fit "cards should expand naturally, scroll
+ * vertically" from the milestone brief). Each section gets a real,
+ * definite height (not just min-height) so canvas/map/graph panels that
+ * need a real pixel-mapped ancestor (Three.js, @xyflow/react) still size
+ * correctly - see Workspace.tsx's own comment for the full reasoning.
+ */
+.workspace-stacked {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.workspace-stacked-section {
+    width: 100%;
+    height: 70vh;
+    flex-shrink: 0;
+}

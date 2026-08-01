@@ -15,7 +15,7 @@ export default function GenealogyBrowser() {
   const activeId = selected?.feature === "genealogy" ? selected.objectId : undefined;
 
   return (
-    <PanelCard title="Genealogy Browser" className="h-[560px]">
+    <PanelCard title="Genealogy Browser" className="h-full">
       <BrowseList
         items={graphNodes.map((node) => ({
           id: node.id,

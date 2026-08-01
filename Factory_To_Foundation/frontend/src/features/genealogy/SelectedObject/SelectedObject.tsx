@@ -82,7 +82,7 @@ export default function SelectedObject() {
   }
 
   return (
-    <PanelCard title="Selected Object" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+    <PanelCard title="Selected Object" className="h-full" bodyClassName="flex-1 overflow-auto p-5">
       <div className="mt-5">
         <h2 className="text-xl font-bold" style={{ color: "var(--ff-text-primary)" }}>
           {genealogySelection?.payload.name ?? "Nothing Selected"}

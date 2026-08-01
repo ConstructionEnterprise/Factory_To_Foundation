@@ -167,7 +167,7 @@ export default function ConstructionProjectObjects() {
   const isFactory = sel?.objectId === FACTORY_NODE.id;
 
   return (
-    <PanelCard title="Project Objects" className="h-[560px]" bodyClassName="flex-1 overflow-auto p-5">
+    <PanelCard title="Project Objects" className="h-full" bodyClassName="flex-1 overflow-auto p-5">
       <BrowseList
         items={toBrowseItems(constructionProjects)}
         activeId={activeId}

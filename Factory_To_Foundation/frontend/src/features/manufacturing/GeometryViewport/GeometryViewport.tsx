@@ -119,7 +119,7 @@ function SceneRoot() {
  */
 export default function GeometryViewport() {
   return (
-    <PanelCard title="Geometry Viewport" className="h-[560px]" bodyClassName="flex flex-col flex-1">
+    <PanelCard title="Geometry Viewport" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="relative flex-1" style={{ background: "var(--ff-content-bg)" }}>
         <Canvas>
           <ambientLight intensity={0.7} />

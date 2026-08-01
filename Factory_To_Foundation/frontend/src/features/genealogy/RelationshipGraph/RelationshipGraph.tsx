@@ -127,7 +127,7 @@ function RelationshipGraphInner() {
   }
 
   return (
-    <PanelCard title="Relationship Graph" className="h-[560px]" bodyClassName="flex flex-col flex-1">
+    <PanelCard title="Relationship Graph" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex flex-wrap items-center gap-6 px-6 py-4 border-b border-gray-100">
         <Legend color="var(--ff-tier-material)" label="Material" />
         <Legend color="var(--ff-tier-framing-package)" label="Framing-Package" />

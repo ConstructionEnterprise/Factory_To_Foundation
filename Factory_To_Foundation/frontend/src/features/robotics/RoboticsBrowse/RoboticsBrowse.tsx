@@ -17,7 +17,7 @@ export default function RoboticsBrowse() {
   const items: BrowseListItem[] = ROBOT_NAMES.map((name) => ({ id: name, title: `Robot ${name}` }));
 
   return (
-    <PanelCard title="Robot Library" className="h-[560px]">
+    <PanelCard title="Robot Library" className="h-full">
       <BrowseList
         items={items}
         activeId={activeId}

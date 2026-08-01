@@ -39,7 +39,7 @@ export default function ConstructionDocumentViewer() {
   return (
     <PanelCard
       title={file.originalFilename}
-      className="h-[560px]"
+      className="h-full"
       bodyClassName="flex flex-1 flex-col"
       toolbar={
         <button
