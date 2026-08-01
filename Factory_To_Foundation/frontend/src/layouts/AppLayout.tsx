@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 
 import Sidebar from "../components/layout/Sidebar";
+import { ErrorBoundary } from "../framework/ui";
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -25,14 +27,24 @@ type AppLayoutProps = {
  * sit above content rather than beside it as a squeezed column. At
  * md and up, Sidebar renders its normal docked rail and the shell goes
  * back to a horizontal split.
+ *
+ * `ErrorBoundary`, keyed on the real route path — this app had zero
+ * error boundaries anywhere before this (a real gap, not a stylistic
+ * choice: an uncaught render error on any single page silently blanked
+ * the entire app, sidebar included, with no visible message at all).
+ * Keying on `location.pathname` forces a fresh mount on navigation, so
+ * a crash on one page doesn't leave a stale error showing after
+ * navigating to a different, working page.
  */
 function AppLayout({ children }: AppLayoutProps) {
+  const location = useLocation();
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--ff-content-bg)] md:flex-row">
       <Sidebar />
 
       <div className="min-w-0 min-h-0 flex-1">
-        {children}
+        <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
       </div>
     </div>
   );

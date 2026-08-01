@@ -25,3 +25,4 @@ export { useOrientation } from "./useOrientation";
 export type { Orientation } from "./useOrientation";
 export { useResponsiveMode } from "./useResponsiveMode";
 export type { ResponsiveMode } from "./useResponsiveMode";
+export { default as ErrorBoundary } from "./ErrorBoundary";

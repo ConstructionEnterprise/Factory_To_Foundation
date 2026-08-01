@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 
-import { PanelCard, StatusBadge } from "@/framework/ui";
+import { ErrorBoundary, PanelCard, StatusBadge } from "@/framework/ui";
 
 import { useTwinManifest } from "@/features/factory/useTwinManifest";
 import { useTwinState } from "@/features/factory/useTwinState";
@@ -114,11 +114,13 @@ function ManufacturingWidget() {
       title="Manufacturing — Loaded Model"
       toolbar={<StatusBadge label="Real Ingested Geometry" tone="neutral" />}
     >
-      <Suspense
-        fallback={<p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>Loading geometry…</p>}
-      >
-        <ManufacturingWidgetInner />
-      </Suspense>
+      <ErrorBoundary label="Manufacturing widget">
+        <Suspense
+          fallback={<p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>Loading geometry…</p>}
+        >
+          <ManufacturingWidgetInner />
+        </Suspense>
+      </ErrorBoundary>
     </PanelCard>
   );
 }
