@@ -25,7 +25,7 @@ export default function SimplePage({ pageLabel, pageSubtitle, menus, children }:
     <div className="flex flex-col h-full bg-[var(--ff-content-bg)]">
       <CommandRibbon pageLabel={pageLabel} pageSubtitle={pageSubtitle} menus={menus ?? []} />
 
-      <main className="flex-1 overflow-auto p-8">{children}</main>
+      <main className="flex-1 overflow-auto p-2 md:p-4 xl:p-8">{children}</main>
     </div>
   );
 }

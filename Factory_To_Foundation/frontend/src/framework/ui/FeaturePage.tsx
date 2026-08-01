@@ -70,8 +70,8 @@ export default function FeaturePage({
         menus={menus}
       />
 
-      <main className="flex-1 overflow-auto p-8">
-        <div className="h-[900px]">
+      <main className="flex-1 overflow-auto p-2 md:p-4 xl:p-8">
+        <div className="h-full">
           {workspace ?? <Workspace left={left} center={center} right={right} />}
         </div>
       </main>
