@@ -9,6 +9,14 @@
 # same host, same volume, no special handling needed. Construction_Enterprises
 # is deliberately NOT baked into twin-bridge's image so it can be updated
 # (git pull) independently of a rebuild.
+#
+# The backend service itself has been stopped on this instance since the
+# CloudFront/ASG cutover (§26) - real backend duty moved to the Auto
+# Scaling Group. backend/.env stays on disk here regardless (never
+# deleted), and blender-bridge/twin-bridge now both real-share its
+# JWT_SECRET via env_file - the exact same real secret the ASG's own
+# backend containers use, confirmed live (Responsive UI milestone,
+# "expose the twin properly" pass), rather than a second secret file.
 services:
   backend:
     build: ./backend
@@ -25,14 +33,20 @@ services:
       - "4200:4200"
     env_file:
       - ./blender-bridge/.env
+      - ./backend/.env
+    environment:
+      - BACKEND_URL=https://3-23-62-46.sslip.io
 
   twin-bridge:
     build: ./twin-bridge
     restart: unless-stopped
     ports:
       - "4100:4100"
+    env_file:
+      - ./backend/.env
     environment:
       - TWIN_STATE_DIR=/construction-enterprises/state
       - TWIN_MODULE_PATH=/construction-enterprises/Chappell_Robotics/CE_Integrated_Cell_V3_0-6.py
+      - BACKEND_URL=https://3-23-62-46.sslip.io
     volumes:
       - ../construction-enterprises:/construction-enterprises
