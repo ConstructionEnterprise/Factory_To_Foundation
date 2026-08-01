@@ -41,6 +41,15 @@
     left: 0;
 
     min-width: 230px;
+    /* A real hard cap, not just a style preference: menu content is
+       anchored left:0 to its trigger button, which can sit anywhere
+       across the ribbon - with no max-width, a wide fixed-px menu body
+       (e.g. Factory's Instructions dropdown, 28rem/448px) genuinely
+       overflows off the right edge of any phone viewport, forcing real
+       horizontal page scroll. Menu content itself should still cap its
+       own width with max-w-full so it can shrink to fit when this
+       triggers, not just get clipped. */
+    max-width: calc(100vw - 2rem);
 
     background: var(--ff-panel-bg);
     border: var(--ff-border-width) solid var(--ff-panel-border);
