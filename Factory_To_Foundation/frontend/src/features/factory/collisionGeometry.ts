@@ -239,7 +239,13 @@ function staticBodies(): CollisionBody[] {
     ] as const) {
       bodies.push({
         id: `atc_${railName}_${key}`,
-        prims: [obb([cx, railY + side * (0.15 + 0.37), 0.4], [0.55, 0.37, 0.4])],
+        // Near-Y offset was 0.15 -- 30mm short of the robot base's real
+        // Y half-depth (0.18, matching RobotArm.tsx's real rendered base
+        // box), so parked robot bases overlapped their ATC rack by 30mm.
+        // 0.21 mirrors that 30mm as real clearance instead. Kept in sync
+        // with the identical formula in FactoryGeometryViewport.tsx's
+        // ATC_RACKS -- this is real placement math, not collision-only.
+        prims: [obb([cx, railY + side * (0.21 + 0.37), 0.4], [0.55, 0.37, 0.4])],
       });
     }
   }

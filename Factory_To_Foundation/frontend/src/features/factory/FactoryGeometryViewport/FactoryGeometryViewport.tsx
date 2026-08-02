@@ -506,7 +506,10 @@ const ATC_RACKS: { manifestId: string; cx: number; ry: number }[] = (["A", "B"] 
   ] as const).map(({ key, cx }) => ({
     manifestId: `atc_${railName}_${key}`,
     cx,
-    ry: railY + side * (0.15 + 0.37),
+    // Kept in sync with collisionGeometry.ts's identical formula -- was
+    // 0.15, moved to 0.21 to fix a real 30mm robot-base/ATC-rack overlap
+    // (see that file's comment for the derivation).
+    ry: railY + side * (0.21 + 0.37),
   }));
 });
 
