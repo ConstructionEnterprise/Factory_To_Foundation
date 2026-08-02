@@ -98,7 +98,13 @@ export const COL_H = BRIDGE_BEAM.Z;
 
 export const RAIL = { A_Y: -1.55, B_Y: 1.55, X_MIN: 5.0, X_MAX: 11.6 } as const;
 
-export const ATC = { NEAR_X: 5.5, FAR_X: 11.1 } as const;
+// FAR_X was 11.1 -- stale copy of the twin's own ATC_FAR_X, never synced
+// when that constant moved to 11.0 to fix a real 50mm roller/ATC-far
+// collision (Phase 2). This file's own header says every number here is
+// "read directly off that file, not estimated or re-derived" -- this one
+// had drifted from its real source. Confirm this stays in sync if the
+// twin's ATC_FAR_X ever changes again.
+export const ATC = { NEAR_X: 5.5, FAR_X: 11.0 } as const;
 
 /** Real carried-panel dimensions from the twin's draw_panel_on_hook (PL/PW/THK literals in CE_Integrated_Cell_V3_0-6.py) — PL is full length, W is HALF-depth (the twin's dy runs -PW..+PW), THK is the ±ts thickness offset. */
 export const PANEL_ON_HOOK = { L: 4.0, W: 1.4, THK: 0.1 } as const;
