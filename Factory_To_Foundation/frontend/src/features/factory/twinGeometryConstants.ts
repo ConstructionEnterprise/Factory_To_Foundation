@@ -34,6 +34,17 @@ export const A2 = 2.5;
 export const A3 = 2.0;
 export const D6 = 0.5;
 
+/**
+ * Real per-link collision radius (Phase 2.5), ported verbatim from the
+ * twin's own `ARM_LINK_RADIUS`. Unlike D1/A2/A3/D6 above, this is NOT a
+ * measured DH parameter -- the twin has no real per-link thickness
+ * anywhere (arm linewidths are display pixels), so this is a
+ * deliberate, honestly-labeled uniform engineering estimate for a
+ * robot this size class, not vendor CAD. Keep in sync with the twin's
+ * own value if it ever changes.
+ */
+export const ARM_LINK_RADIUS = 0.1;
+
 export const CE_COLOR = {
   gold: "#CC6600",
   column: "#4A4A4A",

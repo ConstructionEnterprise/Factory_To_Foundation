@@ -1,4 +1,5 @@
 import {
+  ARM_LINK_RADIUS,
   ATC,
   BRIDGE_BEAM,
   COL_H,
@@ -206,11 +207,13 @@ function robotBody(name: string, state: TwinState): CollisionBody {
   const pts = robotJointPoints(robot.q, [robot.rail_x, railY, 0]);
   const prims: Prim[] = [obb([robot.rail_x, railY, 0.48], [0.18, 0.18, 0.14])];
   for (let i = 0; i < pts.length - 1; i++) {
-    // Zero radius on purpose: the twin has no real link thickness (its
-    // linewidths are display pixels). Volume pass-through is detected;
-    // exact distances are reported for these pairs instead of inventing
-    // a contact radius. See collisionEngine's module contract.
-    prims.push(seg(pts[i], pts[i + 1]));
+    // Phase 2.5: real capsule radius (ARM_LINK_RADIUS), not a zero-
+    // thickness centerline. Some of these 6 segments are zero-length
+    // (pure-rotation DH joints, a=0/d=0) -- seg() degenerates those to a
+    // sphere at that joint, still a real capsule check, not a special
+    // case. Uniform radius across all links -- see ARM_LINK_RADIUS's own
+    // comment for why this is an honest estimate, not tapered CAD data.
+    prims.push(seg(pts[i], pts[i + 1], ARM_LINK_RADIUS));
   }
   return { id: `robots.${name}`, prims };
 }
