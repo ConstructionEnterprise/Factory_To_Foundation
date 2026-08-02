@@ -102,7 +102,11 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
 // process's real command line to detect it whether it was started by
 // this bridge, by the GUI script directly, or by an older ad-hoc driver
 // copy. Substring match on the real, not-guessed file names.
-const TWIN_PROCESS_MARKERS = ["CE_Integrated_Cell_V3_0-6.py", "twin_headless_driver.py"];
+// run_twin_headless.py added -- the twin's own documented canonical way
+// to run it (Chappell_Robotics/CLAUDE.md's Environment section), missed
+// here originally; a manually-started instance via that real entry
+// point was going undetected by /twin-control/start's duplicate guard.
+const TWIN_PROCESS_MARKERS = ["CE_Integrated_Cell_V3_0-6.py", "twin_headless_driver.py", "run_twin_headless.py"];
 
 // Confirmed write cadence (Step 0 investigation): twin writes every
 // _WRITE_EVERY=10 advance() calls, _TICK_S=0.01 nominal -> ~100ms nominal,
