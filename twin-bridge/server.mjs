@@ -259,6 +259,16 @@ pollManifest();
 
 const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  // Required for every real fetch() using credentials: "include" (every
+  // real call site in this frontend, since auth needs the session cookie
+  // sent cross-origin) -- without this, the browser completes the real
+  // HTTP request (visible with a real status code in the Network tab,
+  // confirmed live during the Phase 2.5 investigation this fixed) but
+  // refuses to hand the response to JS at all, so fetch() rejects with a
+  // generic "Failed to fetch", indistinguishable from the bridge being
+  // genuinely unreachable. Same class of bug as the Allow-Headers fix
+  // below, found the same way.
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   // Required for the browser's CORS preflight on /twin-command's real
   // POST + Content-Type: application/json body -- without this, the
