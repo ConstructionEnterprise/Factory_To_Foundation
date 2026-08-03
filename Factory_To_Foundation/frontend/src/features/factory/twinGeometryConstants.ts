@@ -141,6 +141,13 @@ export const ATC = { NEAR_X: 5.5, FAR_X: 11.0 } as const;
  * checked every tick, not just endpoints. See that session's chat log for
  * the verification script; not committed to either repo (throwaway).
  */
+/** Real per-tier zone identity, same X-ordering `_static_collision_bodies()` already uses (index 0 = RACK.X - ZONE_SPACING, the outermost/farthest-X zone). Colors carried over from pyvista_render.py's draw_material_rack_static tier coloring (silver-gray/blue/dark-red), the one part of the old PyVista rack worth keeping even though PyVista itself is parked. */
+export const RACK_TIERS = [
+  { key: "light", color: "#9AA0A6" },
+  { key: "standard", color: "#3A6EA5" },
+  { key: "heavy", color: "#8B3A3A" },
+] as const;
+
 export const RACK = {
   X: 3.2,
   Y: 0.0,
@@ -148,17 +155,28 @@ export const RACK = {
   ZONE_HALF_X: 0.5, // each zone's half-width along X (spine length = 3*ZONE_SPACING = 3.0m total)
   ARM_PROJECTION: 0.85, // each arm's real Y length from the spine to its outer (aisle) edge
   ARM_HALF_THICK: 0.05, // arm cross-section half-thickness (Z)
-  POST_HALF_Y: 0.08, // spine post half-depth (Y) — thin, real structural post, not a wall
-  HEIGHT: 1.8, // real post height
+  // UPRIGHT_HALF/TOP_RAIL_HALF_Z (2026-08-03 redesign, replacing the
+  // original POST_HALF_Y): the original design gave EACH zone its own
+  // full-zone-width post (half_X=ZONE_HALF_X=0.5) -- three of them,
+  // contiguous, reading as one solid wall/divider rather than one
+  // industrial rack with three compartments. Redesigned as a real
+  // cantilever rack instead: slender uprights only at the zone
+  // BOUNDARIES (see RACK_UPRIGHT_OFFSETS below) plus one continuous top
+  // rail connecting them -- the frame itself is one unified structure
+  // (env.rack_frame, a single collision/render id), while the three
+  // zones stay distinct purely via their own arm pairs/colors, not via
+  // separate structural walls.
+  UPRIGHT_HALF: 0.06, // slender structural upright cross-section (X and Y)
+  TOP_RAIL_HALF_Z: 0.04, // connecting top-rail half-thickness (Z)
+  HEIGHT: 1.8, // real upright height
   SHELF_Z: 0.5, // real height where material rests on the arms
 } as const;
 
-/** Real per-tier zone identity, same X-ordering `_static_collision_bodies()` already uses (index 0 = RACK.X - ZONE_SPACING, the outermost/farthest-X zone). Colors carried over from pyvista_render.py's draw_material_rack_static tier coloring (silver-gray/blue/dark-red), the one part of the old PyVista rack worth keeping even though PyVista itself is parked. */
-export const RACK_TIERS = [
-  { key: "light", color: "#9AA0A6" },
-  { key: "standard", color: "#3A6EA5" },
-  { key: "heavy", color: "#8B3A3A" },
-] as const;
+/** X offsets (relative to RACK.X) of the rack's real structural uprights -- one at each zone boundary (RACK_TIERS.length + 1 total, e.g. 4 for 3 zones), so the assembly reads as one continuous frame rather than a separate post per zone. */
+export const RACK_UPRIGHT_OFFSETS: readonly number[] = Array.from(
+  { length: RACK_TIERS.length + 1 },
+  (_, i) => (i - RACK_TIERS.length / 2) * RACK.ZONE_SPACING
+);
 
 /** Real carried-panel dimensions from the twin's draw_panel_on_hook (PL/PW/THK literals in CE_Integrated_Cell_V3_0-6.py) — PL is full length, W is HALF-depth (the twin's dy runs -PW..+PW), THK is the ±ts thickness offset. */
 export const PANEL_ON_HOOK = { L: 4.0, W: 1.4, THK: 0.1 } as const;

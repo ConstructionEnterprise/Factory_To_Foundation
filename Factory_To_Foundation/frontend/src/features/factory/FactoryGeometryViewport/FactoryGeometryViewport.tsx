@@ -27,6 +27,7 @@ import {
   PIVOT,
   RACK,
   RACK_TIERS,
+  RACK_UPRIGHT_OFFSETS,
   RAIL,
   ROLLER,
   RUNWAY,
@@ -515,26 +516,45 @@ const ATC_RACKS: { manifestId: string; cx: number; ry: number }[] = (["A", "B"] 
   }));
 });
 
-// Material rack (v13) — one open cantilever, spine along X at RACK.Y,
-// arms projecting +-Y toward each rail. 3 zones (light/standard/heavy)
-// side-by-side along the spine, not stacked, so profiles rest horizontally
-// on the arms rather than standing/stacked as the old 3-cube rack implied.
-// Same zoneX math as collisionGeometry.ts's staticBodies() rack section —
-// kept in sync deliberately, same convention as ATC_RACKS/CR6_RAILS above.
+// Material rack (v13, redesigned 2026-08-03) — ONE unified structural
+// frame (slender uprights at each zone boundary + a continuous top rail,
+// replacing the original per-zone full-width posts that read as a solid
+// divider wall between bays) plus three separate per-zone arm pairs that
+// stay the real, distinct inventory compartments — reads as one piece of
+// equipment with three compartments, not three separate rack units.
+// Same zoneX/frame math as collisionGeometry.ts's staticBodies() rack
+// section — kept in sync deliberately, same convention as ATC_RACKS above.
 const MATERIAL_RACK_ZONES = RACK_TIERS.map(({ key, color }, i) => ({
   manifestId: `rack_${key}`,
   zoneX: RACK.X + (i - 1) * RACK.ZONE_SPACING,
   color,
 }));
 
+const RACK_FRAME_HALF_X = (RACK_TIERS.length * RACK.ZONE_SPACING) / 2;
+
+function MaterialRackFrameGeometry() {
+  return (
+    <>
+      {RACK_UPRIGHT_OFFSETS.map((offset) => (
+        <Box
+          key={offset}
+          center={[RACK.X + offset, RACK.Y, RACK.HEIGHT / 2]}
+          half={[RACK.UPRIGHT_HALF, RACK.UPRIGHT_HALF, RACK.HEIGHT / 2]}
+          color="#3A3A3A"
+        />
+      ))}
+      <Box
+        center={[RACK.X, RACK.Y, RACK.HEIGHT]}
+        half={[RACK_FRAME_HALF_X, RACK.UPRIGHT_HALF, RACK.TOP_RAIL_HALF_Z]}
+        color="#3A3A3A"
+      />
+    </>
+  );
+}
+
 function MaterialRackZoneGeometry({ zoneX, color }: { zoneX: number; color: string }) {
   return (
     <>
-      <Box
-        center={[zoneX, RACK.Y, RACK.HEIGHT / 2]}
-        half={[RACK.ZONE_HALF_X, RACK.POST_HALF_Y, RACK.HEIGHT / 2]}
-        color="#3A3A3A"
-      />
       {([-1, 1] as const).map((side) => (
         <Box
           key={side}
@@ -581,6 +601,7 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
       <Floor />
       <RunwayRails />
       <FixtureTable />
+      <MaterialRackFrameGeometry />
       {state && <ModuleJigWalls placedWalls={state.placed_walls} />}
 
       {CR6_RAILS.map((r) => (

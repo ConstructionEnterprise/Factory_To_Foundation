@@ -11,6 +11,7 @@ import {
   PIVOT,
   RACK,
   RACK_TIERS,
+  RACK_UPRIGHT_OFFSETS,
   RAIL,
   ROLLER,
   RUNWAY,
@@ -76,7 +77,17 @@ export function pairKey(a: string, b: string): string {
 }
 
 export function isExcludedPair(a: string, b: string): boolean {
-  return EXCLUDED_PAIRS.has(pairKey(a, b));
+  if (EXCLUDED_PAIRS.has(pairKey(a, b))) return true;
+  // env.rack_frame vs rack_light/standard/heavy -- disclosed exclusion,
+  // found live (2026-08-03): the frame's real uprights sit exactly at
+  // each zone's own X boundary and its arms start exactly at the shared
+  // spine Y=0, so frame and arms genuinely touch by construction --
+  // they're the same physical rack, structurally joined, not two
+  // independent objects that happen to overlap.
+  if ((a === "env.rack_frame" && b.startsWith("rack_")) || (b === "env.rack_frame" && a.startsWith("rack_"))) {
+    return true;
+  }
+  return false;
 }
 
 // ── Per-subsystem builders ──
@@ -261,17 +272,24 @@ function staticBodies(): CollisionBody[] {
     prims: [obb([FIXED.CX, FIXED.CY, FIXED.Z], [FIXED.W / 2, FIXED.D / 2, 0])],
   });
 
-  // Material rack (v13) — one open cantilever: a thin spine post per zone
-  // plus two arms (+-Y, one per rail side) per zone. Each zone gets its
-  // own collision body (rack_light/standard/heavy, same ids the twin's
-  // own _static_collision_bodies() uses) so Phase 3/4-equivalent rejection
-  // messages can still name the specific zone, same as before.
+  // Material rack (v13, redesigned 2026-08-03) — ONE unified structural
+  // frame (env.rack_frame: slender uprights at each zone boundary + a
+  // continuous top rail spanning the whole length, replacing the
+  // original per-zone full-width posts that read as a solid divider
+  // wall) plus three separate per-zone arm pairs (rack_light/standard/
+  // heavy, same ids as before) that stay the real, distinct inventory
+  // compartments — a single piece of equipment with three compartments,
+  // not three separate rack units.
+  const frameHalfX = (RACK_TIERS.length * RACK.ZONE_SPACING) / 2;
+  const framePrims: Prim[] = RACK_UPRIGHT_OFFSETS.map((offset) =>
+    obb([RACK.X + offset, RACK.Y, RACK.HEIGHT / 2], [RACK.UPRIGHT_HALF, RACK.UPRIGHT_HALF, RACK.HEIGHT / 2])
+  );
+  framePrims.push(obb([RACK.X, RACK.Y, RACK.HEIGHT], [frameHalfX, RACK.UPRIGHT_HALF, RACK.TOP_RAIL_HALF_Z]));
+  bodies.push({ id: "env.rack_frame", prims: framePrims });
+
   RACK_TIERS.forEach(({ key }, i) => {
     const zoneX = RACK.X + (i - 1) * RACK.ZONE_SPACING;
-    const prims: Prim[] = [
-      // spine post for this zone
-      obb([zoneX, RACK.Y, RACK.HEIGHT / 2], [RACK.ZONE_HALF_X, RACK.POST_HALF_Y, RACK.HEIGHT / 2]),
-    ];
+    const prims: Prim[] = [];
     for (const side of [-1, 1] as const) {
       prims.push(
         obb(
