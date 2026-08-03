@@ -25,6 +25,8 @@ import {
   IK_INNER_REACH,
   MOD,
   PIVOT,
+  RACK,
+  RACK_TIERS,
   RAIL,
   ROLLER,
   RUNWAY,
@@ -513,6 +515,38 @@ const ATC_RACKS: { manifestId: string; cx: number; ry: number }[] = (["A", "B"] 
   }));
 });
 
+// Material rack (v13) — one open cantilever, spine along X at RACK.Y,
+// arms projecting +-Y toward each rail. 3 zones (light/standard/heavy)
+// side-by-side along the spine, not stacked, so profiles rest horizontally
+// on the arms rather than standing/stacked as the old 3-cube rack implied.
+// Same zoneX math as collisionGeometry.ts's staticBodies() rack section —
+// kept in sync deliberately, same convention as ATC_RACKS/CR6_RAILS above.
+const MATERIAL_RACK_ZONES = RACK_TIERS.map(({ key, color }, i) => ({
+  manifestId: `rack_${key}`,
+  zoneX: RACK.X + (i - 1) * RACK.ZONE_SPACING,
+  color,
+}));
+
+function MaterialRackZoneGeometry({ zoneX, color }: { zoneX: number; color: string }) {
+  return (
+    <>
+      <Box
+        center={[zoneX, RACK.Y, RACK.HEIGHT / 2]}
+        half={[RACK.ZONE_HALF_X, RACK.POST_HALF_Y, RACK.HEIGHT / 2]}
+        color="#3A3A3A"
+      />
+      {([-1, 1] as const).map((side) => (
+        <Box
+          key={side}
+          center={[zoneX, side * (RACK.ARM_PROJECTION / 2), RACK.SHELF_Z]}
+          half={[RACK.ZONE_HALF_X, RACK.ARM_PROJECTION / 2, RACK.ARM_HALF_THICK]}
+          color={color}
+        />
+      ))}
+    </>
+  );
+}
+
 // Real per-robot rail_y lives in collisionGeometry's ROBOT_RAIL_Y
 // (imported above) — one copy shared by rendering, collision checking, and
 // the reach envelope so they can't drift apart. The arm itself renders via
@@ -574,6 +608,20 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
           colliding={collidingIds.has(a.manifestId)}
         >
           <Box center={[a.cx, a.ry, 0.4]} half={[0.55, 0.37, 0.4]} color="#1A1A1A" />
+        </SubsystemGroup>
+      ))}
+
+      {MATERIAL_RACK_ZONES.map((z) => (
+        <SubsystemGroup
+          key={z.manifestId}
+          manifestId={z.manifestId}
+          liveNodes={liveNodes}
+          setSelected={setSelected}
+          selectedId={selectedId}
+          depsKey="static"
+          colliding={collidingIds.has(z.manifestId)}
+        >
+          <MaterialRackZoneGeometry zoneX={z.zoneX} color={z.color} />
         </SubsystemGroup>
       ))}
 

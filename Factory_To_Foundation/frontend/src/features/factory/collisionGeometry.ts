@@ -9,6 +9,8 @@ import {
   MOD,
   PANEL_ON_HOOK,
   PIVOT,
+  RACK,
+  RACK_TIERS,
   RAIL,
   ROLLER,
   RUNWAY,
@@ -257,6 +259,28 @@ function staticBodies(): CollisionBody[] {
   bodies.push({
     id: "env.fixture_table",
     prims: [obb([FIXED.CX, FIXED.CY, FIXED.Z], [FIXED.W / 2, FIXED.D / 2, 0])],
+  });
+
+  // Material rack (v13) — one open cantilever: a thin spine post per zone
+  // plus two arms (+-Y, one per rail side) per zone. Each zone gets its
+  // own collision body (rack_light/standard/heavy, same ids the twin's
+  // own _static_collision_bodies() uses) so Phase 3/4-equivalent rejection
+  // messages can still name the specific zone, same as before.
+  RACK_TIERS.forEach(({ key }, i) => {
+    const zoneX = RACK.X + (i - 1) * RACK.ZONE_SPACING;
+    const prims: Prim[] = [
+      // spine post for this zone
+      obb([zoneX, RACK.Y, RACK.HEIGHT / 2], [RACK.ZONE_HALF_X, RACK.POST_HALF_Y, RACK.HEIGHT / 2]),
+    ];
+    for (const side of [-1, 1] as const) {
+      prims.push(
+        obb(
+          [zoneX, side * (RACK.ARM_PROJECTION / 2), RACK.SHELF_Z],
+          [RACK.ZONE_HALF_X, RACK.ARM_PROJECTION / 2, RACK.ARM_HALF_THICK]
+        )
+      );
+    }
+    bodies.push({ id: `rack_${key}`, prims });
   });
 
   return bodies;
