@@ -87,6 +87,19 @@ export function isExcludedPair(a: string, b: string): boolean {
   if ((a === "env.rack_frame" && b.startsWith("rack_")) || (b === "env.rack_frame" && a.startsWith("rack_"))) {
     return true;
   }
+  // robots.* vs env.fixture_table -- disclosed uniform-capsule-vs-zero-
+  // thickness-table modeling limitation (documented for the twin's own
+  // Phase 3 policy in Chappell_Robotics/CLAUDE.md): a zero-thickness
+  // table plus a nonzero-radius arm can't distinguish "resting on the
+  // surface to do real work" from "colliding through it" -- real contact
+  // there is expected, not a fault. The twin's own _is_excluded_pair()
+  // has excluded this since Phase 3; this file never got the matching
+  // exclusion, so the dashboard showed 4 "persistent" contacts (one per
+  // robot) that are actually harmless by design -- found live (2026-08-03)
+  // once four robots got real WORKING poses to compare against for the
+  // first time. Twin and FF must share the same collision semantics.
+  if (a === "env.fixture_table" && b.startsWith("robots.")) return true;
+  if (b === "env.fixture_table" && a.startsWith("robots.")) return true;
   return false;
 }
 
