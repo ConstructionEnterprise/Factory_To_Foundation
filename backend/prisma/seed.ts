@@ -520,7 +520,12 @@ const NETWORK_DEVICES: NetworkDeviceSeed[] = [
   { id: "net-network-printer", name: "Network Printer", role: "printer", model: null, ipAddress: "10.10.90.12", vlanId: "vlan-90", uplinkDeviceId: "net-access-switch-c" },
 ];
 
-async function main() {
+// The RBAC-only portion: Modules/Permissions/Roles/RolePermissions.
+// No Genealogy/Construction/Network data — those are Construction
+// Enterprises' own fixture content, not generic scaffolding, and a
+// customer pilot DB (see AI_Dispatch/scripts/onboard-ff-pilot.sh) must
+// never carry them. Callable standalone via `tsx prisma/seed.ts --rbac-only`.
+async function seedRbac() {
   for (const m of MODULES) {
     await prisma.module.upsert({ where: { id: m.id }, update: { name: m.name }, create: m });
   }
@@ -547,6 +552,35 @@ async function main() {
     }
   }
 
+  const roleCount = await prisma.role.count();
+  const moduleCount = await prisma.module.count();
+  const permissionCount = await prisma.permission.count();
+  const rolePermissionCount = await prisma.rolePermission.count();
+
+  console.log(`Seeded: ${moduleCount} modules, ${permissionCount} permissions, ${roleCount} roles, ${rolePermissionCount} role_permission rows.`);
+
+  const ceoGrants = await prisma.rolePermission.count({ where: { role: { name: "CEO" } } });
+  console.log(`CEO grants: ${ceoGrants} (expected ${MODULES.length * FULL.length} = ${MODULES.length} modules × ${FULL.length} actions).`);
+
+  const roboticsEngineerRoboticsGrants = await prisma.rolePermission.findMany({
+    where: { role: { name: "Robotics Engineer" }, moduleId: "robotics" },
+    select: { permissionId: true },
+  });
+  console.log(
+    `Robotics Engineer on Robotics: ${roboticsEngineerRoboticsGrants.map((g) => g.permissionId).join(", ")} (expected read, create, update, delete, execute — no administer, per the flagged interpretation above).`
+  );
+
+  const permissionsGrants = await prisma.rolePermission.count({ where: { moduleId: "permissions" } });
+  const networkingGrants = await prisma.rolePermission.count({ where: { moduleId: "networking" } });
+  console.log(
+    `Post-rename check — role_permission rows: moduleId="permissions" (renamed from "networking"): ${permissionsGrants} (expected 12, matching the pre-migration count exactly); moduleId="networking" (the real, new module): ${networkingGrants}.`
+  );
+}
+
+// Construction Enterprises' own Genealogy/Construction/Network fixture
+// data — real for CE, but fixture from any other customer's point of view.
+// Never run against a customer pilot DB.
+async function seedFixtures() {
   for (const n of GENEALOGY_NODES) {
     await prisma.genealogyNode.upsert({
       where: { id: n.id },
@@ -594,24 +628,6 @@ async function main() {
     });
   }
 
-  const roleCount = await prisma.role.count();
-  const moduleCount = await prisma.module.count();
-  const permissionCount = await prisma.permission.count();
-  const rolePermissionCount = await prisma.rolePermission.count();
-
-  console.log(`Seeded: ${moduleCount} modules, ${permissionCount} permissions, ${roleCount} roles, ${rolePermissionCount} role_permission rows.`);
-
-  const ceoGrants = await prisma.rolePermission.count({ where: { role: { name: "CEO" } } });
-  console.log(`CEO grants: ${ceoGrants} (expected ${MODULES.length * FULL.length} = ${MODULES.length} modules × ${FULL.length} actions).`);
-
-  const roboticsEngineerRoboticsGrants = await prisma.rolePermission.findMany({
-    where: { role: { name: "Robotics Engineer" }, moduleId: "robotics" },
-    select: { permissionId: true },
-  });
-  console.log(
-    `Robotics Engineer on Robotics: ${roboticsEngineerRoboticsGrants.map((g) => g.permissionId).join(", ")} (expected read, create, update, delete, execute — no administer, per the flagged interpretation above).`
-  );
-
   const genealogyNodeCount = await prisma.genealogyNode.count();
   const genealogyEdgeCount = await prisma.genealogyEdge.count();
   console.log(`Seeded: ${genealogyNodeCount} genealogy nodes, ${genealogyEdgeCount} genealogy edges.`);
@@ -628,12 +644,19 @@ async function main() {
   const networkVlanCount = await prisma.networkVlan.count();
   const networkDeviceCount = await prisma.networkDevice.count();
   console.log(`Seeded: ${networkVlanCount} network VLANs, ${networkDeviceCount} network devices.`);
+}
 
-  const permissionsGrants = await prisma.rolePermission.count({ where: { moduleId: "permissions" } });
-  const networkingGrants = await prisma.rolePermission.count({ where: { moduleId: "networking" } });
-  console.log(
-    `Post-rename check — role_permission rows: moduleId="permissions" (renamed from "networking"): ${permissionsGrants} (expected 12, matching the pre-migration count exactly); moduleId="networking" (the real, new module): ${networkingGrants}.`
-  );
+async function main() {
+  const rbacOnly = process.argv.includes("--rbac-only");
+
+  await seedRbac();
+
+  if (rbacOnly) {
+    console.log("--rbac-only: skipped Genealogy/Construction/Network fixture data (Construction Enterprises-specific, not generic scaffolding).");
+    return;
+  }
+
+  await seedFixtures();
 }
 
 main()
