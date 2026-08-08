@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import { Line, OrbitControls, PerspectiveCamera } from "@react-three/drei";
+import { GizmoHelper, GizmoViewcube, Line, OrbitControls, PerspectiveCamera, Text } from "@react-three/drei";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import { Legend, PanelCard } from "@/framework/ui";
 import { useSelection } from "@/context/SelectionContext";
@@ -271,6 +272,30 @@ function Floor() {
       <planeGeometry args={[40, 14]} />
       <meshStandardMaterial color="#EFEFEF" transparent opacity={0.4} side={THREE.DoubleSide} />
     </mesh>
+  );
+}
+
+// Real twin-space X/Y/Z reference triad — built from the same toThree()
+// mapping as everything else here, so "X"/"Y"/"Z" label the twin's own
+// axes (the ones RACK_X/RACK_Y/rail_x etc. are defined in), not three.js's
+// internal Y-up convention. Toggled via the header's "Axes" button.
+const AXES_LENGTH = 5;
+const AXES_COLOR = { x: "#d64545", y: "#4caf50", z: "#3a6fd8" };
+
+function AxesTriad() {
+  const origin: Vec3 = [0, 0, 0];
+  const xEnd: Vec3 = [AXES_LENGTH, 0, 0];
+  const yEnd: Vec3 = [0, AXES_LENGTH, 0];
+  const zEnd: Vec3 = [0, 0, AXES_LENGTH];
+  return (
+    <group>
+      <Seg p0={origin} p1={xEnd} color={AXES_COLOR.x} width={3} />
+      <Seg p0={origin} p1={yEnd} color={AXES_COLOR.y} width={3} />
+      <Seg p0={origin} p1={zEnd} color={AXES_COLOR.z} width={3} />
+      <Text position={toThree(...xEnd)} fontSize={0.5} color={AXES_COLOR.x}>X</Text>
+      <Text position={toThree(...yEnd)} fontSize={0.5} color={AXES_COLOR.y}>Y</Text>
+      <Text position={toThree(...zEnd)} fontSize={0.5} color={AXES_COLOR.z}>Z</Text>
+    </group>
   );
 }
 
@@ -578,7 +603,7 @@ function RobotGeometry({ name, robot }: { name: string; robot: TwinState["robots
 
 // ── Scene root ──
 
-function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds, reachRobot }: {
+function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds, reachRobot, showAxes }: {
   liveNodes: LiveFactoryNode[];
   state: TwinState | null;
   selectedId: string | undefined;
@@ -587,6 +612,8 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
   collidingIds: Set<string>;
   /** Robot name (A1/A2/B1/B2) whose real reach envelope should render, or null. */
   reachRobot: string | null;
+  /** Whether the real twin-space X/Y/Z reference triad is visible. */
+  showAxes: boolean;
 }) {
   const handleMiss = () => {
     // Clicking empty space / non-manifest scene dressing (floor, rails,
@@ -598,6 +625,7 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
 
   return (
     <group onClick={handleMiss}>
+      {showAxes && <AxesTriad />}
       <Floor />
       <RunwayRails />
       <FixtureTable />
@@ -778,6 +806,9 @@ export default function FactoryGeometryViewport() {
   const collision = useCollisionSnapshot();
   const twinControl = useTwinControl();
   const [showReach, setShowReach] = useState(false);
+  const [showAxes, setShowAxes] = useState(false);
+  const [showGizmo, setShowGizmo] = useState(true);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   // The collision monitor runs on its own fast poll (every written twin
   // snapshot), independent of this component's 750ms display poll.
@@ -838,6 +869,32 @@ export default function FactoryGeometryViewport() {
         >
           Reach Envelope{reachRobot ? ` — ${reachRobot}` : ""}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowAxes((v) => !v)}
+          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={
+            showAxes
+              ? { background: "var(--ff-accent)", color: "white" }
+              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+          }
+          title="Toggle a real X/Y/Z reference triad, in the twin's own coordinate system"
+        >
+          Axes
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowGizmo((v) => !v)}
+          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={
+            showGizmo
+              ? { background: "var(--ff-accent)", color: "white" }
+              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+          }
+          title="Toggle the view cube (click a face/edge/corner to snap the camera to that view)"
+        >
+          View Cube
+        </button>
         <span
           className="ml-auto rounded-full px-2.5 py-0.5 text-xs font-medium"
           style={
@@ -862,9 +919,15 @@ export default function FactoryGeometryViewport() {
             setSelected={setSelected}
             collidingIds={collidingIds}
             reachRobot={reachRobot}
+            showAxes={showAxes}
           />
           <InitialCamera />
-          <OrbitControls makeDefault enableDamping dampingFactor={0.08} target={SCENE_TARGET} />
+          <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.08} target={SCENE_TARGET} />
+          {showGizmo && (
+            <GizmoHelper alignment="bottom-right" margin={[80, 80]} onUpdate={() => controlsRef.current?.update()}>
+              <GizmoViewcube />
+            </GizmoHelper>
+          )}
         </Canvas>
         {reachRobot && (
           <p
