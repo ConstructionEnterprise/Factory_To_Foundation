@@ -11,6 +11,7 @@ import {
   LogisticsMaterialForm,
   LogisticsModuleForm,
   LogisticsToolbar,
+  MileageRateManager,
 } from "@/features/logistics";
 
 // Real KPI-row wiring is a separate, still-disclosed fixture gap (gap #4)
@@ -32,6 +33,7 @@ export default function LogisticsPage() {
   const [showDispatchTracker, setShowDispatchTracker] = useState(false);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [showModuleForm, setShowModuleForm] = useState(false);
+  const [showMileageRateManager, setShowMileageRateManager] = useState(false);
 
   // Real Browse Logistics panel (Phase 8) fetches on mount only — bumping
   // this key forces a real remount/refetch any time a creation form
@@ -52,6 +54,7 @@ export default function LogisticsPage() {
             onNewModule={() => setShowModuleForm(true)}
             onNewDispatch={() => setShowDispatchForm(true)}
             onTrackDispatches={() => setShowDispatchTracker(true)}
+            onMileageRate={() => setShowMileageRateManager(true)}
           />
         }
         left={<LogisticsBrowse key={browseRefreshKey} />}
@@ -66,6 +69,7 @@ export default function LogisticsPage() {
         <LogisticsMaterialForm onClose={() => setShowMaterialForm(false)} onCreated={refreshBrowse} />
       )}
       {showModuleForm && <LogisticsModuleForm onClose={() => setShowModuleForm(false)} onCreated={refreshBrowse} />}
+      {showMileageRateManager && <MileageRateManager onClose={() => setShowMileageRateManager(false)} />}
     </>
   );
 }

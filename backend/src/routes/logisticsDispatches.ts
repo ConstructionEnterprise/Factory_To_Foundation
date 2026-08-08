@@ -11,12 +11,24 @@ const createBodySchema = z.object({
   eta: z.string().datetime().optional(),
   route: z.string().trim().min(1).optional(),
   traffic: z.string().trim().min(1).optional(),
+  odometerStart: z.number().nonnegative().optional(),
+  businessPurpose: z.string().trim().min(1).optional(),
 });
 
 const transitionBodySchema = z.object({
   toStatus: z.enum(["staged", "in_transit", "delivered"]),
   notes: z.string().trim().min(1).optional(),
 });
+
+const mileageBodySchema = z
+  .object({
+    odometerStart: z.number().nonnegative().optional(),
+    odometerEnd: z.number().nonnegative().optional(),
+    businessPurpose: z.string().trim().min(1).optional(),
+  })
+  .refine((b) => b.odometerStart !== undefined || b.odometerEnd !== undefined || b.businessPurpose !== undefined, {
+    message: "Provide at least one of odometerStart, odometerEnd, businessPurpose.",
+  });
 
 /**
  * Real create endpoint closing the gap Phase 5 flagged: nothing in the app
@@ -60,6 +72,24 @@ export async function logisticsDispatchRoutes(app: FastifyInstance) {
     async (request) => {
       const { id } = request.params as { id: string };
       return service.listCustodyEvents(id);
+    }
+  );
+
+  /**
+   * Real, separate mileage-recording endpoint — not folded into the status-
+   * transition route, since setting an odometer reading isn't itself a
+   * chain-of-custody status change (a driver might record a starting
+   * reading well before "in_transit", or an ending reading after
+   * "delivered" already fired). Gated on the same `logistics:update` grant
+   * as the status-transition route.
+   */
+  app.patch(
+    "/logistics-dispatches/:id/mileage",
+    { preHandler: [authenticate, requirePermission("logistics", "update")] },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = mileageBodySchema.parse(request.body);
+      return service.recordMileage(id, body);
     }
   );
 }

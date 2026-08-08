@@ -12,6 +12,10 @@ export type LogisticsDispatchDto = {
   route: string | null;
   traffic: string | null;
   eta: string | null;
+  odometerStart: number | null;
+  odometerEnd: number | null;
+  miles: number | null;
+  businessPurpose: string | null;
   dispatchedAt: string;
 };
 
@@ -25,6 +29,10 @@ function toDto(row: LogisticsDispatch): LogisticsDispatchDto {
     route: row.route,
     traffic: row.traffic,
     eta: row.eta ? row.eta.toISOString() : null,
+    odometerStart: row.odometerStart,
+    odometerEnd: row.odometerEnd,
+    miles: row.miles,
+    businessPurpose: row.businessPurpose,
     dispatchedAt: row.dispatchedAt.toISOString(),
   };
 }
@@ -41,6 +49,9 @@ export type CreateDispatchInput = {
   eta?: string;
   route?: string;
   traffic?: string;
+  /** Real starting odometer reading — known before the haul departs, unlike odometerEnd (see recordMileage() for how the trip is later closed out). */
+  odometerStart?: number;
+  businessPurpose?: string;
   createdById: string;
 };
 
@@ -70,8 +81,47 @@ export async function createDispatch(input: CreateDispatchInput): Promise<Logist
     eta: input.eta ? new Date(input.eta) : null,
     route: input.route ?? null,
     traffic: input.traffic ?? null,
+    odometerStart: input.odometerStart ?? null,
+    businessPurpose: input.businessPurpose ?? null,
     createdById: input.createdById,
   });
+  return toDto(dispatch);
+}
+
+export type RecordMileageInput = {
+  odometerStart?: number;
+  odometerEnd?: number;
+  businessPurpose?: string;
+};
+
+/**
+ * Real, honest mileage recording — miles is always derived here from real
+ * odometer readings (existing + newly-supplied, merged), never accepted
+ * directly from the client as an independent number. A caller can record
+ * just the starting reading (e.g. at trip departure), just the ending
+ * reading (e.g. at delivery), or both at once; whichever of the two is
+ * missing after the merge leaves `miles` honestly null rather than a
+ * fabricated partial figure.
+ */
+export async function recordMileage(dispatchId: string, input: RecordMileageInput): Promise<LogisticsDispatchDto> {
+  const existing = await repo.findDispatchById(dispatchId);
+  if (!existing) throw new NotFoundError(`No logistics dispatch with id "${dispatchId}"`);
+
+  const odometerStart = input.odometerStart ?? existing.odometerStart ?? null;
+  const odometerEnd = input.odometerEnd ?? existing.odometerEnd ?? null;
+  const businessPurpose = input.businessPurpose ?? existing.businessPurpose ?? null;
+
+  let miles: number | null = null;
+  if (odometerStart !== null && odometerEnd !== null) {
+    if (odometerEnd < odometerStart) {
+      throw new ValidationError(
+        `Ending odometer reading (${odometerEnd}) cannot be less than the starting reading (${odometerStart}).`
+      );
+    }
+    miles = odometerEnd - odometerStart;
+  }
+
+  const dispatch = await repo.updateMileage(dispatchId, { odometerStart, odometerEnd, miles, businessPurpose });
   return toDto(dispatch);
 }
 

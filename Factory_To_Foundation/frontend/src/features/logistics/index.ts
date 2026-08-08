@@ -6,3 +6,4 @@ export { default as LogisticsDispatchForm } from "./LogisticsDispatchForm";
 export { default as LogisticsDispatchTracker } from "./LogisticsDispatchTracker";
 export { default as LogisticsMaterialForm } from "./LogisticsMaterialForm";
 export { default as LogisticsModuleForm } from "./LogisticsModuleForm";
+export { default as MileageRateManager } from "./MileageRateManager";

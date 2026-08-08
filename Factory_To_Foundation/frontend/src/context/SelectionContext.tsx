@@ -70,6 +70,11 @@ export type LogisticsDispatchPayload = {
   route: string | null;
   traffic: string | null;
   eta: string | null;
+  odometerStart: number | null;
+  odometerEnd: number | null;
+  /** Always server-derived — never independently entered. */
+  miles: number | null;
+  businessPurpose: string | null;
   dispatchedAt: string;
 };
 

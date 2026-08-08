@@ -30,6 +30,8 @@ export type CreateDispatchInput = {
   eta: Date | null;
   route: string | null;
   traffic: string | null;
+  odometerStart: number | null;
+  businessPurpose: string | null;
   createdById: string;
 };
 
@@ -49,6 +51,8 @@ export async function createDispatch(data: CreateDispatchInput): Promise<{ dispa
         eta: data.eta,
         route: data.route,
         traffic: data.traffic,
+        odometerStart: data.odometerStart,
+        businessPurpose: data.businessPurpose,
       },
     });
     const event = await tx.logisticsCustodyEvent.create({
@@ -102,4 +106,24 @@ export async function transitionStatus(
 /** Every real custody event for one dispatch, oldest first — the actual chain-of-custody reading order (creation, then each real transition in the order they happened). */
 export function findCustodyEvents(dispatchId: string): Promise<LogisticsCustodyEvent[]> {
   return prisma.logisticsCustodyEvent.findMany({ where: { dispatchId }, orderBy: { changedAt: "asc" } });
+}
+
+export type RecordMileageData = {
+  odometerStart: number | null;
+  odometerEnd: number | null;
+  miles: number | null;
+  businessPurpose: string | null;
+};
+
+/** Real, direct field update — no status/custody-event side effect, since recording a real odometer reading isn't itself a chain-of-custody transition (logisticsDispatchService.ts's recordMileage() owns the real derivation/validation logic that produces this data). */
+export function updateMileage(dispatchId: string, data: RecordMileageData): Promise<LogisticsDispatch> {
+  return prisma.logisticsDispatch.update({
+    where: { id: dispatchId },
+    data: {
+      odometerStart: data.odometerStart,
+      odometerEnd: data.odometerEnd,
+      miles: data.miles,
+      businessPurpose: data.businessPurpose,
+    },
+  });
 }

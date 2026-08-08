@@ -57,6 +57,8 @@ export default function LogisticsDispatchForm({ onClose, onCreated }: LogisticsD
   const [eta, setEta] = useState("");
   const [route, setRoute] = useState("");
   const [traffic, setTraffic] = useState("");
+  const [odometerStart, setOdometerStart] = useState("");
+  const [businessPurpose, setBusinessPurpose] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -104,6 +106,11 @@ export default function LogisticsDispatchForm({ onClose, onCreated }: LogisticsD
 
       if (!destinationProjectId) throw new Error("Choose a destination project.");
 
+      const trimmedOdometerStart = odometerStart.trim();
+      if (trimmedOdometerStart && Number(trimmedOdometerStart) < 0) {
+        throw new Error("Starting odometer reading can't be negative.");
+      }
+
       await createDispatch({
         truckId: resolvedTruckId,
         driverId: resolvedDriverId,
@@ -111,6 +118,8 @@ export default function LogisticsDispatchForm({ onClose, onCreated }: LogisticsD
         eta: eta ? new Date(eta).toISOString() : undefined,
         route: route.trim() || undefined,
         traffic: traffic.trim() || undefined,
+        odometerStart: trimmedOdometerStart ? Number(trimmedOdometerStart) : undefined,
+        businessPurpose: businessPurpose.trim() || undefined,
       });
 
       onCreated();
@@ -259,6 +268,38 @@ export default function LogisticsDispatchForm({ onClose, onCreated }: LogisticsD
               className="w-full rounded border px-2 py-1.5 text-sm"
               value={traffic}
               onChange={(e) => setTraffic(e.target.value)}
+            />
+          </div>
+
+          <div className="border-t pt-3" style={{ borderColor: "var(--ff-panel-border)" }}>
+            <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+              Mileage tracking (optional here — record the ending reading later from Track Dispatches once the haul
+              is complete). Real, odometer-based: no route-distance estimate exists yet.
+            </p>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+              Starting Odometer <span style={{ color: "var(--ff-text-muted)" }}>(optional)</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              placeholder="e.g. 84213"
+              className="w-full rounded border px-2 py-1.5 text-sm"
+              value={odometerStart}
+              onChange={(e) => setOdometerStart(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+              Business Purpose <span style={{ color: "var(--ff-text-muted)" }}>(optional — required for IRS Pub. 463 recordkeeping)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Module delivery — Cedarwood Flats"
+              className="w-full rounded border px-2 py-1.5 text-sm"
+              value={businessPurpose}
+              onChange={(e) => setBusinessPurpose(e.target.value)}
             />
           </div>
 

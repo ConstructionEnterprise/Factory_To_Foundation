@@ -167,6 +167,10 @@ export default function LogisticsBrowse() {
           route: dispatch.route,
           traffic: dispatch.traffic,
           eta: dispatch.eta,
+          odometerStart: dispatch.odometerStart,
+          odometerEnd: dispatch.odometerEnd,
+          miles: dispatch.miles,
+          businessPurpose: dispatch.businessPurpose,
           dispatchedAt: dispatch.dispatchedAt,
         },
       });

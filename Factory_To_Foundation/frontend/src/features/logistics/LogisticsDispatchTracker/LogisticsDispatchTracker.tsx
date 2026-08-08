@@ -8,6 +8,7 @@ import {
   listDispatches,
   listDrivers,
   listTrucks,
+  recordDispatchMileage,
   transitionDispatchStatus,
   type LogisticsCustodyEvent,
   type LogisticsDispatch,
@@ -65,6 +66,12 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
   const [error, setError] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
 
+  const [odometerStartInput, setOdometerStartInput] = useState("");
+  const [odometerEndInput, setOdometerEndInput] = useState("");
+  const [businessPurposeInput, setBusinessPurposeInput] = useState("");
+  const [savingMileage, setSavingMileage] = useState(false);
+  const [mileageError, setMileageError] = useState<string | null>(null);
+
   function reloadDispatches() {
     Promise.all([listDispatches(), listTrucks(), listDrivers()])
       .then(([d, t, dr]) => {
@@ -87,6 +94,17 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
       .catch((err) => setError(describeError(err)));
   }, [selectedId]);
 
+  // Real, honest defaults — populate the mileage inputs from whatever this
+  // dispatch's own row currently has (never blank-slates a real reading
+  // someone already entered just because the tracker was reopened).
+  useEffect(() => {
+    const selectedDispatch = dispatches?.find((d) => d.id === selectedId) ?? null;
+    setOdometerStartInput(selectedDispatch?.odometerStart != null ? String(selectedDispatch.odometerStart) : "");
+    setOdometerEndInput(selectedDispatch?.odometerEnd != null ? String(selectedDispatch.odometerEnd) : "");
+    setBusinessPurposeInput(selectedDispatch?.businessPurpose ?? "");
+    setMileageError(null);
+  }, [selectedId, dispatches]);
+
   const truckLabel = (id: string) => trucks.find((t) => t.id === id)?.identifier ?? id;
   const driverLabel = (id: string) => drivers.find((d) => d.id === id)?.name ?? id;
   const projectLabel = (id: string) => constructionProjects.find((p) => p.id === id)?.title ?? id;
@@ -107,6 +125,39 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
       setError(describeError(err));
     } finally {
       setAdvancing(false);
+    }
+  }
+
+  /**
+   * Real, server-validated save — only the fields the user actually typed
+   * are sent, so leaving one blank never clobbers a value already recorded
+   * (the backend merges against the existing row). `miles` itself is never
+   * sent — it's always derived server-side from the real odometer readings.
+   */
+  async function handleSaveMileage() {
+    if (!selected) return;
+    setMileageError(null);
+
+    const trimmedStart = odometerStartInput.trim();
+    const trimmedEnd = odometerEndInput.trim();
+    const trimmedPurpose = businessPurposeInput.trim();
+    if (!trimmedStart && !trimmedEnd && !trimmedPurpose) {
+      setMileageError("Enter a starting odometer, ending odometer, or business purpose to save.");
+      return;
+    }
+
+    setSavingMileage(true);
+    try {
+      await recordDispatchMileage(selected.id, {
+        odometerStart: trimmedStart ? Number(trimmedStart) : undefined,
+        odometerEnd: trimmedEnd ? Number(trimmedEnd) : undefined,
+        businessPurpose: trimmedPurpose || undefined,
+      });
+      reloadDispatches();
+    } catch (err) {
+      setMileageError(describeError(err));
+    } finally {
+      setSavingMileage(false);
     }
   }
 
@@ -210,6 +261,68 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
                     Delivered — no further real transitions.
                   </p>
                 )}
+
+                <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--ff-panel-border)" }}>
+                  <p className="mb-2 text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+                    Mileage
+                  </p>
+                  <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                    Real, odometer-based — miles is always derived from these two readings, never entered directly.
+                    {selected.miles !== null ? ` Current: ${selected.miles} mi.` : ""}
+                  </p>
+                  <div className="mb-2 grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                        Odometer Start
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        className="w-full rounded border px-2 py-1 text-xs"
+                        value={odometerStartInput}
+                        onChange={(e) => setOdometerStartInput(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                        Odometer End
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        className="w-full rounded border px-2 py-1 text-xs"
+                        value={odometerEndInput}
+                        onChange={(e) => setOdometerEndInput(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <label className="mb-1 block text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                    Business Purpose
+                  </label>
+                  <input
+                    type="text"
+                    className="mb-2 w-full rounded border px-2 py-1 text-xs"
+                    value={businessPurposeInput}
+                    onChange={(e) => setBusinessPurposeInput(e.target.value)}
+                  />
+                  {mileageError && (
+                    <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-status-critical)" }}>
+                      {mileageError}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveMileage}
+                    disabled={!updatePermission.allowed || savingMileage}
+                    title={updatePermission.reason}
+                    className="rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                    style={{ background: "var(--ff-accent)" }}
+                  >
+                    {savingMileage ? "Saving…" : "Save Mileage"}
+                  </button>
+                </div>
               </>
             )}
           </div>

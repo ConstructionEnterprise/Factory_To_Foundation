@@ -25,6 +25,11 @@ export type LogisticsDispatch = {
   route: string | null;
   traffic: string | null;
   eta: string | null;
+  odometerStart: number | null;
+  odometerEnd: number | null;
+  /** Always server-derived (odometerEnd - odometerStart) — never independently entered, see recordDispatchMileage(). */
+  miles: number | null;
+  businessPurpose: string | null;
   dispatchedAt: string;
 };
 
@@ -71,10 +76,50 @@ export type CreateDispatchInput = {
   eta?: string;
   route?: string;
   traffic?: string;
+  odometerStart?: number;
+  businessPurpose?: string;
 };
 
 export function createDispatch(input: CreateDispatchInput): Promise<LogisticsDispatch> {
   return requestJson("/logistics-dispatches", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export type RecordMileageInput = {
+  odometerStart?: number;
+  odometerEnd?: number;
+  businessPurpose?: string;
+};
+
+/** Real, server-validated mileage recording — the backend derives `miles` from the merged odometer readings, never accepts it directly (see logisticsDispatchService.ts's recordMileage()). */
+export function recordDispatchMileage(dispatchId: string, input: RecordMileageInput): Promise<LogisticsDispatch> {
+  return requestJson(`/logistics-dispatches/${dispatchId}/mileage`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/** Real, configurable IRS standard mileage rate — see schema.prisma's MileageRateConfig doc comment for the full reasoning (effective-dated, never hardcoded, never seeded with a guessed real-world number). */
+export type MileageRate = {
+  id: string;
+  centsPerMile: number;
+  effectiveDate: string;
+  createdAt: string;
+  createdById: string | null;
+};
+
+export function listMileageRates(): Promise<MileageRate[]> {
+  return requestJson("/mileage-rates");
+}
+
+export type CreateMileageRateInput = { centsPerMile: number; effectiveDate: string };
+
+export function createMileageRate(input: CreateMileageRateInput): Promise<MileageRate> {
+  return requestJson("/mileage-rates", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),

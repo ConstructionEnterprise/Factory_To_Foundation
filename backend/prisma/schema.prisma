@@ -108,6 +108,7 @@ model User {
   deletedComplianceDocuments  ComplianceDocument[]   @relation("ComplianceDocumentDeletedBy")
   scheduleTaskStatusEvents   ScheduleTaskStatusEvent[]
   preference                 UserPreference?
+  mileageRateConfigs         MileageRateConfig[]
 
   @@map("user")
 }
@@ -805,6 +806,33 @@ model LogisticsDispatch {
   /// defaulted to a fabricated time.
   eta DateTime?
 
+  /// Mileage tracking (pilot customer feature, Phase 1). Investigated first:
+  /// no real routing graph exists anywhere in this codebase to compute a
+  /// real driving distance from — northTexasRoads.ts/PROJECTED_ROADS is a
+  /// display-only set of independently named, Douglas-Peucker-simplified
+  /// route polylines with no intersection/adjacency topology between them,
+  /// and LogisticsDispatch itself has no origin field to route *from*
+  /// (only destinationProjectId). A straight-line or county-centroid
+  /// distance would not be a real driving mileage figure — presenting it as
+  /// one would be fabrication. So this phase captures real, user-entered
+  /// odometer readings per haul instead; `miles` is always derived
+  /// server-side as odometerEnd - odometerStart (see
+  /// logisticsDispatchService.ts's recordMileage()), never accepted as an
+  /// independent client-supplied number un-tied to a real reading. Real
+  /// route-geometry-based *estimation* (explicitly disclosed as an
+  /// estimate, never conflated with an odometer-derived real figure) is a
+  /// disclosed future addition, not built this phase.
+  odometerStart Float? @map("odometer_start")
+  odometerEnd   Float? @map("odometer_end")
+  /// Derived, never independently entered — see the note above.
+  miles Float?
+  /// Required by IRS Publication 463's per-trip recordkeeping standard
+  /// alongside date/destination/mileage. Nullable at the schema level
+  /// (matching this model's existing honest-absence convention for
+  /// route/traffic/eta) — a real export (Phase 2) surfaces a missing value
+  /// as genuinely blank, never a fabricated default purpose.
+  businessPurpose String? @map("business_purpose")
+
   dispatchedAt DateTime @default(now()) @map("dispatched_at")
 
   modules       LogisticsModule[]
@@ -812,6 +840,37 @@ model LogisticsDispatch {
   custodyEvents LogisticsCustodyEvent[]
 
   @@map("logistics_dispatch")
+}
+
+/// Real, configurable IRS standard mileage rate (Phase 1 of the pilot
+/// mileage-tracking feature) — never hardcoded in application code, since
+/// the IRS republishes this annually (and has, in some years, mid-year).
+/// Effective-dated rather than a single "current rate" scalar: Publication
+/// 463 requires applying the rate that was actually in effect for the
+/// period a trip occurred in, not whatever rate happens to be current at
+/// export time. A real export (Phase 2) looks up the most recent row whose
+/// effectiveDate <= the trip's own dispatchedAt date.
+///
+/// Deliberately seeded with zero rows (see seed.ts's own "empty is honest"
+/// convention for LogisticsMaterial/Module/Truck/Driver/Dispatch) — no
+/// specific real-world IRS rate is guessed or fabricated here; a real user
+/// enters the real published rate through the API/UI this phase adds.
+model MileageRateConfig {
+  id String @id @default(cuid())
+
+  /// Real rate in cents per mile (e.g. 67.0 for a $0.67/mi rate). Float,
+  /// matching every other numeric field's convention in this schema — no
+  /// Decimal type is used anywhere else in this codebase.
+  centsPerMile Float @map("cents_per_mile")
+
+  /// The real calendar date this rate took effect.
+  effectiveDate DateTime @map("effective_date")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by_id")
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+
+  @@map("mileage_rate_config")
 }
 
 /// Real chain-of-custody audit trail (Phase 7). Before this, Dispatch had
