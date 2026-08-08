@@ -134,7 +134,7 @@ export default function LogisticsDispatchForm({ onClose, onCreated }: LogisticsD
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-md p-6 shadow-xl"
+        className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-md p-6 shadow-xl"
         style={{ background: "var(--ff-content-bg)" }}
         onClick={(e) => e.stopPropagation()}
       >

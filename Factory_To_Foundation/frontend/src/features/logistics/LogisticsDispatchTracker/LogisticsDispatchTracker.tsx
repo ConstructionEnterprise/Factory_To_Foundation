@@ -164,7 +164,7 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="w-full max-w-2xl rounded-md p-6 shadow-xl"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-md p-6 shadow-xl"
         style={{ background: "var(--ff-content-bg)" }}
         onClick={(e) => e.stopPropagation()}
       >

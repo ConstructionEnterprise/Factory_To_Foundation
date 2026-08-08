@@ -89,7 +89,7 @@ export default function MileageRateManager({ onClose }: MileageRateManagerProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-md p-6 shadow-xl"
+        className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-md p-6 shadow-xl"
         style={{ background: "var(--ff-content-bg)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -127,7 +127,10 @@ export default function MileageRateManager({ onClose }: MileageRateManagerProps)
           {rates?.map((r) => (
             <div key={r.id} className="border-b px-3 py-2 text-xs last:border-b-0" style={{ color: "var(--ff-text-primary)" }}>
               <span className="font-medium">{(r.centsPerMile / 100).toFixed(3)} $/mi</span>
-              <span style={{ color: "var(--ff-text-muted)" }}> — effective {new Date(r.effectiveDate).toLocaleDateString()}</span>
+              <span style={{ color: "var(--ff-text-muted)" }}>
+                {" "}
+                — effective {new Date(r.effectiveDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
+              </span>
             </div>
           ))}
         </div>
