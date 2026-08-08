@@ -75,6 +75,8 @@ export type LogisticsDispatchPayload = {
   /** Always server-derived — never independently entered. */
   miles: number | null;
   businessPurpose: string | null;
+  /** Non-null once pushed to the real Mileage Tax Report. */
+  taxReportedAt: string | null;
   dispatchedAt: string;
 };
 

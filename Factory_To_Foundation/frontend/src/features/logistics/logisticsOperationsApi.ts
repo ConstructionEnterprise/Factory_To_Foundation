@@ -30,6 +30,8 @@ export type LogisticsDispatch = {
   /** Always server-derived (odometerEnd - odometerStart) — never independently entered, see recordDispatchMileage(). */
   miles: number | null;
   businessPurpose: string | null;
+  /** Non-null once pushed to the real Mileage Tax Report, see pushDispatchToTaxReport(). */
+  taxReportedAt: string | null;
   dispatchedAt: string;
 };
 
@@ -128,6 +130,36 @@ export function createMileageRate(input: CreateMileageRateInput): Promise<Mileag
 
 export function listDispatches(): Promise<LogisticsDispatch[]> {
   return requestJson("/logistics-dispatches");
+}
+
+/** Real eligibility-gated push — the backend rejects this unless the dispatch is delivered, both odometer readings are recorded, and a business purpose is set (see logisticsDispatchService.ts's pushToTaxReport()). Idempotent if already pushed. */
+export function pushDispatchToTaxReport(dispatchId: string): Promise<LogisticsDispatch> {
+  return requestJson(`/logistics-dispatches/${dispatchId}/tax-report`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+/** Real Mileage Tax Report row — the rate actually in effect on this specific trip's own dispatchedAt date, not just whatever's current now. rateCentsPerMile/deductionCents are null (not zero) when no rate was configured yet for that date — honest absence, see logisticsDispatchService.ts's listTaxReportEntries(). */
+export type MileageTaxReportEntry = {
+  dispatchId: string;
+  truckId: string;
+  driverId: string;
+  destinationProjectId: string;
+  dispatchedAt: string;
+  businessPurpose: string;
+  odometerStart: number;
+  odometerEnd: number;
+  miles: number;
+  taxReportedAt: string;
+  rateCentsPerMile: number | null;
+  rateEffectiveDate: string | null;
+  deductionCents: number | null;
+};
+
+export function listMileageTaxReport(): Promise<MileageTaxReportEntry[]> {
+  return requestJson("/logistics-mileage-tax-report");
 }
 
 /** Real vocabulary — matches the backend's own closed state machine (logisticsDispatchService.ts's VALID_TRANSITIONS): staged -> in_transit -> delivered only, no skipping, no going backward. */

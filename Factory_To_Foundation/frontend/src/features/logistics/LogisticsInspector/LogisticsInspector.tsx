@@ -145,6 +145,10 @@ export default function LogisticsInspector() {
               label="Miles (derived)"
               value={sel.payload.miles !== null ? `${sel.payload.miles} mi` : "-- (record both odometer readings)"}
             />
+            <DetailRow
+              label="Tax Report"
+              value={sel.payload.taxReportedAt ? `Included — ${new Date(sel.payload.taxReportedAt).toLocaleDateString()}` : "Not yet included"}
+            />
           </div>
           <CustodyTrail dispatchId={sel.objectId.split(":")[1]} />
           <LogisticsDocuments dispatchId={sel.objectId.split(":")[1]} />

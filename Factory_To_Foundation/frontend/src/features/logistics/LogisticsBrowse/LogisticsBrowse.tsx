@@ -171,6 +171,7 @@ export default function LogisticsBrowse() {
           odometerEnd: dispatch.odometerEnd,
           miles: dispatch.miles,
           businessPurpose: dispatch.businessPurpose,
+          taxReportedAt: dispatch.taxReportedAt,
           dispatchedAt: dispatch.dispatchedAt,
         },
       });

@@ -8,6 +8,7 @@ import {
   listDispatches,
   listDrivers,
   listTrucks,
+  pushDispatchToTaxReport,
   recordDispatchMileage,
   transitionDispatchStatus,
   type LogisticsCustodyEvent,
@@ -71,6 +72,9 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
   const [businessPurposeInput, setBusinessPurposeInput] = useState("");
   const [savingMileage, setSavingMileage] = useState(false);
   const [mileageError, setMileageError] = useState<string | null>(null);
+
+  const [pushingTaxReport, setPushingTaxReport] = useState(false);
+  const [taxReportError, setTaxReportError] = useState<string | null>(null);
 
   function reloadDispatches() {
     Promise.all([listDispatches(), listTrucks(), listDrivers()])
@@ -160,6 +164,34 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
       setSavingMileage(false);
     }
   }
+
+  /**
+   * Real, one-way push — the backend (pushToTaxReport()) is the actual
+   * gate on delivered/complete-mileage/business-purpose; the client-side
+   * `missingForTaxReport` list below exists purely to explain to the user
+   * why the button is hidden, never to bypass a check the server also
+   * makes.
+   */
+  async function handlePushToTaxReport() {
+    if (!selected) return;
+    setTaxReportError(null);
+    setPushingTaxReport(true);
+    try {
+      await pushDispatchToTaxReport(selected.id);
+      reloadDispatches();
+    } catch (err) {
+      setTaxReportError(describeError(err));
+    } finally {
+      setPushingTaxReport(false);
+    }
+  }
+
+  const missingForTaxReport: string[] = [];
+  if (selected && selected.status !== "delivered") missingForTaxReport.push("delivered status");
+  if (selected && (selected.odometerStart === null || selected.odometerEnd === null || selected.miles === null)) {
+    missingForTaxReport.push("both odometer readings");
+  }
+  if (selected && !selected.businessPurpose) missingForTaxReport.push("a business purpose");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
@@ -322,6 +354,44 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
                   >
                     {savingMileage ? "Saving…" : "Save Mileage"}
                   </button>
+                </div>
+
+                <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--ff-panel-border)" }}>
+                  <p className="mb-2 text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+                    Tax Report
+                  </p>
+                  {selected.taxReportedAt ? (
+                    <p className="text-xs" style={{ color: "var(--ff-status-positive)" }}>
+                      ✓ Included in the Mileage Tax Report — {new Date(selected.taxReportedAt).toLocaleString()}.{" "}
+                      <span style={{ color: "var(--ff-text-muted)" }}>See the Reports tab for the full report.</span>
+                    </p>
+                  ) : missingForTaxReport.length > 0 ? (
+                    <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+                      Needs {missingForTaxReport.join(", ")} before this dispatch can be pushed to the tax report.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                        Real, one-way — marks this delivered haul as included in the real Mileage Tax Report (Reports
+                        tab), which applies the real IRS rate actually in effect on this trip's own date.
+                      </p>
+                      {taxReportError && (
+                        <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-status-critical)" }}>
+                          {taxReportError}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handlePushToTaxReport}
+                        disabled={!updatePermission.allowed || pushingTaxReport}
+                        title={updatePermission.reason}
+                        className="rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                        style={{ background: "var(--ff-accent)" }}
+                      >
+                        {pushingTaxReport ? "Pushing…" : "Push to Tax Form"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             )}

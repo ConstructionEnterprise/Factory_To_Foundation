@@ -109,6 +109,7 @@ model User {
   scheduleTaskStatusEvents   ScheduleTaskStatusEvent[]
   preference                 UserPreference?
   mileageRateConfigs         MileageRateConfig[]
+  taxReportedLogisticsDispatches LogisticsDispatch[]
 
   @@map("user")
 }
@@ -832,6 +833,17 @@ model LogisticsDispatch {
   /// route/traffic/eta) — a real export (Phase 2) surfaces a missing value
   /// as genuinely blank, never a fabricated default purpose.
   businessPurpose String? @map("business_purpose")
+
+  /// Real "pushed to tax report" marker (Phase 2 of the pilot mileage-
+  /// tracking feature) — set only via pushToTaxReport() once a dispatch is
+  /// real-delivered with complete odometer readings and a real business
+  /// purpose (see logisticsDispatchService.ts). Nullable/honest-absence:
+  /// most dispatches are never pushed. Pushing doesn't freeze the
+  /// underlying mileage fields — a correction via recordMileage() afterward
+  /// is still possible, same as before push.
+  taxReportedAt   DateTime? @map("tax_reported_at")
+  taxReportedById String?   @map("tax_reported_by_id")
+  taxReportedBy   User?     @relation(fields: [taxReportedById], references: [id])
 
   dispatchedAt DateTime @default(now()) @map("dispatched_at")
 

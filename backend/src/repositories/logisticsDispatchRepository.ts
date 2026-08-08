@@ -127,3 +127,19 @@ export function updateMileage(dispatchId: string, data: RecordMileageData): Prom
     },
   });
 }
+
+/** Real, direct field update — logisticsDispatchService.ts's pushToTaxReport() owns the real eligibility validation (delivered + complete mileage + business purpose) that must pass before this is ever called. */
+export function markTaxReported(dispatchId: string, userId: string): Promise<LogisticsDispatch> {
+  return prisma.logisticsDispatch.update({
+    where: { id: dispatchId },
+    data: { taxReportedAt: new Date(), taxReportedById: userId },
+  });
+}
+
+/** Every real dispatch that has actually been pushed to the tax report, oldest trip first — the same reading order a real IRS mileage log is kept in. */
+export function findTaxReportedDispatches(): Promise<LogisticsDispatch[]> {
+  return prisma.logisticsDispatch.findMany({
+    where: { taxReportedAt: { not: null } },
+    orderBy: { dispatchedAt: "asc" },
+  });
+}
