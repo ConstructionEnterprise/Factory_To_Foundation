@@ -228,6 +228,54 @@ function MileageTaxReportCard() {
   const totalDeductionCents = ratedEntries.reduce((sum, e) => sum + (e.deductionCents ?? 0), 0);
   const unratedCount = (entries?.length ?? 0) - ratedEntries.length;
 
+  /** Real CSV escaping — a business purpose or a driver/truck name can genuinely contain a comma or a quote, so every field is quoted and internal quotes doubled, not just comma-joined. */
+  function csvField(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  function handleExportCsv() {
+    if (!entries || entries.length === 0) return;
+
+    const header = ["Date", "Truck", "Destination", "Driver", "Business Purpose", "Odometer Start", "Odometer End", "Miles", "Rate ($/mi)", "Deduction ($)"];
+    const rows = entries.map((e) => [
+      new Date(e.dispatchedAt).toLocaleDateString(),
+      truckLabel(e.truckId),
+      projectLabel(e.destinationProjectId),
+      driverLabel(e.driverId),
+      e.businessPurpose,
+      String(e.odometerStart),
+      String(e.odometerEnd),
+      String(e.miles),
+      e.rateCentsPerMile !== null ? (e.rateCentsPerMile / 100).toFixed(3) : "no rate configured",
+      e.deductionCents !== null ? (e.deductionCents / 100).toFixed(2) : "",
+    ]);
+    const totalRow = ["", "", "", "", "Total", "", "", String(totalMiles), "", (totalDeductionCents / 100).toFixed(2)];
+
+    const csv = [header, ...rows, totalRow].map((r) => r.map(csvField).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `mileage-tax-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Real "PDF" via the browser's own print-to-PDF, not a fabricated direct
+   * PDF download — no PDF-generation library exists anywhere in this
+   * frontend, and the honest, dependency-free way to get a real PDF file
+   * from the actual browser is its own print dialog's "Save as PDF"
+   * destination. The scoped print stylesheet below isolates just this
+   * card's real content (table + total), not the sidebar/ribbon/other
+   * report cards, and hides the two export buttons themselves.
+   */
+  function handlePrint() {
+    window.print();
+  }
+
   return (
     <PanelCard
       title="Mileage Tax Report"
@@ -268,6 +316,32 @@ function MileageTaxReportCard() {
 
       {entries && entries.length > 0 && (
         <>
+          <style>{`
+            @media print {
+              body * { visibility: hidden; }
+              #mileage-tax-report-print, #mileage-tax-report-print * { visibility: visible; }
+              #mileage-tax-report-print { position: absolute; left: 0; top: 0; width: 100%; }
+            }
+          `}</style>
+          <div className="mb-2 flex gap-2 print:hidden">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="rounded px-2.5 py-1 text-[0.7rem] font-medium text-white"
+              style={{ background: "var(--ff-accent)" }}
+            >
+              Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="rounded px-2.5 py-1 text-[0.7rem] font-medium"
+              style={{ border: "1px solid var(--ff-panel-border)", color: "var(--ff-text-primary)" }}
+            >
+              Print / Save as PDF
+            </button>
+          </div>
+          <div id="mileage-tax-report-print">
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -324,6 +398,7 @@ function MileageTaxReportCard() {
               rate was configured yet for that trip's date. Add the missing rate in Logistics' Mileage Rate manager.
             </p>
           )}
+          </div>
         </>
       )}
     </PanelCard>
