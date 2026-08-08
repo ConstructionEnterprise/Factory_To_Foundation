@@ -162,6 +162,17 @@ export function listMileageTaxReport(): Promise<MileageTaxReportEntry[]> {
   return requestJson("/logistics-mileage-tax-report");
 }
 
+/** Real KPI-row numbers (closes gap #4) — "Modules Staged" (dispatchId null, matching the schema's own "staged in the yard" language), "In Transit" (assigned dispatch status), and "Deliveries (MTD)" (real custody-event transitions into `delivered` this calendar month, server-computed). Dock Utilization stays a disclosed non-value on the frontend since no dock/capacity model exists in this schema. */
+export type LogisticsKpis = {
+  modulesStaged: number;
+  modulesInTransit: number;
+  deliveriesThisMonth: number;
+};
+
+export function getLogisticsKpis(): Promise<LogisticsKpis> {
+  return requestJson("/logistics-kpis");
+}
+
 /** Real vocabulary — matches the backend's own closed state machine (logisticsDispatchService.ts's VALID_TRANSITIONS): staged -> in_transit -> delivered only, no skipping, no going backward. */
 export type LogisticsCustodyEvent = {
   id: string;

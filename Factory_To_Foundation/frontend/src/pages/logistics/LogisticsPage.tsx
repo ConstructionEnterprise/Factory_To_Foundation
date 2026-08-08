@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 
@@ -13,20 +13,26 @@ import {
   LogisticsToolbar,
   MileageRateManager,
 } from "@/features/logistics";
+import { getLogisticsKpis, type LogisticsKpis } from "@/features/logistics/logisticsOperationsApi";
 
-// Real KPI-row wiring is a separate, still-disclosed fixture gap (gap #4)
-// — untouched by Phase 8, which is scoped to the Browse panel itself, not
-// this row. Dock Utilization/Deliveries (MTD) have no real data source to
-// back them at all (no dock concept, no delivery-date aggregation
-// anywhere); Modules Staged/In Transit COULD be made real cheaply now that
-// real Module/Dispatch counts exist, but that's a deliberate, separate
-// decision for whoever picks up gap #4 next, not silently bundled in here.
-const logisticsKpis: KpiDefinition[] = [
-  { title: "Modules Staged", value: "14" },
-  { title: "In Transit", value: "2" },
-  { title: "Dock Utilization", value: "68%" },
-  { title: "Deliveries (MTD)", value: "37" },
-];
+/**
+ * Real KPI row (closes gap #4 — this row was left on its original fixture
+ * numbers when Phase 8's Browse panel went real). "Modules Staged"/"In
+ * Transit"/"Deliveries (MTD)" are real, server-computed counts
+ * (logisticsKpiService.ts). "Dock Utilization" stays an honest, disclosed
+ * non-value — no dock/capacity concept exists anywhere in this schema (no
+ * LogisticsReceiving model either, per LogisticsBrowse.tsx's own doc
+ * comment), and inventing one just to fill a percentage would be
+ * fabrication, not a real KPI.
+ */
+function buildKpis(kpis: LogisticsKpis | null): KpiDefinition[] {
+  return [
+    { title: "Modules Staged", value: kpis ? String(kpis.modulesStaged) : "…" },
+    { title: "In Transit", value: kpis ? String(kpis.modulesInTransit) : "…" },
+    { title: "Dock Utilization", value: "No dock model yet" },
+    { title: "Deliveries (MTD)", value: kpis ? String(kpis.deliveriesThisMonth) : "…" },
+  ];
+}
 
 export default function LogisticsPage() {
   const [showDispatchForm, setShowDispatchForm] = useState(false);
@@ -42,12 +48,19 @@ export default function LogisticsPage() {
   const [browseRefreshKey, setBrowseRefreshKey] = useState(0);
   const refreshBrowse = () => setBrowseRefreshKey((k) => k + 1);
 
+  const [kpis, setKpis] = useState<LogisticsKpis | null>(null);
+  useEffect(() => {
+    getLogisticsKpis()
+      .then(setKpis)
+      .catch(() => setKpis(null));
+  }, [browseRefreshKey]);
+
   return (
     <>
       <FeaturePage
         pageLabel="Logistics"
         pageSubtitle="Material & Module Flow"
-        kpis={<KpiList kpis={logisticsKpis} />}
+        kpis={<KpiList kpis={buildKpis(kpis)} />}
         toolbar={
           <LogisticsToolbar
             onNewMaterial={() => setShowMaterialForm(true)}
