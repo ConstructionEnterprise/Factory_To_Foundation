@@ -40,6 +40,13 @@ TWIN_PATH = os.environ.get(
     r"C:\Users\jchap\Dev\Construction_Enterprises\Chappell_Robotics\CE_Integrated_Cell_V3_0-6.py",
 )
 
+# Loading by absolute path (spec_from_file_location) does NOT add the
+# twin's own directory to sys.path the way running it directly would --
+# so its sibling top-level imports (trajectory_planner, planner_strategies,
+# path_validation, work_reservation) fail with ModuleNotFoundError unless
+# that directory is added here first.
+sys.path.insert(0, os.path.dirname(TWIN_PATH))
+
 spec = importlib.util.spec_from_file_location("ce_cell", TWIN_PATH)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)  # runs the twin's own headless validation once, then defines advance()
