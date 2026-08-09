@@ -76,7 +76,13 @@ function sameError(a: TwinState["_last_error"], b: TwinState["_last_error"]): bo
   return a.command === b.command && a.target === b.target && a.reason === b.reason && a.frame === b.frame;
 }
 
-async function dispatchOne(command: string, params: Record<string, unknown>): Promise<CommandExecutionResult> {
+/**
+ * Exported so single-command controls (e.g. the Robotics jog panel's
+ * `robot_move_j` sends) can reuse this exact dispatch + poll-until-settle
+ * logic without going through the InstructionStep/`executeStep` shape,
+ * which assumes a whole ordered `dispatch[]` array.
+ */
+export async function dispatchOne(command: string, params: Record<string, unknown>): Promise<CommandExecutionResult> {
   // Real baseline, captured BEFORE dispatch: while the twin is paused
   // (the real precondition for every manual command), cell.tick is frozen,
   // so a genuinely new rejection can share the exact same frame number as
