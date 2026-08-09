@@ -233,16 +233,29 @@ function MileageTaxReportCard() {
     return `"${value.replace(/"/g, '""')}"`;
   }
 
+  /**
+   * Real CSV/formula-injection guard — businessPurpose (free text the
+   * Dispatcher types directly) and the truck identifier/driver name (also
+   * real user-entered free text, not fixture data) can genuinely start with
+   * =, +, -, or @, which Excel/Sheets treats as a formula prefix on open.
+   * Prefixing with a literal leading single quote forces the cell to be
+   * read as text instead. Destination (projectLabel) is real static fixture
+   * data from constructionData.ts, never user-entered, so it's excluded.
+   */
+  function preventFormulaInjection(value: string): string {
+    return /^[=+\-@]/.test(value) ? `'${value}` : value;
+  }
+
   function handleExportCsv() {
     if (!entries || entries.length === 0) return;
 
     const header = ["Date", "Truck", "Destination", "Driver", "Business Purpose", "Odometer Start", "Odometer End", "Miles", "Rate ($/mi)", "Deduction ($)"];
     const rows = entries.map((e) => [
       new Date(e.dispatchedAt).toLocaleDateString(),
-      truckLabel(e.truckId),
+      preventFormulaInjection(truckLabel(e.truckId)),
       projectLabel(e.destinationProjectId),
-      driverLabel(e.driverId),
-      e.businessPurpose,
+      preventFormulaInjection(driverLabel(e.driverId)),
+      preventFormulaInjection(e.businessPurpose),
       String(e.odometerStart),
       String(e.odometerEnd),
       String(e.miles),
