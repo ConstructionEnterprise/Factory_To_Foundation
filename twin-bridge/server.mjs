@@ -171,9 +171,27 @@ const RESTART_BACKOFF_RESET_AFTER_MS = 5 * 60 * 1000;
 const RECENT_RESTARTS_MAX = 5;
 let recentRestarts = []; // [{ at, code, signal, attempt }]
 
-/** Real liveness check: frame genuinely advancing, not just a successful HTTP read. */
+/**
+ * Real liveness check: frame genuinely advancing, not just a successful
+ * HTTP read -- OR the twin is deliberately paused (pause is a real command,
+ * not a crash, and jogging requires it) AND the bridge still owns a real
+ * tracked child process AND state reads are still fresh. Without that
+ * carve-out, pausing (required to jog) would itself make the twin read as
+ * NOT READY, since pause intentionally freezes the frame counter -- the
+ * exact same observable a dead driver leaves behind. The carve-out doesn't
+ * reopen that false-positive: a driver that dies while paused still loses
+ * `trackedChild` (its exit handler clears it) and, once state.json goes
+ * unreadable, `isStateReadStale()` too -- so a genuinely dead paused driver
+ * still reports NOT READY, just via those two checks instead of frame-age.
+ * Narrower known gap: an externally-started (not bridge-owned) driver that
+ * gets paused won't get this carve-out, since `trackedChild` is null for
+ * it -- disclosed, not fixed here, since bridge-owned start (now the
+ * default via auto-start-on-boot) is the supported path.
+ */
 function isLive() {
-  return lastFrameChangeAt !== null && Date.now() - lastFrameChangeAt <= LIVENESS_WINDOW_MS;
+  if (lastFrameChangeAt !== null && Date.now() - lastFrameChangeAt <= LIVENESS_WINDOW_MS) return true;
+  if (latestState?.paused === true && trackedChild !== null && !isStateReadStale()) return true;
+  return false;
 }
 
 /**
