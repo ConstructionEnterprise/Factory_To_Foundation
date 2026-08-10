@@ -14,6 +14,7 @@ import { useTwinManifest } from "../useTwinManifest";
 import { useTwinState, type TwinState } from "../useTwinState";
 import { RobotArm } from "../RobotArm";
 import { useTwinControl, type UseTwinControlResult } from "../useTwinControl";
+import { dispatchOne } from "../twinExecute";
 import { startCollisionMonitor, useCollisionSnapshot } from "../collisionStore";
 import { ROBOT_RAIL_Y, reachEnvelopeCenter } from "../collisionGeometry";
 import {
@@ -737,19 +738,22 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
 }
 
 /**
- * Real process control for the twin, via twin-bridge's /twin-control/*
- * endpoints (see twin-bridge/server.mjs). Three honest states, not a
- * simple on/off: bridge unreachable, not running, running-and-stoppable
- * (this bridge started it), running-but-not-stoppable (some other process
- * — e.g. a manually-run terminal instance — owns it; Stop is disabled and
- * says why rather than silently doing nothing).
+ * Simulation run/pause control -- deliberately NOT twin-control/start/stop.
+ * Twin *service* lifecycle (the driver process existing at all) is
+ * infrastructure: it's brought up by twin-bridge's own auto-start-on-boot
+ * and kept up by its auto-restart-with-backoff, invisible to the operator.
+ * What this button actually controls is the simulation's run/pause state
+ * (the real `pause`/`resume` commands, same mechanism Robotics' own
+ * PauseToggle already uses) -- clicking "Stop Simulation" must not take
+ * the twin offline, it pauses it. Twin Bridge Offline / Twin Starting are
+ * shown as distinct, non-actionable states rather than folded into the
+ * same button, since there's no operator action that fixes either one.
  */
-function RunSimulationButton({ twinControl }: { twinControl: UseTwinControlResult }) {
-  const { bridgeReachable, control, starting, stopping, lastError, start, stop } = twinControl;
-  // Phase 3c — UX/honesty gating only. twin-bridge (localhost:4100) has NO
-  // auth of its own — disabling this button is the entire extent of any
-  // protection here, not a nicety layered on top of a real backend check.
+function RunSimulationButton({ twinControl, paused }: { twinControl: UseTwinControlResult; paused: boolean | undefined }) {
+  const { bridgeReachable, control } = twinControl;
   const runPermission = usePermission("factory", "execute");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!bridgeReachable) {
     return (
@@ -764,35 +768,45 @@ function RunSimulationButton({ twinControl }: { twinControl: UseTwinControlResul
   }
 
   const running = control?.status === "running";
-  const externallyOwned = running && control?.bridgeOwned === false;
+  if (!running) {
+    return (
+      <span
+        className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+        style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }}
+        title="Bridge is up but the driver process isn't yet -- auto-start/auto-restart brings it up automatically, no action needed here"
+      >
+        Twin Starting…
+      </span>
+    );
+  }
+
+  async function handleToggle() {
+    if (paused === undefined) return;
+    setPending(true);
+    setError(null);
+    const result = paused ? await dispatchOne("resume", {}) : await dispatchOne("pause", { target: "all" });
+    if (!result.ok) setError(result.reason ?? "pause/resume failed");
+    setPending(false);
+  }
 
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
-        onClick={() => (running ? stop() : start())}
-        disabled={starting || stopping || externallyOwned || !runPermission.allowed}
+        onClick={handleToggle}
+        disabled={pending || paused === undefined || !runPermission.allowed}
         className="rounded-[0.2rem] px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        style={{ background: running ? "var(--ff-status-critical)" : "var(--ff-status-positive)" }}
-        title={
-          runPermission.reason ??
-          (externallyOwned
-            ? `Running externally (pid ${control?.pid}) — not started by this bridge, so it can't be stopped from here`
-            : running
-              ? `Stop the real twin process (pid ${control?.pid})`
-              : "Launch the real twin process (headless driver) via twin-bridge")
-        }
+        style={{ background: !paused ? "var(--ff-status-critical)" : "var(--ff-status-positive)" }}
+        title={runPermission.reason ?? (paused ? "Resume the simulation" : "Pause the simulation — the twin stays online")}
       >
-        {starting ? "Starting…" : stopping ? "Stopping…" : running ? "Stop Simulation" : "Run Simulation"}
+        {pending ? "…" : paused === undefined ? "Simulation: --" : paused ? "Resume Simulation" : "Stop Simulation"}
       </button>
-      {running && (
-        <span className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
-          {externallyOwned ? "external process" : `pid ${control?.pid}`} · frame {control?.frame ?? "—"}
-        </span>
-      )}
-      {lastError && (
+      <span className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+        {control?.bridgeOwned === false ? "external process" : `pid ${control?.pid}`} · frame {control?.frame ?? "—"}
+      </span>
+      {error && (
         <span className="text-xs font-medium" style={{ color: "var(--ff-status-critical)" }}>
-          {lastError}
+          {error}
         </span>
       )}
     </div>
@@ -831,7 +845,7 @@ export default function FactoryGeometryViewport() {
   return (
     <PanelCard title="Factory Digital Twin" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex flex-wrap items-center gap-6 px-6 py-4 border-b border-gray-100">
-        <RunSimulationButton twinControl={twinControl} />
+        <RunSimulationButton twinControl={twinControl} paused={state?.paused} />
         <Legend color="var(--ff-status-positive)" label="Running" />
         <Legend color="var(--ff-status-warning)" label="Idle" />
         <Legend color="var(--ff-status-critical)" label="Down" />

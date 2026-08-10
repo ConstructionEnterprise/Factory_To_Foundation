@@ -154,8 +154,13 @@ let trackedChild = null; // { proc, pid, startedAt }
 // Auto-restart-with-backoff state. `deliberateStop` distinguishes a human
 // calling /twin-control/stop (never auto-restart) from an unexpected exit
 // (crash, killed process, host reboot of just this child — always
-// auto-restart). Backoff is exponential, capped, and never gives up
-// permanently — matches the spec's "not a tight loop, not silent giving up".
+// auto-restart). Twin *service* lifecycle (this) is deliberately separate
+// from simulation run/pause state: the operator-facing "Stop Simulation"
+// control no longer calls /twin-control/stop at all (see twin-command's
+// pause/resume below) -- it dispatches `pause`, which leaves this process
+// running. /twin-control/stop stays reachable for genuine service-down
+// maintenance, which is now rare, not the everyday path self-healing has
+// to fight. Backoff is exponential, capped, and never gives up permanently.
 let deliberateStop = false;
 let restartAttempts = 0;
 let restartTimer = null;
@@ -285,7 +290,14 @@ function recordRestart(code, signal, attempt) {
   if (recentRestarts.length > RECENT_RESTARTS_MAX) recentRestarts.shift();
 }
 
-/** Schedules an auto-restart with exponential backoff. No-op if a deliberate stop is in progress, or a restart is already pending. */
+/**
+ * Schedules an auto-restart with exponential backoff. No-op if a deliberate
+ * stop is in progress, or a restart is already pending. Deliberate stop
+ * here means a genuine take-the-service-down action (e.g. maintenance) --
+ * the normal operator "Stop Simulation" control no longer calls this path
+ * at all (see twin-command's pause/resume), so this stays rare in practice
+ * rather than something self-healing needs to routinely fight.
+ */
 function scheduleRestart(code, signal) {
   if (deliberateStop) return;
   if (restartTimer) return;
