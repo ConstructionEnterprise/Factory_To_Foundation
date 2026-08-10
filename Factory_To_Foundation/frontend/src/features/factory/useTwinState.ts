@@ -105,6 +105,12 @@ export type UseTwinStateResult = {
   state: TwinState | null;
 };
 
+// Wire shape only — the bridge appends these underscore-prefixed liveness
+// fields to /twin-state's response (see twin-bridge/server.mjs). Not part of
+// the real twin schema, so kept out of the exported `TwinState` type; read
+// here only to compute `connected`.
+type TwinStateWire = TwinState & { _live?: boolean };
+
 /** Polls the local twin-bridge server (see /twin-bridge/server.mjs, run separately) — never talks to the twin's files directly. */
 export function useTwinState(): UseTwinStateResult {
   const [result, setResult] = useState<UseTwinStateResult>({ connected: false, state: null });
@@ -116,8 +122,12 @@ export function useTwinState(): UseTwinStateResult {
       try {
         const res = await fetch(BRIDGE_URL, { credentials: "include" });
         if (!res.ok) throw new Error(`bridge responded ${res.status}`);
-        const data = (await res.json()) as TwinState;
-        if (!cancelled) setResult({ connected: true, state: data });
+        const data = (await res.json()) as TwinStateWire;
+        // `connected` means real, verified-live driver state — the bridge's
+        // own frame-advance check, not just "this fetch returned 200". A
+        // dead driver can still serve a cached 200 with a frozen frame;
+        // `_live` is what rules that out.
+        if (!cancelled) setResult({ connected: data._live === true, state: data });
       } catch {
         if (!cancelled) setResult({ connected: false, state: null });
       }
