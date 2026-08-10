@@ -18,6 +18,8 @@ import { logisticsDriverRoutes } from "./routes/logisticsDrivers";
 import { logisticsDispatchRoutes } from "./routes/logisticsDispatches";
 import { logisticsMaterialRoutes } from "./routes/logisticsMaterials";
 import { logisticsModuleRoutes } from "./routes/logisticsModules";
+import { mileageRateRoutes } from "./routes/mileageRates";
+import { logisticsKpiRoutes } from "./routes/logisticsKpis";
 import { manufacturingModelRoutes } from "./routes/manufacturingModel";
 import { instructionExecutionRoutes } from "./routes/instructionExecutions";
 import { userPreferenceRoutes } from "./routes/userPreferences";
@@ -125,6 +127,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(logisticsDispatchRoutes);
   await app.register(logisticsMaterialRoutes);
   await app.register(logisticsModuleRoutes);
+  await app.register(mileageRateRoutes);
+  await app.register(logisticsKpiRoutes);
   await app.register(manufacturingModelRoutes);
   await app.register(instructionExecutionRoutes);
   await app.register(userPreferenceRoutes);

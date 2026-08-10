@@ -10,11 +10,20 @@ type LogisticsToolbarProps = {
   onNewMaterial?: () => void;
   /** Opens the real (provisional) Module-creation form — see LogisticsModuleForm's own doc comment. */
   onNewModule?: () => void;
+  /** Opens the real, configurable mileage-rate manager — see MileageRateManager's own doc comment. */
+  onMileageRate?: () => void;
 };
 
-export default function LogisticsToolbar({ onNewDispatch, onTrackDispatches, onNewMaterial, onNewModule }: LogisticsToolbarProps) {
+export default function LogisticsToolbar({
+  onNewDispatch,
+  onTrackDispatches,
+  onNewMaterial,
+  onNewModule,
+  onMileageRate,
+}: LogisticsToolbarProps) {
   const createPermission = usePermission("logistics", "create");
   const readPermission = usePermission("logistics", "read");
+  const updatePermission = usePermission("logistics", "update");
 
   return (
     <ToolbarShell>
@@ -41,6 +50,11 @@ export default function LogisticsToolbar({ onNewDispatch, onTrackDispatches, onN
       {onTrackDispatches && (
         <ToolbarButton onClick={onTrackDispatches} disabled={!readPermission.allowed} title={readPermission.reason}>
           Track Dispatches
+        </ToolbarButton>
+      )}
+      {onMileageRate && (
+        <ToolbarButton onClick={onMileageRate} disabled={!updatePermission.allowed} title={updatePermission.reason}>
+          Mileage Rate
         </ToolbarButton>
       )}
     </ToolbarShell>

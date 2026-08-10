@@ -8,6 +8,8 @@ import {
   listDispatches,
   listDrivers,
   listTrucks,
+  pushDispatchToTaxReport,
+  recordDispatchMileage,
   transitionDispatchStatus,
   type LogisticsCustodyEvent,
   type LogisticsDispatch,
@@ -65,6 +67,15 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
   const [error, setError] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
 
+  const [odometerStartInput, setOdometerStartInput] = useState("");
+  const [odometerEndInput, setOdometerEndInput] = useState("");
+  const [businessPurposeInput, setBusinessPurposeInput] = useState("");
+  const [savingMileage, setSavingMileage] = useState(false);
+  const [mileageError, setMileageError] = useState<string | null>(null);
+
+  const [pushingTaxReport, setPushingTaxReport] = useState(false);
+  const [taxReportError, setTaxReportError] = useState<string | null>(null);
+
   function reloadDispatches() {
     Promise.all([listDispatches(), listTrucks(), listDrivers()])
       .then(([d, t, dr]) => {
@@ -86,6 +97,17 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
       .then(setEvents)
       .catch((err) => setError(describeError(err)));
   }, [selectedId]);
+
+  // Real, honest defaults — populate the mileage inputs from whatever this
+  // dispatch's own row currently has (never blank-slates a real reading
+  // someone already entered just because the tracker was reopened).
+  useEffect(() => {
+    const selectedDispatch = dispatches?.find((d) => d.id === selectedId) ?? null;
+    setOdometerStartInput(selectedDispatch?.odometerStart != null ? String(selectedDispatch.odometerStart) : "");
+    setOdometerEndInput(selectedDispatch?.odometerEnd != null ? String(selectedDispatch.odometerEnd) : "");
+    setBusinessPurposeInput(selectedDispatch?.businessPurpose ?? "");
+    setMileageError(null);
+  }, [selectedId, dispatches]);
 
   const truckLabel = (id: string) => trucks.find((t) => t.id === id)?.identifier ?? id;
   const driverLabel = (id: string) => drivers.find((d) => d.id === id)?.name ?? id;
@@ -110,10 +132,71 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
     }
   }
 
+  /**
+   * Real, server-validated save — only the fields the user actually typed
+   * are sent, so leaving one blank never clobbers a value already recorded
+   * (the backend merges against the existing row). `miles` itself is never
+   * sent — it's always derived server-side from the real odometer readings.
+   */
+  async function handleSaveMileage() {
+    if (!selected) return;
+    setMileageError(null);
+
+    const trimmedStart = odometerStartInput.trim();
+    const trimmedEnd = odometerEndInput.trim();
+    const trimmedPurpose = businessPurposeInput.trim();
+    if (!trimmedStart && !trimmedEnd && !trimmedPurpose) {
+      setMileageError("Enter a starting odometer, ending odometer, or business purpose to save.");
+      return;
+    }
+
+    setSavingMileage(true);
+    try {
+      await recordDispatchMileage(selected.id, {
+        odometerStart: trimmedStart ? Number(trimmedStart) : undefined,
+        odometerEnd: trimmedEnd ? Number(trimmedEnd) : undefined,
+        businessPurpose: trimmedPurpose || undefined,
+      });
+      reloadDispatches();
+    } catch (err) {
+      setMileageError(describeError(err));
+    } finally {
+      setSavingMileage(false);
+    }
+  }
+
+  /**
+   * Real, one-way push — the backend (pushToTaxReport()) is the actual
+   * gate on delivered/complete-mileage/business-purpose; the client-side
+   * `missingForTaxReport` list below exists purely to explain to the user
+   * why the button is hidden, never to bypass a check the server also
+   * makes.
+   */
+  async function handlePushToTaxReport() {
+    if (!selected) return;
+    setTaxReportError(null);
+    setPushingTaxReport(true);
+    try {
+      await pushDispatchToTaxReport(selected.id);
+      reloadDispatches();
+    } catch (err) {
+      setTaxReportError(describeError(err));
+    } finally {
+      setPushingTaxReport(false);
+    }
+  }
+
+  const missingForTaxReport: string[] = [];
+  if (selected && selected.status !== "delivered") missingForTaxReport.push("delivered status");
+  if (selected && (selected.odometerStart === null || selected.odometerEnd === null || selected.miles === null)) {
+    missingForTaxReport.push("both odometer readings");
+  }
+  if (selected && !selected.businessPurpose) missingForTaxReport.push("a business purpose");
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="w-full max-w-2xl rounded-md p-6 shadow-xl"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-md p-6 shadow-xl"
         style={{ background: "var(--ff-content-bg)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -210,6 +293,106 @@ export default function LogisticsDispatchTracker({ onClose }: LogisticsDispatchT
                     Delivered — no further real transitions.
                   </p>
                 )}
+
+                <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--ff-panel-border)" }}>
+                  <p className="mb-2 text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+                    Mileage
+                  </p>
+                  <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                    Real, odometer-based — miles is always derived from these two readings, never entered directly.
+                    {selected.miles !== null ? ` Current: ${selected.miles} mi.` : ""}
+                  </p>
+                  <div className="mb-2 grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                        Odometer Start
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        className="w-full rounded border px-2 py-1 text-xs"
+                        value={odometerStartInput}
+                        onChange={(e) => setOdometerStartInput(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                        Odometer End
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        className="w-full rounded border px-2 py-1 text-xs"
+                        value={odometerEndInput}
+                        onChange={(e) => setOdometerEndInput(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <label className="mb-1 block text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                    Business Purpose
+                  </label>
+                  <input
+                    type="text"
+                    className="mb-2 w-full rounded border px-2 py-1 text-xs"
+                    value={businessPurposeInput}
+                    onChange={(e) => setBusinessPurposeInput(e.target.value)}
+                  />
+                  {mileageError && (
+                    <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-status-critical)" }}>
+                      {mileageError}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveMileage}
+                    disabled={!updatePermission.allowed || savingMileage}
+                    title={updatePermission.reason}
+                    className="rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                    style={{ background: "var(--ff-accent)" }}
+                  >
+                    {savingMileage ? "Saving…" : "Save Mileage"}
+                  </button>
+                </div>
+
+                <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--ff-panel-border)" }}>
+                  <p className="mb-2 text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+                    Tax Report
+                  </p>
+                  {selected.taxReportedAt ? (
+                    <p className="text-xs" style={{ color: "var(--ff-status-positive)" }}>
+                      ✓ Included in the Mileage Tax Report — {new Date(selected.taxReportedAt).toLocaleString()}.{" "}
+                      <span style={{ color: "var(--ff-text-muted)" }}>See the Reports tab for the full report.</span>
+                    </p>
+                  ) : missingForTaxReport.length > 0 ? (
+                    <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+                      Needs {missingForTaxReport.join(", ")} before this dispatch can be pushed to the tax report.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                        Real, one-way — marks this delivered haul as included in the real Mileage Tax Report (Reports
+                        tab), which applies the real IRS rate actually in effect on this trip's own date.
+                      </p>
+                      {taxReportError && (
+                        <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-status-critical)" }}>
+                          {taxReportError}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handlePushToTaxReport}
+                        disabled={!updatePermission.allowed || pushingTaxReport}
+                        title={updatePermission.reason}
+                        className="rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                        style={{ background: "var(--ff-accent)" }}
+                      >
+                        {pushingTaxReport ? "Pushing…" : "Push to Tax Form"}
+                      </button>
+                    </>
+                  )}
+                </div>
               </>
             )}
           </div>

@@ -52,7 +52,7 @@ export default function LogisticsMaterialForm({ onClose, onCreated }: LogisticsM
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-md p-6 shadow-xl"
+        className="w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-md p-6 shadow-xl"
         style={{ background: "var(--ff-content-bg)" }}
         onClick={(e) => e.stopPropagation()}
       >

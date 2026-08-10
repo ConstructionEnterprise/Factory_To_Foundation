@@ -138,6 +138,17 @@ export default function LogisticsInspector() {
             <DetailRow label="Route" value={sel.payload.route ?? "--"} />
             <DetailRow label="Traffic" value={sel.payload.traffic ?? "--"} />
             <DetailRow label="Dispatched" value={new Date(sel.payload.dispatchedAt).toLocaleString()} />
+            <DetailRow label="Business Purpose" value={sel.payload.businessPurpose ?? "--"} />
+            <DetailRow label="Odometer Start" value={sel.payload.odometerStart !== null ? String(sel.payload.odometerStart) : "--"} />
+            <DetailRow label="Odometer End" value={sel.payload.odometerEnd !== null ? String(sel.payload.odometerEnd) : "--"} />
+            <DetailRow
+              label="Miles (derived)"
+              value={sel.payload.miles !== null ? `${sel.payload.miles} mi` : "-- (record both odometer readings)"}
+            />
+            <DetailRow
+              label="Tax Report"
+              value={sel.payload.taxReportedAt ? `Included — ${new Date(sel.payload.taxReportedAt).toLocaleDateString()}` : "Not yet included"}
+            />
           </div>
           <CustodyTrail dispatchId={sel.objectId.split(":")[1]} />
           <LogisticsDocuments dispatchId={sel.objectId.split(":")[1]} />

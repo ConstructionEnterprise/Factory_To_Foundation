@@ -25,6 +25,13 @@ export type LogisticsDispatch = {
   route: string | null;
   traffic: string | null;
   eta: string | null;
+  odometerStart: number | null;
+  odometerEnd: number | null;
+  /** Always server-derived (odometerEnd - odometerStart) — never independently entered, see recordDispatchMileage(). */
+  miles: number | null;
+  businessPurpose: string | null;
+  /** Non-null once pushed to the real Mileage Tax Report, see pushDispatchToTaxReport(). */
+  taxReportedAt: string | null;
   dispatchedAt: string;
 };
 
@@ -71,6 +78,8 @@ export type CreateDispatchInput = {
   eta?: string;
   route?: string;
   traffic?: string;
+  odometerStart?: number;
+  businessPurpose?: string;
 };
 
 export function createDispatch(input: CreateDispatchInput): Promise<LogisticsDispatch> {
@@ -81,8 +90,87 @@ export function createDispatch(input: CreateDispatchInput): Promise<LogisticsDis
   });
 }
 
+export type RecordMileageInput = {
+  odometerStart?: number;
+  odometerEnd?: number;
+  businessPurpose?: string;
+};
+
+/** Real, server-validated mileage recording — the backend derives `miles` from the merged odometer readings, never accepts it directly (see logisticsDispatchService.ts's recordMileage()). */
+export function recordDispatchMileage(dispatchId: string, input: RecordMileageInput): Promise<LogisticsDispatch> {
+  return requestJson(`/logistics-dispatches/${dispatchId}/mileage`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/** Real, configurable IRS standard mileage rate — see schema.prisma's MileageRateConfig doc comment for the full reasoning (effective-dated, never hardcoded, never seeded with a guessed real-world number). */
+export type MileageRate = {
+  id: string;
+  centsPerMile: number;
+  effectiveDate: string;
+  createdAt: string;
+  createdById: string | null;
+};
+
+export function listMileageRates(): Promise<MileageRate[]> {
+  return requestJson("/mileage-rates");
+}
+
+export type CreateMileageRateInput = { centsPerMile: number; effectiveDate: string };
+
+export function createMileageRate(input: CreateMileageRateInput): Promise<MileageRate> {
+  return requestJson("/mileage-rates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export function listDispatches(): Promise<LogisticsDispatch[]> {
   return requestJson("/logistics-dispatches");
+}
+
+/** Real eligibility-gated push — the backend rejects this unless the dispatch is delivered, both odometer readings are recorded, and a business purpose is set (see logisticsDispatchService.ts's pushToTaxReport()). Idempotent if already pushed. */
+export function pushDispatchToTaxReport(dispatchId: string): Promise<LogisticsDispatch> {
+  return requestJson(`/logistics-dispatches/${dispatchId}/tax-report`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+/** Real Mileage Tax Report row — the rate actually in effect on this specific trip's own dispatchedAt date, not just whatever's current now. rateCentsPerMile/deductionCents are null (not zero) when no rate was configured yet for that date — honest absence, see logisticsDispatchService.ts's listTaxReportEntries(). */
+export type MileageTaxReportEntry = {
+  dispatchId: string;
+  truckId: string;
+  driverId: string;
+  destinationProjectId: string;
+  dispatchedAt: string;
+  businessPurpose: string;
+  odometerStart: number;
+  odometerEnd: number;
+  miles: number;
+  taxReportedAt: string;
+  rateCentsPerMile: number | null;
+  rateEffectiveDate: string | null;
+  deductionCents: number | null;
+};
+
+export function listMileageTaxReport(): Promise<MileageTaxReportEntry[]> {
+  return requestJson("/logistics-mileage-tax-report");
+}
+
+/** Real KPI-row numbers (closes gap #4) — "Modules Staged" (dispatchId null, matching the schema's own "staged in the yard" language), "In Transit" (assigned dispatch status), and "Deliveries (MTD)" (real custody-event transitions into `delivered` this calendar month, server-computed). Dock Utilization stays a disclosed non-value on the frontend since no dock/capacity model exists in this schema. */
+export type LogisticsKpis = {
+  modulesStaged: number;
+  modulesInTransit: number;
+  deliveriesThisMonth: number;
+};
+
+export function getLogisticsKpis(): Promise<LogisticsKpis> {
+  return requestJson("/logistics-kpis");
 }
 
 /** Real vocabulary — matches the backend's own closed state machine (logisticsDispatchService.ts's VALID_TRANSITIONS): staged -> in_transit -> delivered only, no skipping, no going backward. */

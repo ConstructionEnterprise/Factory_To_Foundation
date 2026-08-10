@@ -70,6 +70,13 @@ export type LogisticsDispatchPayload = {
   route: string | null;
   traffic: string | null;
   eta: string | null;
+  odometerStart: number | null;
+  odometerEnd: number | null;
+  /** Always server-derived — never independently entered. */
+  miles: number | null;
+  businessPurpose: string | null;
+  /** Non-null once pushed to the real Mileage Tax Report. */
+  taxReportedAt: string | null;
   dispatchedAt: string;
 };
 

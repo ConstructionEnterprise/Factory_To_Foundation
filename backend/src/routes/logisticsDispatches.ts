@@ -11,12 +11,24 @@ const createBodySchema = z.object({
   eta: z.string().datetime().optional(),
   route: z.string().trim().min(1).optional(),
   traffic: z.string().trim().min(1).optional(),
+  odometerStart: z.number().nonnegative().optional(),
+  businessPurpose: z.string().trim().min(1).optional(),
 });
 
 const transitionBodySchema = z.object({
   toStatus: z.enum(["staged", "in_transit", "delivered"]),
   notes: z.string().trim().min(1).optional(),
 });
+
+const mileageBodySchema = z
+  .object({
+    odometerStart: z.number().nonnegative().optional(),
+    odometerEnd: z.number().nonnegative().optional(),
+    businessPurpose: z.string().trim().min(1).optional(),
+  })
+  .refine((b) => b.odometerStart !== undefined || b.odometerEnd !== undefined || b.businessPurpose !== undefined, {
+    message: "Provide at least one of odometerStart, odometerEnd, businessPurpose.",
+  });
 
 /**
  * Real create endpoint closing the gap Phase 5 flagged: nothing in the app
@@ -61,5 +73,50 @@ export async function logisticsDispatchRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string };
       return service.listCustodyEvents(id);
     }
+  );
+
+  /**
+   * Real, separate mileage-recording endpoint — not folded into the status-
+   * transition route, since setting an odometer reading isn't itself a
+   * chain-of-custody status change (a driver might record a starting
+   * reading well before "in_transit", or an ending reading after
+   * "delivered" already fired). Gated on the same `logistics:update` grant
+   * as the status-transition route.
+   */
+  app.patch(
+    "/logistics-dispatches/:id/mileage",
+    { preHandler: [authenticate, requirePermission("logistics", "update")] },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = mileageBodySchema.parse(request.body);
+      return service.recordMileage(id, body);
+    }
+  );
+
+  /**
+   * Real "push to tax report" endpoint (Phase 2 of the pilot mileage-
+   * tracking feature) — gated on the same `logistics:update` grant as
+   * mileage recording, since this is a real state change on the dispatch,
+   * not a read. service.pushToTaxReport() owns the real eligibility
+   * validation (delivered + complete mileage + business purpose).
+   */
+  app.patch(
+    "/logistics-dispatches/:id/tax-report",
+    { preHandler: [authenticate, requirePermission("logistics", "update")] },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      return service.pushToTaxReport(id, request.user!.id);
+    }
+  );
+
+  /**
+   * The real Mileage Tax Report — every dispatch actually pushed, each with
+   * the real IRS rate in effect on that trip's own date. Read-only, gated
+   * on `logistics:read` like every other GET in this module.
+   */
+  app.get(
+    "/logistics-mileage-tax-report",
+    { preHandler: [authenticate, requirePermission("logistics", "read")] },
+    async () => service.listTaxReportEntries()
   );
 }

@@ -2,6 +2,7 @@ import type { LogisticsCustodyEvent, LogisticsDispatch, LogisticsStatus } from "
 
 import { NotFoundError, ValidationError } from "../lib/httpErrors";
 import * as repo from "../repositories/logisticsDispatchRepository";
+import * as mileageRateService from "./mileageRateService";
 
 export type LogisticsDispatchDto = {
   id: string;
@@ -12,6 +13,11 @@ export type LogisticsDispatchDto = {
   route: string | null;
   traffic: string | null;
   eta: string | null;
+  odometerStart: number | null;
+  odometerEnd: number | null;
+  miles: number | null;
+  businessPurpose: string | null;
+  taxReportedAt: string | null;
   dispatchedAt: string;
 };
 
@@ -25,6 +31,11 @@ function toDto(row: LogisticsDispatch): LogisticsDispatchDto {
     route: row.route,
     traffic: row.traffic,
     eta: row.eta ? row.eta.toISOString() : null,
+    odometerStart: row.odometerStart,
+    odometerEnd: row.odometerEnd,
+    miles: row.miles,
+    businessPurpose: row.businessPurpose,
+    taxReportedAt: row.taxReportedAt ? row.taxReportedAt.toISOString() : null,
     dispatchedAt: row.dispatchedAt.toISOString(),
   };
 }
@@ -41,6 +52,9 @@ export type CreateDispatchInput = {
   eta?: string;
   route?: string;
   traffic?: string;
+  /** Real starting odometer reading — known before the haul departs, unlike odometerEnd (see recordMileage() for how the trip is later closed out). */
+  odometerStart?: number;
+  businessPurpose?: string;
   createdById: string;
 };
 
@@ -70,8 +84,47 @@ export async function createDispatch(input: CreateDispatchInput): Promise<Logist
     eta: input.eta ? new Date(input.eta) : null,
     route: input.route ?? null,
     traffic: input.traffic ?? null,
+    odometerStart: input.odometerStart ?? null,
+    businessPurpose: input.businessPurpose ?? null,
     createdById: input.createdById,
   });
+  return toDto(dispatch);
+}
+
+export type RecordMileageInput = {
+  odometerStart?: number;
+  odometerEnd?: number;
+  businessPurpose?: string;
+};
+
+/**
+ * Real, honest mileage recording — miles is always derived here from real
+ * odometer readings (existing + newly-supplied, merged), never accepted
+ * directly from the client as an independent number. A caller can record
+ * just the starting reading (e.g. at trip departure), just the ending
+ * reading (e.g. at delivery), or both at once; whichever of the two is
+ * missing after the merge leaves `miles` honestly null rather than a
+ * fabricated partial figure.
+ */
+export async function recordMileage(dispatchId: string, input: RecordMileageInput): Promise<LogisticsDispatchDto> {
+  const existing = await repo.findDispatchById(dispatchId);
+  if (!existing) throw new NotFoundError(`No logistics dispatch with id "${dispatchId}"`);
+
+  const odometerStart = input.odometerStart ?? existing.odometerStart ?? null;
+  const odometerEnd = input.odometerEnd ?? existing.odometerEnd ?? null;
+  const businessPurpose = input.businessPurpose ?? existing.businessPurpose ?? null;
+
+  let miles: number | null = null;
+  if (odometerStart !== null && odometerEnd !== null) {
+    if (odometerEnd < odometerStart) {
+      throw new ValidationError(
+        `Ending odometer reading (${odometerEnd}) cannot be less than the starting reading (${odometerStart}).`
+      );
+    }
+    miles = odometerEnd - odometerStart;
+  }
+
+  const dispatch = await repo.updateMileage(dispatchId, { odometerStart, odometerEnd, miles, businessPurpose });
   return toDto(dispatch);
 }
 
@@ -149,4 +202,92 @@ export async function listCustodyEvents(dispatchId: string): Promise<LogisticsCu
 
   const rows = await repo.findCustodyEvents(dispatchId);
   return rows.map(toEventDto);
+}
+
+/**
+ * Real eligibility gate (Phase 2 of the pilot mileage-tracking feature) —
+ * only a real-delivered dispatch with complete odometer readings and a real
+ * business purpose can be included in the tax report. Publication 463
+ * requires all four (date/destination/purpose/mileage) per trip; a
+ * dispatch missing any of them isn't a complete real record yet, so pushing
+ * it would mean the report either fabricates the missing piece or silently
+ * omits it without saying so — neither is honest. Idempotent: pushing an
+ * already-reported dispatch again is a no-op, not an error, since the
+ * frontend button is disabled once reported but a stale reload shouldn't
+ * be treated as a real mistake.
+ */
+export async function pushToTaxReport(dispatchId: string, userId: string): Promise<LogisticsDispatchDto> {
+  const existing = await repo.findDispatchById(dispatchId);
+  if (!existing) throw new NotFoundError(`No logistics dispatch with id "${dispatchId}"`);
+
+  if (existing.taxReportedAt) return toDto(existing);
+
+  if (existing.status !== "delivered") {
+    throw new ValidationError("Only a delivered dispatch can be pushed to the tax report.");
+  }
+  if (existing.odometerStart === null || existing.odometerEnd === null || existing.miles === null) {
+    throw new ValidationError("Record both odometer readings before pushing this dispatch to the tax report.");
+  }
+  if (!existing.businessPurpose) {
+    throw new ValidationError("Enter a business purpose before pushing this dispatch to the tax report.");
+  }
+
+  const dispatch = await repo.markTaxReported(dispatchId, userId);
+  return toDto(dispatch);
+}
+
+export type MileageTaxReportEntryDto = {
+  dispatchId: string;
+  truckId: string;
+  driverId: string;
+  destinationProjectId: string;
+  dispatchedAt: string;
+  businessPurpose: string;
+  odometerStart: number;
+  odometerEnd: number;
+  miles: number;
+  taxReportedAt: string;
+  /** Null when no real MileageRateConfig row was effective yet on this trip's own date — honest absence, never a fabricated rate. */
+  rateCentsPerMile: number | null;
+  rateEffectiveDate: string | null;
+  /** miles * rateCentsPerMile, in real cents (integer math, no float rounding drift) — null exactly when rateCentsPerMile is null. */
+  deductionCents: number | null;
+};
+
+/**
+ * The real Mileage Tax Report (Phase 2) — every dispatch actually pushed to
+ * it, each with the real IRS rate that was in effect on that specific
+ * trip's own dispatchedAt date (per Publication 463's own standard, not
+ * just whatever rate is current now). Computed live off MileageRateConfig
+ * on every call rather than snapshotting a rate at push time — a rate
+ * entered after a dispatch was pushed still correctly back-fills that
+ * trip's deduction, and nothing here is ever a stored, staleable copy of a
+ * value that already lives in MileageRateConfig.
+ */
+export async function listTaxReportEntries(): Promise<MileageTaxReportEntryDto[]> {
+  const rows = await repo.findTaxReportedDispatches();
+
+  const entries: MileageTaxReportEntryDto[] = [];
+  for (const row of rows) {
+    const rate = await mileageRateService.getRateForDate(row.dispatchedAt);
+    entries.push({
+      dispatchId: row.id,
+      truckId: row.truckId,
+      driverId: row.driverId,
+      destinationProjectId: row.destinationProjectId,
+      dispatchedAt: row.dispatchedAt.toISOString(),
+      // Non-null by construction — pushToTaxReport() only ever sets
+      // taxReportedAt once businessPurpose/odometerStart/odometerEnd/miles
+      // are all real and present.
+      businessPurpose: row.businessPurpose!,
+      odometerStart: row.odometerStart!,
+      odometerEnd: row.odometerEnd!,
+      miles: row.miles!,
+      taxReportedAt: row.taxReportedAt!.toISOString(),
+      rateCentsPerMile: rate?.centsPerMile ?? null,
+      rateEffectiveDate: rate?.effectiveDate ?? null,
+      deductionCents: rate ? Math.round(row.miles! * rate.centsPerMile) : null,
+    });
+  }
+  return entries;
 }
