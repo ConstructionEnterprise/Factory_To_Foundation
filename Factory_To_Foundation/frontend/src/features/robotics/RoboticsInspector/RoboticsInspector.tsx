@@ -203,7 +203,15 @@ function RoboticsJogPanel({
               max={JOG_MAX_DEG}
               step={JOG_STEP_DEG}
               value={v}
-              disabled={!canJog || sending}
+              // Staging a target angle is pure local state (handleSliderChange
+              // never touches the network) -- only `sending` (an in-flight
+              // dispatch) should block that. `canJog` still fully gates the
+              // Send button below, where the real server-enforced
+              // preconditions (_robot_manual_gate: MANUAL + paused + robot
+              // PARKED_AT_ATC) actually matter -- an operator should be able
+              // to stage a jog while waiting on a precondition, not just
+              // after it's already satisfied.
+              disabled={sending}
               onChange={(e) => handleSliderChange(i, Number(e.target.value))}
               className="w-full"
             />
