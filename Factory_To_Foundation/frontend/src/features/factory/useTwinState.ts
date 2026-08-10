@@ -83,6 +83,8 @@ export type TwinState = {
   paused: boolean;
   _paused_by: string;
   _paused_at: string | null;
+  /** Real, twin-tracked flag (2026-08-10): true once any manual robot jog has been accepted since the last "reset". Jog's own dispatch-time safety check only validates the final target pose, not the interpolated path, so a manually-repositioned robot's pose is no longer guaranteed consistent with what automatic operation expects — this is the explicit, persistent signal that the current simulation run should not resume automatically until reset. */
+  _manually_moved: boolean;
   _last_error: TwinLastError | null;
   /** Real AUTO/MANUAL/MAINTENANCE mode (Phase A, command-vocabulary pass) — confirmed live, was missing from this type until Track B/Phase B4 needed it to gate the real Execute action. */
   mode: "AUTO" | "MANUAL" | "MAINTENANCE";

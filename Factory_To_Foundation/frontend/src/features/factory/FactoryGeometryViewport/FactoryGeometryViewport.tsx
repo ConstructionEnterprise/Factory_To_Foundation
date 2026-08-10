@@ -749,7 +749,15 @@ function FactoryScene({ liveNodes, state, selectedId, setSelected, collidingIds,
  * shown as distinct, non-actionable states rather than folded into the
  * same button, since there's no operator action that fixes either one.
  */
-function RunSimulationButton({ twinControl, paused }: { twinControl: UseTwinControlResult; paused: boolean | undefined }) {
+function RunSimulationButton({
+  twinControl,
+  paused,
+  manuallyMoved,
+}: {
+  twinControl: UseTwinControlResult;
+  paused: boolean | undefined;
+  manuallyMoved: boolean | undefined;
+}) {
   const { bridgeReachable, control } = twinControl;
   const runPermission = usePermission("factory", "execute");
   const [pending, setPending] = useState(false);
@@ -780,12 +788,29 @@ function RunSimulationButton({ twinControl, paused }: { twinControl: UseTwinCont
     );
   }
 
+  // Real, twin-tracked (state._manually_moved), not an FF guess: a robot
+  // jogged from a non-parked state keeps that state label afterward, and
+  // the jog's own safety check only validates the final target pose, not
+  // the path -- so automatic operation must not silently resume from an
+  // unvalidated pose. Only "reset" (full cell reconstruction, real robots
+  // genuinely PARKED_AT_ATC again) clears it, same as this file's own
+  // _robot_manual_gate() comment documents.
+  const invalid = manuallyMoved === true;
+
   async function handleToggle() {
-    if (paused === undefined) return;
+    if (paused === undefined || invalid) return;
     setPending(true);
     setError(null);
     const result = paused ? await dispatchOne("resume", {}) : await dispatchOne("pause", { target: "all" });
     if (!result.ok) setError(result.reason ?? "pause/resume failed");
+    setPending(false);
+  }
+
+  async function handleReset() {
+    setPending(true);
+    setError(null);
+    const result = await dispatchOne("reset", {});
+    if (!result.ok) setError(result.reason ?? "reset failed");
     setPending(false);
   }
 
@@ -794,12 +819,41 @@ function RunSimulationButton({ twinControl, paused }: { twinControl: UseTwinCont
       <button
         type="button"
         onClick={handleToggle}
-        disabled={pending || paused === undefined || !runPermission.allowed}
+        disabled={pending || paused === undefined || invalid || !runPermission.allowed}
         className="rounded-[0.2rem] px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        style={{ background: !paused ? "var(--ff-status-critical)" : "var(--ff-status-positive)" }}
-        title={runPermission.reason ?? (paused ? "Resume the simulation" : "Pause the simulation — the twin stays online")}
+        style={{ background: invalid ? "var(--ff-status-warning)" : !paused ? "var(--ff-status-critical)" : "var(--ff-status-positive)" }}
+        title={
+          runPermission.reason ??
+          (invalid
+            ? "A robot was manually jogged — reset the simulation before it can resume"
+            : paused
+              ? "Resume the simulation"
+              : "Pause the simulation — the twin stays online")
+        }
       >
-        {pending ? "…" : paused === undefined ? "Simulation: --" : paused ? "Resume Simulation" : "Stop Simulation"}
+        {invalid
+          ? "Simulation Invalid"
+          : pending
+            ? "…"
+            : paused === undefined
+              ? "Simulation: --"
+              : paused
+                ? "Resume Simulation"
+                : "Stop Simulation"}
+      </button>
+      <button
+        type="button"
+        onClick={handleReset}
+        disabled={pending || !runPermission.allowed}
+        className="rounded-[0.2rem] px-3.5 py-1.5 text-sm font-medium disabled:opacity-50"
+        style={
+          invalid
+            ? { background: "var(--ff-status-critical)", color: "white" }
+            : { border: "1px solid var(--ff-panel-border)", color: "var(--ff-text-primary)" }
+        }
+        title="Discard the current run and start fresh — robots return to PARKED_AT_ATC, frame/walls/cycles all reset"
+      >
+        Reset Simulation
       </button>
       <span className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
         {control?.bridgeOwned === false ? "external process" : `pid ${control?.pid}`} · frame {control?.frame ?? "—"}
@@ -845,7 +899,7 @@ export default function FactoryGeometryViewport() {
   return (
     <PanelCard title="Factory Digital Twin" className="h-full" bodyClassName="flex flex-col flex-1">
       <div className="flex flex-wrap items-center gap-6 px-6 py-4 border-b border-gray-100">
-        <RunSimulationButton twinControl={twinControl} paused={state?.paused} />
+        <RunSimulationButton twinControl={twinControl} paused={state?.paused} manuallyMoved={state?._manually_moved} />
         <Legend color="var(--ff-status-positive)" label="Running" />
         <Legend color="var(--ff-status-warning)" label="Idle" />
         <Legend color="var(--ff-status-critical)" label="Down" />

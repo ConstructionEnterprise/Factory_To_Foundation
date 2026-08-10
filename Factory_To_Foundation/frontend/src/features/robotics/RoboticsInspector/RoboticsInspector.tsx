@@ -134,21 +134,26 @@ function RoboticsJogPanel({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<CommandExecutionResult | null>(null);
 
-  // Same three real preconditions `_robot_manual_gate` enforces twin-side
-  // (MANUAL mode, cell paused, robot PARKED_AT_ATC), mirrored here the same
-  // way FactoryInstructions.tsx gates its own Execute button.
-  const canJog = connected && state?.mode === "MANUAL" && state?.paused === true && robot.state === "PARKED_AT_ATC" && executePermission.allowed;
+  // Same two real preconditions `_robot_manual_gate` enforces twin-side
+  // (MANUAL mode, cell paused), mirrored here the same way
+  // FactoryInstructions.tsx gates its own Execute button. PARKED_AT_ATC is
+  // deliberately NOT required (explicit product decision, 2026-08-10) --
+  // jog is an operator control, not conditional on the robot's automatic-
+  // cycle phase. Real, disclosed consequence: a successful jog from a
+  // non-parked state sets the twin's own _manually_moved flag, surfaced as
+  // `simulation invalid` on Factory's simulation control -- automatic
+  // operation refuses to resume until an explicit Reset, since jog's own
+  // safety check only validates the final target pose, not the path.
+  const canJog = connected && state?.mode === "MANUAL" && state?.paused === true && executePermission.allowed;
   const gateReason = !connected
     ? "Twin bridge not reachable — jogging is unavailable until it's running."
     : state?.mode !== "MANUAL"
       ? `Twin is in ${state?.mode ?? "an unknown"} mode — set it to MANUAL to jog.`
       : !state?.paused
         ? "Twin is not paused — pause it before jogging."
-        : robot.state !== "PARKED_AT_ATC"
-          ? `${robotName} is ${robot.state} — jogging requires it PARKED_AT_ATC.`
-          : !executePermission.allowed
-            ? executePermission.reason
-            : null;
+        : !executePermission.allowed
+          ? executePermission.reason
+          : null;
 
   function handleSliderChange(jointIndex: number, valueDeg: number) {
     setJogDeg((prev) => {
