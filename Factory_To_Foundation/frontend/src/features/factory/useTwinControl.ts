@@ -18,6 +18,13 @@ export type TwinControlStatus = {
   bridgeOwned: boolean;
   pid: number | null;
   frame: number | null;
+  /** Real liveness: frame genuinely advancing within the bridge's liveness window — the one signal safe to gate a "READY" state on. A process existing (`status: "running"`) does not imply this. */
+  live: boolean;
+  /** Narrower than `live` — true only when the bridge's disk read of state.json is itself currently failing (file missing/locked for several cycles). A cleanly-dead driver leaves a readable, frozen file behind, so this stays false in that case; `live` is what catches that. */
+  stateReadStale: boolean;
+  frameAgeMs: number | null;
+  restartAttempts: number;
+  recentRestarts: { at: string; code: number | null; signal: string | null; attempt: number }[];
 };
 
 export type UseTwinControlResult = {

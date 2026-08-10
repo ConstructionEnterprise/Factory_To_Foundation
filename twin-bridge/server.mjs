@@ -128,12 +128,71 @@ const MANIFEST_POLL_MS = 2000;
 // last-known-good cached value to serve in the meantime.
 const TOLERATED_READ_CODES = new Set(["ENOENT", "EPERM", "EBUSY"]);
 
+// Real liveness window: the frame counter must have advanced at least once
+// within this many ms for the twin to count as genuinely alive. A process
+// that's running but stuck (or a state.json frozen on a stale cached read)
+// must NOT read as live just because the HTTP call succeeded — that's the
+// exact false-positive that let a dead production driver look healthy.
+const LIVENESS_WINDOW_MS = 3000;
+
+// A read counts as "cached" (stale, not fresh this cycle) once this many
+// consecutive poll cycles have gone by without a successful state.json
+// read — a couple of missed cycles is the normal Windows write-in-progress
+// race (see TOLERATED_READ_CODES above), not real staleness.
+const CACHE_STALE_AFTER_MS = POLL_MS * 3;
+
 let latestState = null;
 let latestManifest = null;
+let lastObservedFrame = null; // last frame number actually seen in state.json
+let lastFrameChangeAt = null; // when lastObservedFrame last actually changed
+let lastReadSucceededAt = null; // when pollState() last got a real, fresh read
 
 // Real state of a process THIS bridge spawned — null whenever nothing is
 // tracked (never started, already stopped, or exited/crashed on its own).
 let trackedChild = null; // { proc, pid, startedAt }
+
+// Auto-restart-with-backoff state. `deliberateStop` distinguishes a human
+// calling /twin-control/stop (never auto-restart) from an unexpected exit
+// (crash, killed process, host reboot of just this child — always
+// auto-restart). Backoff is exponential, capped, and never gives up
+// permanently — matches the spec's "not a tight loop, not silent giving up".
+let deliberateStop = false;
+let restartAttempts = 0;
+let restartTimer = null;
+const RESTART_BACKOFF_BASE_MS = 2000;
+const RESTART_BACKOFF_MAX_MS = 60000;
+// If the twin survives this long, treat it as a real recovery and reset the
+// backoff counter — otherwise a twin that's merely flaky (dies every few
+// minutes) would keep climbing toward the max backoff forever.
+const RESTART_BACKOFF_RESET_AFTER_MS = 5 * 60 * 1000;
+
+// Small bounded history so a demo-day "why did it restart" question can be
+// answered from the API instead of requiring log access.
+const RECENT_RESTARTS_MAX = 5;
+let recentRestarts = []; // [{ at, code, signal, attempt }]
+
+/** Real liveness check: frame genuinely advancing, not just a successful HTTP read. */
+function isLive() {
+  return lastFrameChangeAt !== null && Date.now() - lastFrameChangeAt <= LIVENESS_WINDOW_MS;
+}
+
+/**
+ * Narrower than `isLive()` — this is only about disk I/O: is the bridge
+ * currently failing to get a fresh read of state.json at all (file
+ * missing/locked for several cycles running). A driver that died cleanly
+ * still leaves a perfectly readable, frozen state.json behind, so this
+ * stays false in that case — `isLive()`'s frame-advance check is what
+ * catches that "stale content still reads fine" scenario. This field
+ * exists to separately surface the rarer "the bridge can't even read the
+ * file right now" failure mode (e.g. state dir permissions, disk issue).
+ */
+function isStateReadStale() {
+  return lastReadSucceededAt === null || Date.now() - lastReadSucceededAt > CACHE_STALE_AFTER_MS;
+}
+
+function frameAgeMs() {
+  return lastFrameChangeAt === null ? null : Date.now() - lastFrameChangeAt;
+}
 
 /**
  * Real duplicate-start guard: scans live Windows processes (via
@@ -203,25 +262,72 @@ function detectExternalTwinProcess() {
   return process.platform === "win32" ? detectExternalTwinProcessWindows() : detectExternalTwinProcessLinux();
 }
 
+function recordRestart(code, signal, attempt) {
+  recentRestarts.push({ at: new Date().toISOString(), code, signal, attempt });
+  if (recentRestarts.length > RECENT_RESTARTS_MAX) recentRestarts.shift();
+}
+
+/** Schedules an auto-restart with exponential backoff. No-op if a deliberate stop is in progress, or a restart is already pending. */
+function scheduleRestart(code, signal) {
+  if (deliberateStop) return;
+  if (restartTimer) return;
+  restartAttempts += 1;
+  recordRestart(code, signal, restartAttempts);
+  const delay = Math.min(RESTART_BACKOFF_BASE_MS * 2 ** (restartAttempts - 1), RESTART_BACKOFF_MAX_MS);
+  console.log(
+    `[twin-bridge] twin exited unexpectedly (code=${code}, signal=${signal}) — auto-restart attempt ${restartAttempts} in ${delay}ms`
+  );
+  restartTimer = setTimeout(async () => {
+    restartTimer = null;
+    if (trackedChild) return; // something else already started it — don't double-start
+    const external = await detectExternalTwinProcess();
+    if (external) {
+      console.log(`[twin-bridge] auto-restart skipped — external twin process already running (pid ${external.pid})`);
+      return;
+    }
+    startTwin();
+  }, delay);
+}
+
 function startTwin() {
   const pythonBin = process.platform === "win32" ? "python" : "python3";
   const proc = spawn(pythonBin, [DRIVER_PATH], { windowsHide: true });
   trackedChild = { proc, pid: proc.pid, startedAt: Date.now() };
   proc.stdout.on("data", (d) => process.stdout.write(`[twin] ${d}`));
   proc.stderr.on("data", (d) => process.stderr.write(`[twin:err] ${d}`));
+  // A twin that stays up long enough counts as a real recovery — reset the
+  // backoff counter so a later, unrelated failure starts from the fast end
+  // of the backoff curve instead of wherever a previous flaky episode left it.
+  const backoffResetTimer = setTimeout(() => {
+    if (trackedChild?.pid === proc.pid) restartAttempts = 0;
+  }, RESTART_BACKOFF_RESET_AFTER_MS);
   proc.on("error", (err) => {
     console.error(`[twin-bridge] failed to spawn twin process (${pythonBin}):`, err.message);
+    clearTimeout(backoffResetTimer);
     if (trackedChild?.pid === proc.pid) trackedChild = null;
+    scheduleRestart(null, `spawn-error: ${err.message}`);
   });
   proc.on("exit", (code, signal) => {
     console.log(`[twin-bridge] tracked twin process exited (code=${code}, signal=${signal})`);
+    clearTimeout(backoffResetTimer);
     if (trackedChild?.pid === proc.pid) trackedChild = null;
+    if (deliberateStop) {
+      deliberateStop = false; // consume the flag — a clean, intentional stop
+      restartAttempts = 0; // resets backoff so the next unrelated failure starts fresh
+    } else {
+      scheduleRestart(code, signal);
+    }
   });
   return trackedChild;
 }
 
 function stopTwin() {
   if (!trackedChild) return false;
+  deliberateStop = true;
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
+  }
   // Windows has no real POSIX signals — kill() unconditionally terminates
   // the process here; there is no graceful-shutdown path to offer instead.
   trackedChild.proc.kill();
@@ -232,6 +338,12 @@ async function pollState() {
   try {
     const raw = await readFile(STATE_PATH, "utf-8");
     latestState = JSON.parse(raw);
+    lastReadSucceededAt = Date.now();
+    const frame = latestState?.frame;
+    if (typeof frame === "number" && frame !== lastObservedFrame) {
+      lastObservedFrame = frame;
+      lastFrameChangeAt = Date.now();
+    }
   } catch (err) {
     if (err instanceof SyntaxError || TOLERATED_READ_CODES.has(err.code)) {
       return; // keep serving the last-known-good cached value
@@ -339,6 +451,18 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && req.url === "/twin-control/status") {
+    // `live` is the one authoritative READY signal: real frame-advance
+    // within LIVENESS_WINDOW_MS, independent of whether this bridge, an
+    // external process, or nothing at all owns the child. A process that
+    // exists but is frozen (or a bridge only serving cached state) reports
+    // live:false here — never a false "Live Twin Data".
+    const readiness = {
+      live: isLive(),
+      stateReadStale: isStateReadStale(),
+      frameAgeMs: frameAgeMs(),
+      restartAttempts,
+      recentRestarts,
+    };
     if (trackedChild) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
@@ -348,6 +472,7 @@ const server = createServer(async (req, res) => {
           pid: trackedChild.pid,
           uptimeMs: Date.now() - trackedChild.startedAt,
           frame: latestState?.frame ?? null,
+          ...readiness,
         })
       );
       return;
@@ -357,8 +482,8 @@ const server = createServer(async (req, res) => {
     res.end(
       JSON.stringify(
         external
-          ? { status: "running", bridgeOwned: false, pid: external.pid, frame: latestState?.frame ?? null }
-          : { status: "not_running", bridgeOwned: false, pid: null, frame: null }
+          ? { status: "running", bridgeOwned: false, pid: external.pid, frame: latestState?.frame ?? null, ...readiness }
+          : { status: "not_running", bridgeOwned: false, pid: null, frame: null, ...readiness }
       )
     );
     return;
@@ -422,8 +547,21 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: "no twin state read yet" }));
       return;
     }
+    // Underscore-prefixed fields are bridge-computed metadata, not real twin
+    // data — same convention state.json itself uses for its own
+    // bridge/driver-added fields (_paused_by, _paused_at, _last_error).
+    // `_live` is what callers must check before trusting this as "live" —
+    // a 200 response alone no longer implies that; it may be a stale cached
+    // snapshot of a driver that has since died.
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(latestState));
+    res.end(
+      JSON.stringify({
+        ...latestState,
+        _live: isLive(),
+        _stateReadStale: isStateReadStale(),
+        _frameAgeMs: frameAgeMs(),
+      })
+    );
     return;
   }
 
@@ -442,9 +580,21 @@ const server = createServer(async (req, res) => {
   res.end(JSON.stringify({ error: "not found" }));
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`[twin-bridge] polling ${STATE_PATH} every ${POLL_MS}ms`);
   console.log(`[twin-bridge] polling ${MANIFEST_PATH} every ${MANIFEST_POLL_MS}ms`);
   console.log(`[twin-bridge] GET http://localhost:${PORT}/twin-state`);
   console.log(`[twin-bridge] GET http://localhost:${PORT}/twin-manifest`);
+
+  // Auto-start on boot: the driver has no start-on-its-own mechanism of its
+  // own (it's a plain script), and until now nothing ever launched it
+  // automatically — it only ever ran when a human clicked Start. Skip if
+  // something external is already running so we never spawn a duplicate.
+  const external = await detectExternalTwinProcess();
+  if (external) {
+    console.log(`[twin-bridge] found existing external twin process on boot (pid ${external.pid}) — not auto-starting a second instance`);
+  } else {
+    console.log("[twin-bridge] auto-starting twin driver on boot");
+    startTwin();
+  }
 });

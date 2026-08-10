@@ -802,7 +802,7 @@ function RunSimulationButton({ twinControl }: { twinControl: UseTwinControlResul
 export default function FactoryGeometryViewport() {
   const { selected, setSelected } = useSelection();
   const { connected: manifestConnected, manifest } = useTwinManifest();
-  const { state } = useTwinState();
+  const { connected: twinLive, state } = useTwinState();
   const collision = useCollisionSnapshot();
   const twinControl = useTwinControl();
   const [showReach, setShowReach] = useState(false);
@@ -898,12 +898,13 @@ export default function FactoryGeometryViewport() {
         <span
           className="ml-auto rounded-full px-2.5 py-0.5 text-xs font-medium"
           style={
-            manifestConnected
+            twinLive
               ? { background: "var(--ff-status-positive)", color: "white" }
               : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
           }
+          title={twinLive ? undefined : "Driver not confirmed live — frame not observed advancing"}
         >
-          {manifestConnected ? "Live Twin Data" : "Twin Offline"}
+          {twinLive ? "Live Twin Data" : "Twin Offline"}
         </span>
       </div>
 
