@@ -36,5 +36,12 @@ complete — Factory Runtime passed deliberate process-kill/recovery testing
 expiry/recovery (Test B), both documented in the migration plan. This
 directory is not an active runtime and should not be treated as one; it
 remains rollback material only, per the "Why this still exists" section
-above. Not yet superseded further (production still hasn't been deployed),
-so keep this here until that happens.
+above.
+
+**Update (2026-08-11, later still):** deployed to production the same day.
+On `ff-app-host`, the real, live `twin-bridge` container (`ff-app-twin-bridge-1`)
+was stopped and left in place — same "kept, not deleted" rollback discipline
+as this local directory, just enacted on the real host too. Both the local
+copy (here) and the production container now serve the same purpose: real
+rollback material, not an active runtime, not to be restarted except as a
+deliberate rollback per the migration plan's own §8.
