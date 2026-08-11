@@ -9,6 +9,13 @@ import type { FastifyInstance } from "fastify";
 // into a value that has to change for any real deployment.
 const TWIN_BRIDGE_URL = process.env.TWIN_BRIDGE_URL ?? "http://localhost:4100";
 
+// Only set in production — ff-app-host's nginx rejects any request to the
+// public /twin-bridge-api path lacking this header (real gate, independent
+// of CloudFront routing; see ff-app-host-bridges nginx site), since this
+// server-to-server call reaches the host directly, not through CloudFront.
+// Absent locally, where factory-runtime has no such check.
+const TWIN_BRIDGE_ORIGIN_VERIFY = process.env.TWIN_BRIDGE_ORIGIN_VERIFY;
+
 // Real timeout, not indefinite — an unreachable twin-bridge must not make
 // /system/ready itself hang. 2s comfortably exceeds twin-bridge's own
 // 100ms poll cadence many times over; a real, live bridge always answers
@@ -32,6 +39,7 @@ async function fetchTwinLiveness(): Promise<TwinLiveResponse> {
   try {
     const res = await fetch(`${TWIN_BRIDGE_URL}/twin-control/live`, {
       signal: AbortSignal.timeout(TWIN_LIVE_TIMEOUT_MS),
+      headers: TWIN_BRIDGE_ORIGIN_VERIFY ? { "X-Origin-Verify": TWIN_BRIDGE_ORIGIN_VERIFY } : {},
     });
     if (!res.ok) return { bridgeReachable: false, driverAlive: false, stateAdvancing: false, paused: false };
     const data = (await res.json()) as Partial<TwinLiveResponse>;
