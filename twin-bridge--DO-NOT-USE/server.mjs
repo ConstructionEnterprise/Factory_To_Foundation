@@ -1,3 +1,9 @@
+// MIGRATION STATUS (2026-08-11): temporarily still the real, authoritative
+// Twin owner — mid-migration to factory-runtime/, not yet cut over. See
+// MIGRATION-STATUS.md (this directory) before touching lifecycle/authority
+// behavior here or adding new functionality — new work belongs in
+// factory-runtime/.
+//
 // Mostly-read-only bridge: polls the real digital twin's state.json and
 // serves the latest known-good snapshot over HTTP for the FF frontend to
 // consume. Never writes to, or otherwise touches, any twin FILE it doesn't
@@ -422,6 +428,30 @@ const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // Deliberately unauthenticated, same reasoning as backend's own GET
+  // /health (backend/src/routes/health.ts): a liveness check gated on auth
+  // defeats its own purpose — the one real consumer that matters most
+  // (backend's own GET /system/ready, composing overall FF readiness) has
+  // no user session to present. Response is minimal infrastructure
+  // liveness only (no twin data, no user data) specifically so leaving it
+  // open costs nothing. Reuses isLive()/the existing deliberate-pause
+  // carve-out rather than a second liveness computation — `stateAdvancing`
+  // here means exactly what `_live`/`isLive()` already means everywhere
+  // else in this file.
+  if (req.method === "GET" && req.url === "/twin-control/live") {
+    const driverAlive = trackedChild !== null || (await detectExternalTwinProcess()) !== null;
+    // `paused` is a real, raw twin field (not derived), included so
+    // callers can tell "advancing" apart from "deliberately paused" --
+    // isLive()/stateAdvancing folds both into one true, correctly, for
+    // the READY computation itself, but a UI showing *why* it's ready
+    // needs the distinction back.
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({ bridgeReachable: true, driverAlive, stateAdvancing: isLive(), paused: latestState?.paused === true })
+    );
     return;
   }
 

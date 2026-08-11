@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { authFetch } from "@/lib/authFetch";
 import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 const BRIDGE_URL = `${TWIN_BRIDGE_URL}/twin-manifest`;
@@ -40,7 +41,9 @@ export function useTwinManifest(): UseTwinManifestResult {
 
     async function poll() {
       try {
-        const res = await fetch(BRIDGE_URL, { credentials: "include" });
+        // authFetch, not raw fetch — see useTwinState.ts's identical comment:
+        // an expired-but-refreshable access token must not read as "Twin Offline".
+        const res = await authFetch(BRIDGE_URL);
         if (!res.ok) throw new Error(`bridge responded ${res.status}`);
         const data = (await res.json()) as TwinManifest;
         if (!cancelled) setResult({ connected: true, manifest: data });

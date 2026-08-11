@@ -1,5 +1,6 @@
 import type { InstructionStep } from "@/context/ManufacturingOutputContext";
 import type { TwinState } from "./useTwinState";
+import { authFetch } from "@/lib/authFetch";
 import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 /**
@@ -46,7 +47,7 @@ function sleep(ms: number): Promise<void> {
 
 async function fetchState(): Promise<TwinState | null> {
   try {
-    const res = await fetch(`${BRIDGE_BASE}/twin-state`, { credentials: "include" });
+    const res = await authFetch(`${BRIDGE_BASE}/twin-state`);
     if (!res.ok) return null;
     return (await res.json()) as TwinState;
   } catch {
@@ -93,9 +94,8 @@ export async function dispatchOne(command: string, params: Record<string, unknow
   const baselineError = baselineState?._last_error ?? null;
 
   try {
-    const res = await fetch(`${BRIDGE_BASE}/twin-command`, {
+    const res = await authFetch(`${BRIDGE_BASE}/twin-command`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command, params }),
     });

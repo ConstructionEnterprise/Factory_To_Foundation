@@ -37,14 +37,23 @@ services:
     environment:
       - BACKEND_URL=https://3-23-62-46.sslip.io
 
-  twin-bridge:
-    build: ./twin-bridge
+  # Supersedes the old twin-bridge service (migration §7 step 4.3,
+  # ADR-001-factory-runtime-twin-lifecycle.md /
+  # FACTORY-RUNTIME-MIGRATION-PLAN.md, Factory_To_Foundation/frontend/) —
+  # renamed here, not left alongside it, since only one can ever own the
+  # Twin at a time. twin-bridge/'s own code is kept, unmodified, at
+  # twin-bridge--DO-NOT-USE/ as the rollback path (migration plan §8);
+  # this entry is not restored to point back at it casually.
+  factory-runtime:
+    build: ./factory-runtime
     restart: unless-stopped
     ports:
-      - "4100:4100"
+      - "4103:4103"
     env_file:
       - ./backend/.env
     environment:
+      - FACTORY_RUNTIME_MODE=active
+      - FACTORY_RUNTIME_PORT=4103
       - TWIN_STATE_DIR=/construction-enterprises/state
       - TWIN_MODULE_PATH=/construction-enterprises/Chappell_Robotics/CE_Integrated_Cell_V3_0-6.py
       - BACKEND_URL=https://3-23-62-46.sslip.io

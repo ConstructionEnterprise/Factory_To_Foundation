@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { authFetch } from "@/lib/authFetch";
 import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 const CONTROL_BASE = `${TWIN_BRIDGE_URL}/twin-control`;
@@ -49,7 +50,9 @@ export function useTwinControl(): UseTwinControlResult {
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch(`${CONTROL_BASE}/status`, { credentials: "include" });
+      // authFetch, not raw fetch — see useTwinState.ts: an expired-but-
+      // refreshable access token must not read as "bridge unreachable".
+      const res = await authFetch(`${CONTROL_BASE}/status`);
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = (await res.json()) as TwinControlStatus;
       setBridgeReachable(true);
@@ -69,7 +72,7 @@ export function useTwinControl(): UseTwinControlResult {
   const start = useCallback(async () => {
     setStarting(true);
     try {
-      const res = await fetch(`${CONTROL_BASE}/start`, { method: "POST", credentials: "include" });
+      const res = await authFetch(`${CONTROL_BASE}/start`, { method: "POST" });
       const body = await res.json();
       if (!res.ok || !body.ok) {
         setLastError(body.reason ?? `start failed (HTTP ${res.status})`);
@@ -87,7 +90,7 @@ export function useTwinControl(): UseTwinControlResult {
   const stop = useCallback(async () => {
     setStopping(true);
     try {
-      const res = await fetch(`${CONTROL_BASE}/stop`, { method: "POST", credentials: "include" });
+      const res = await authFetch(`${CONTROL_BASE}/stop`, { method: "POST" });
       const body = await res.json();
       setLastError(body.note ?? null);
       await poll();

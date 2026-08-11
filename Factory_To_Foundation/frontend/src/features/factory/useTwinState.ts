@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { authFetch } from "@/lib/authFetch";
 import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 const BRIDGE_URL = `${TWIN_BRIDGE_URL}/twin-state`;
@@ -23,6 +24,23 @@ const POLL_MS = 750;
  * own CLAUDE.md). Neither ATC/tool state as a first-class field exists
  * in state.json yet — only what's below is real.
  */
+/**
+ * Real, ground-truth cause of the twin's own e-stop — read directly from
+ * the Python driver source (CE_Integrated_Cell_V3_0-6.py), not guessed:
+ * exactly two real shapes currently exist. `auto_collision` fires when a
+ * body pair's penetration streak reaches PERSISTENT_COLLISION_TICKS
+ * (twin-side "persistent," a tick-count threshold — a different
+ * definition from this frontend's own collisionStore.ts `persistent`
+ * flag, which means "held in every snapshot since FF's monitor started").
+ * `manual` fires on an explicit estop command. A disclosed catch-all
+ * covers any future source this frontend hasn't seen yet, rather than
+ * pretending to know its shape.
+ */
+export type TwinEstopReason =
+  | { source: "auto_collision"; pair: [string, string]; penetration_mm: number; ticks: number; frame: number }
+  | { source: "manual"; command: string }
+  | { source: string; [key: string]: unknown };
+
 export type TwinLastError = {
   command: string;
   target: string;
@@ -85,6 +103,11 @@ export type TwinState = {
   _paused_at: string | null;
   /** Real, twin-tracked flag (2026-08-10): true once any manual robot jog has been accepted since the last "reset". Jog's own dispatch-time safety check only validates the final target pose, not the interpolated path, so a manually-repositioned robot's pose is no longer guaranteed consistent with what automatic operation expects — this is the explicit, persistent signal that the current simulation run should not resume automatically until reset. */
   _manually_moved: boolean;
+  /** Real e-stop flags — present in state.json all along but never previously typed here, so no consumer of this hook could read them. */
+  estopped: boolean;
+  _estopped_by: string | null;
+  _estop_reason: TwinEstopReason | null;
+  _estop_at: string | null;
   _last_error: TwinLastError | null;
   /** Real AUTO/MANUAL/MAINTENANCE mode (Phase A, command-vocabulary pass) — confirmed live, was missing from this type until Track B/Phase B4 needed it to gate the real Execute action. */
   mode: "AUTO" | "MANUAL" | "MAINTENANCE";
@@ -122,7 +145,13 @@ export function useTwinState(): UseTwinStateResult {
 
     async function poll() {
       try {
-        const res = await fetch(BRIDGE_URL, { credentials: "include" });
+        // authFetch (not raw fetch): a 401 here means the 15-minute access
+        // token expired, not that the Twin/Factory Runtime is down — the
+        // real 30-day refresh token can silently recover it. Real bug this
+        // fixes, confirmed live: raw fetch treated an expired-but-refreshable
+        // token identically to a genuinely dead bridge, both collapsing to
+        // "Twin Offline" (migration-evidence/, 2026-08-11 Test B finding).
+        const res = await authFetch(BRIDGE_URL);
         if (!res.ok) throw new Error(`bridge responded ${res.status}`);
         const data = (await res.json()) as TwinStateWire;
         // `connected` means real, verified-live driver state — the bridge's

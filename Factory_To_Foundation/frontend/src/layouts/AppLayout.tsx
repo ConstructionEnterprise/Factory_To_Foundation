@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 
 import Sidebar from "../components/layout/Sidebar";
-import { ErrorBoundary } from "../framework/ui";
+import { ErrorBoundary, SystemReadinessBanner } from "../framework/ui";
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -40,11 +40,15 @@ function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--ff-content-bg)] md:flex-row">
-      <Sidebar />
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--ff-content-bg)]">
+      <SystemReadinessBanner />
 
-      <div className="min-w-0 min-h-0 flex-1">
-        <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+        <Sidebar />
+
+        <div className="min-w-0 min-h-0 flex-1">
+          <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+        </div>
       </div>
     </div>
   );

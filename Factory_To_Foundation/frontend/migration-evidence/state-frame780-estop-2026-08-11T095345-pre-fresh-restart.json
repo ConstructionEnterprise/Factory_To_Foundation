@@ -1,0 +1,610 @@
+{
+  "frame": 780,
+  "master_phase": "ROLLER_TRANSFER",
+  "module_done": false,
+  "placed_walls": [],
+  "paused": false,
+  "_paused_by": "all",
+  "_paused_at": null,
+  "_manually_moved": false,
+  "estopped": true,
+  "_estopped_by": "all",
+  "_estop_reason": {
+    "source": "auto_collision",
+    "pair": [
+      "robots.A2",
+      "roller"
+    ],
+    "penetration_mm": 100.0,
+    "ticks": 3,
+    "frame": 780
+  },
+  "_estop_at": "ROLLER_TRANSFER",
+  "_last_error": null,
+  "mode": "AUTO",
+  "manual_moves": {},
+  "plan_history": {
+    "A1": [
+      {
+        "robot": "A1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 31,
+        "successful": true,
+        "path_length": 3.043,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 31,
+        "successful": true,
+        "path_length": 2.769,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 31,
+        "successful": true,
+        "path_length": 3.043,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "ZLift",
+        "reason": "level2_replan:robots.A1|robots.B1",
+        "frame": 166,
+        "successful": false,
+        "path_length": 0.97,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A1|robots.B1",
+        "frame": 166,
+        "successful": false,
+        "path_length": 0.03,
+        "attempt": 2
+      },
+      {
+        "robot": "A1",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A1|robots.B1",
+        "frame": 166,
+        "successful": true,
+        "path_length": 0.03,
+        "attempt": 3
+      },
+      {
+        "robot": "A1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 420,
+        "successful": true,
+        "path_length": 2.85,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 420,
+        "successful": true,
+        "path_length": 1.725,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 420,
+        "successful": true,
+        "path_length": 0.6,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "ZLift",
+        "reason": "level2_replan:robots.A1|robots.B1",
+        "frame": 548,
+        "successful": false,
+        "path_length": 0.76,
+        "attempt": 1
+      },
+      {
+        "robot": "A1",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A1|robots.B1",
+        "frame": 548,
+        "successful": false,
+        "path_length": 0.24,
+        "attempt": 2
+      },
+      {
+        "robot": "A1",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A1|robots.B1",
+        "frame": 548,
+        "successful": true,
+        "path_length": 0.24,
+        "attempt": 3
+      }
+    ],
+    "B1": [
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 37,
+        "successful": true,
+        "path_length": 3.043,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 37,
+        "successful": true,
+        "path_length": 2.769,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 37,
+        "successful": true,
+        "path_length": 3.043,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 406,
+        "successful": true,
+        "path_length": 2.85,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 406,
+        "successful": true,
+        "path_length": 1.725,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 406,
+        "successful": true,
+        "path_length": 0.6,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 775,
+        "successful": true,
+        "path_length": 2.85,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 775,
+        "successful": true,
+        "path_length": 1.725,
+        "attempt": 1
+      },
+      {
+        "robot": "B1",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 775,
+        "successful": true,
+        "path_length": 0.6,
+        "attempt": 1
+      }
+    ],
+    "A2": [
+      {
+        "robot": "A2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 42,
+        "successful": true,
+        "path_length": 3.043,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 42,
+        "successful": true,
+        "path_length": 2.769,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 42,
+        "successful": true,
+        "path_length": 3.043,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "ZLift",
+        "reason": "level2_replan:robots.A2|robots.B2",
+        "frame": 178,
+        "successful": false,
+        "path_length": 1.0,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A2|robots.B2",
+        "frame": 178,
+        "successful": false,
+        "path_length": 0.0,
+        "attempt": 2
+      },
+      {
+        "robot": "A2",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A2|robots.B2",
+        "frame": 178,
+        "successful": true,
+        "path_length": 0.0,
+        "attempt": 3
+      },
+      {
+        "robot": "A2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 408,
+        "successful": true,
+        "path_length": 2.85,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 408,
+        "successful": true,
+        "path_length": 1.725,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 408,
+        "successful": true,
+        "path_length": 0.6,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "ZLift",
+        "reason": "level2_replan:robots.A2|robots.B2",
+        "frame": 542,
+        "successful": false,
+        "path_length": 0.97,
+        "attempt": 1
+      },
+      {
+        "robot": "A2",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A2|robots.B2",
+        "frame": 542,
+        "successful": false,
+        "path_length": 0.03,
+        "attempt": 2
+      },
+      {
+        "robot": "A2",
+        "strategy": "Reorient",
+        "reason": "level2_replan:robots.A2|robots.B2",
+        "frame": 542,
+        "successful": true,
+        "path_length": 0.03,
+        "attempt": 3
+      }
+    ],
+    "B2": [
+      {
+        "robot": "B2",
+        "strategy": "ZLift",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 2.752,
+        "attempt": 2
+      },
+      {
+        "robot": "B2",
+        "strategy": "Reorient",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 2.329,
+        "attempt": 3
+      },
+      {
+        "robot": "B2",
+        "strategy": "Reorient",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 2.329,
+        "attempt": 4
+      },
+      {
+        "robot": "B2",
+        "strategy": "Detour",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 2.35,
+        "attempt": 5
+      },
+      {
+        "robot": "B2",
+        "strategy": "Detour",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 2.882,
+        "attempt": 6
+      },
+      {
+        "robot": "B2",
+        "strategy": "Retreat",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 5.388,
+        "attempt": 7
+      },
+      {
+        "robot": "B2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.725,
+        "attempt": 1
+      },
+      {
+        "robot": "B2",
+        "strategy": "ZLift",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.629,
+        "attempt": 2
+      },
+      {
+        "robot": "B2",
+        "strategy": "Reorient",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.275,
+        "attempt": 3
+      },
+      {
+        "robot": "B2",
+        "strategy": "Reorient",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.275,
+        "attempt": 4
+      },
+      {
+        "robot": "B2",
+        "strategy": "Detour",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.366,
+        "attempt": 5
+      },
+      {
+        "robot": "B2",
+        "strategy": "Detour",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.87,
+        "attempt": 6
+      },
+      {
+        "robot": "B2",
+        "strategy": "Retreat",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 5.165,
+        "attempt": 7
+      },
+      {
+        "robot": "B2",
+        "strategy": "Direct",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 0.6,
+        "attempt": 1
+      },
+      {
+        "robot": "B2",
+        "strategy": "ZLift",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 0.6,
+        "attempt": 2
+      },
+      {
+        "robot": "B2",
+        "strategy": "Reorient",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 0.6,
+        "attempt": 3
+      },
+      {
+        "robot": "B2",
+        "strategy": "Reorient",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 0.6,
+        "attempt": 4
+      },
+      {
+        "robot": "B2",
+        "strategy": "Detour",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.281,
+        "attempt": 5
+      },
+      {
+        "robot": "B2",
+        "strategy": "Detour",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 1.281,
+        "attempt": 6
+      },
+      {
+        "robot": "B2",
+        "strategy": "Retreat",
+        "reason": "automatic_cycle",
+        "frame": 779,
+        "successful": false,
+        "path_length": 5.388,
+        "attempt": 7
+      }
+    ]
+  },
+  "last_tool_verify": null,
+  "tool_actuation": {},
+  "parts": {},
+  "material_rack": {
+    "light": {
+      "stud": [],
+      "track": []
+    },
+    "standard": {
+      "stud": [],
+      "track": []
+    },
+    "heavy": {
+      "stud": [],
+      "track": []
+    }
+  },
+  "gantry": {
+    "state": "PARKED",
+    "cycles": 0,
+    "bridge_x": 28.0,
+    "trolley_y": 0.0,
+    "hook_z": 7.5,
+    "carrying": false,
+    "panel_ang": 60.0
+  },
+  "roller": {
+    "state": "RECEIVING",
+    "cycles": 0,
+    "panel_x": 11.9,
+    "travel_pct": 0.0,
+    "speed": 0.0
+  },
+  "tilt": {
+    "state": "FLAT",
+    "cycles": 0,
+    "angle_deg": 0.0,
+    "pin_extended": true
+  },
+  "robots": {
+    "A1": {
+      "state": "TRAVELING_TO_WORK_RAIL",
+      "rail_x": 5.8,
+      "q": [
+        0.701,
+        1.284,
+        -2.462,
+        -0.393,
+        1.571,
+        -0.87
+      ],
+      "cycles": 2,
+      "tool_idx": 2
+    },
+    "A2": {
+      "state": "TRAVELING_TO_WORK_RAIL",
+      "rail_x": 10.22,
+      "q": [
+        0.701,
+        1.284,
+        -2.462,
+        -0.393,
+        1.571,
+        -0.87
+      ],
+      "cycles": 2,
+      "tool_idx": 2
+    },
+    "B1": {
+      "state": "WORKING",
+      "rail_x": 7.1,
+      "q": [
+        -1.036,
+        1.375,
+        -2.632,
+        -0.314,
+        1.571,
+        -2.607
+      ],
+      "cycles": 2,
+      "tool_idx": 2
+    },
+    "B2": {
+      "state": "WORKING",
+      "rail_x": 9.5,
+      "q": [
+        -0.754,
+        1.304,
+        -2.501,
+        -0.374,
+        1.571,
+        -2.324
+      ],
+      "cycles": 2,
+      "tool_idx": 2
+    }
+  }
+}

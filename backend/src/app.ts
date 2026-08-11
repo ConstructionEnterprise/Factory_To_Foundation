@@ -10,6 +10,7 @@ import cors from "@fastify/cors";
 import { ZodError } from "zod";
 
 import { healthRoutes } from "./routes/health";
+import { systemRoutes } from "./routes/system";
 import { constructionSiteRoutes } from "./routes/constructionSites";
 import { projectFileRoutes } from "./routes/projectFiles";
 import { logisticsDocumentRoutes } from "./routes/logisticsDocuments";
@@ -118,6 +119,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(healthRoutes);
+  await app.register(systemRoutes);
   await app.register(authRoutes);
   await app.register(constructionSiteRoutes);
   await app.register(projectFileRoutes);

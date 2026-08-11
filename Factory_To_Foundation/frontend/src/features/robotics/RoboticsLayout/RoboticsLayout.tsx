@@ -9,6 +9,7 @@ import { usePermission } from "@/context/AuthContext";
 import { useTwinState, type TwinState } from "@/features/factory/useTwinState";
 import { dispatchOne } from "@/features/factory/twinExecute";
 import { RobotArm } from "@/features/factory/RobotArm";
+import { authFetch } from "@/lib/authFetch";
 import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 import { ROBOT_NAMES, type RobotName } from "../roboticsData";
@@ -31,9 +32,8 @@ import { ROBOT_NAMES, type RobotName } from "../roboticsData";
  */
 async function postCommandFast(command: string, params: Record<string, unknown>): Promise<boolean> {
   try {
-    const res = await fetch(`${TWIN_BRIDGE_URL}/twin-command`, {
+    const res = await authFetch(`${TWIN_BRIDGE_URL}/twin-command`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command, params }),
     });

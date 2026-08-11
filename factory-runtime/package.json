@@ -1,0 +1,11 @@
+{
+  "name": "ff-factory-runtime",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Factory Runtime — successor to twin-bridge/, per ADR-001-factory-runtime-twin-lifecycle.md and FACTORY-RUNTIME-MIGRATION-PLAN.md (Factory_To_Foundation/frontend/). Owns the CE Twin's operational lifecycle end to end (invariant #2/#9); twin-bridge is not deleted and stays the authoritative owner until cutover (migration plan §7). Same real-auth dependency shape as twin-bridge — `jose` for JWT verification, matching the backend's own library rather than hand-rolling it.",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "jose": "^6.2.4"
+  }
+}

@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { aabbsOverlap, mergeAabbs, primAabb, testBodies, type Aabb } from "./collisionEngine";
 import { buildCollisionBodies, isExcludedPair, pairKey, type CollisionBody } from "./collisionGeometry";
 import type { TwinState } from "./useTwinState";
+import { authFetch } from "@/lib/authFetch";
 import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 /**
@@ -198,7 +199,7 @@ function processFrame(state: TwinState) {
 
 async function poll() {
   try {
-    const res = await fetch(BRIDGE_URL, { credentials: "include" });
+    const res = await authFetch(BRIDGE_URL);
     if (!res.ok) throw new Error(`bridge ${res.status}`);
     const state = (await res.json()) as TwinState;
     if (state.frame === snapshot.lastFrame) {

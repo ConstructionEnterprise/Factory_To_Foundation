@@ -1,21 +1,22 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { GizmoHelper, GizmoViewcube, Line, OrbitControls, PerspectiveCamera, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-import { Legend, PanelCard } from "@/framework/ui";
+import { DetailRow, Legend, PanelCard, useSystemReadiness } from "@/framework/ui";
 import { useSelection } from "@/context/SelectionContext";
 import { usePermission } from "@/context/AuthContext";
 import { TWIN_BRIDGE_URL } from "@/lib/env";
 
 import { translateManifest, type LiveFactoryNode, type FactoryStatus } from "../twinTranslator";
 import { useTwinManifest } from "../useTwinManifest";
-import { useTwinState, type TwinState } from "../useTwinState";
+import { useTwinState, type TwinState, type TwinEstopReason } from "../useTwinState";
 import { RobotArm } from "../RobotArm";
 import { useTwinControl, type UseTwinControlResult } from "../useTwinControl";
 import { dispatchOne } from "../twinExecute";
-import { startCollisionMonitor, useCollisionSnapshot } from "../collisionStore";
+import { startCollisionMonitor, useCollisionSnapshot, type CollisionEvent } from "../collisionStore";
 import { ROBOT_RAIL_Y, reachEnvelopeCenter } from "../collisionGeometry";
 import {
   ATC,
@@ -867,10 +868,317 @@ function RunSimulationButton({
   );
 }
 
+/**
+ * Shared open/close/positioning mechanics for every Viewport Ribbon
+ * disclosure control (Current State, Collisions) — factored out once a
+ * second consumer genuinely needed the exact same behavior, not
+ * speculatively. Popover content is meant to be portaled to
+ * document.body by the caller (see ViewportPopoverPanel below):
+ * this viewport lives inside a react-resizable-panels Panel
+ * (FactoryWorkspace.tsx), which clips overflowing descendants for its
+ * own resize/collapse behavior — a plain nested `position: absolute`
+ * popover (DropdownMenu's own pattern, fine for CommandRibbon since
+ * that one sits outside any resizable panel) gets its lower half
+ * silently clipped in this container. Confirmed live before switching
+ * approaches, not assumed.
+ */
+function useViewportPopover() {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  function toggle() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen((v) => !v);
+  }
+
+  return { open, anchor, triggerRef, popoverRef, toggle };
+}
+
+function ViewportPopoverPanel({
+  popoverRef,
+  anchor,
+  width = "16rem",
+  children,
+}: {
+  popoverRef: React.RefObject<HTMLDivElement | null>;
+  anchor: { top: number; right: number };
+  width?: string;
+  children: ReactNode;
+}) {
+  return createPortal(
+    <div
+      ref={popoverRef}
+      className="fixed z-30 max-h-[70vh] max-w-[calc(100vw-2rem)] overflow-y-auto p-3"
+      style={{
+        top: anchor.top,
+        right: anchor.right,
+        width,
+        background: "var(--ff-panel-bg)",
+        border: "var(--ff-border-width) solid var(--ff-panel-border)",
+        borderRadius: "var(--ff-radius)",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
+
+/**
+ * The Viewport Ribbon's own diagnostic control — backed by GET
+ * /system/ready (useSystemReadiness, framework/ui), the same
+ * authoritative composition AppLayout's own SystemReadinessBanner
+ * already uses. Replaces the old useTwinState().connected-driven "Live
+ * Twin Data"/"Twin Offline" badge outright, rather than wrapping it:
+ * that signal was demonstrated live to go stale (stuck reporting live
+ * twin data for minutes after /system/ready correctly flagged the twin
+ * as stalled — same underlying poll loop `state` below still uses for
+ * everything else in this file, disclosed, not silently trusted here).
+ * Frame/PID still come from useTwinControl, a separate, not-implicated
+ * poll loop — unchanged from how RunSimulationButton already reads them.
+ *
+ * The static color legend (what Running/Idle/Down/No Live Data mean on
+ * the 3D scene's own per-robot status dots) lives in this same popover
+ * now — visualization semantics, not diagnostic state, so it doesn't
+ * belong in the summary pill, but still needs a home now that the old
+ * always-visible legend row is gone from the ribbon itself.
+ */
+function CurrentStateControl({ pid, frame }: { pid: number | null | undefined; frame: number | null | undefined }) {
+  const readiness = useSystemReadiness();
+  const { open, anchor, triggerRef, popoverRef, toggle } = useViewportPopover();
+
+  const twinStateLabel = readiness.twin.paused
+    ? "Paused (Ready)"
+    : readiness.twin.stateAdvancing
+      ? "Advancing"
+      : "Stalled";
+
+  return (
+    <div className="ml-auto">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+        style={
+          readiness.ready
+            ? { background: "var(--ff-status-positive)", color: "white" }
+            : { background: "var(--ff-status-critical)", color: "white" }
+        }
+      >
+        Current State — {readiness.ready ? "Ready" : "Not Ready"}
+      </button>
+      {open && anchor && (
+        <ViewportPopoverPanel popoverRef={popoverRef} anchor={anchor}>
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ff-text-muted)" }}>
+            Current State
+          </div>
+          <DetailRow label="System" value={readiness.ready ? "Ready" : "Not Ready"} />
+          <DetailRow label="Twin Bridge" value={readiness.twin.bridgeReachable ? "Connected" : "Unreachable"} />
+          <DetailRow label="Twin Driver" value={readiness.twin.driverAlive ? "Alive" : "Not running"} />
+          <DetailRow label="Twin State" value={twinStateLabel} />
+          <DetailRow label="Frame" value={frame != null ? String(frame) : "—"} />
+          <DetailRow label="PID" value={pid != null ? String(pid) : "—"} />
+          {!readiness.ready && readiness.reasons.length > 0 && (
+            <div className="mt-1 text-xs font-medium" style={{ color: "var(--ff-status-critical)" }}>
+              {readiness.reasons.join("; ")}
+            </div>
+          )}
+          <div className="my-2" style={{ borderTop: "var(--ff-border-width) solid var(--ff-panel-border)" }} />
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ff-text-muted)" }}>
+            Viewport Legend
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Legend color="var(--ff-status-positive)" label="Running" />
+            <Legend color="var(--ff-status-warning)" label="Idle" />
+            <Legend color="var(--ff-status-critical)" label="Down" />
+            <Legend color="var(--ff-text-muted)" label="No Live Data" />
+          </div>
+        </ViewportPopoverPanel>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One collision record's real, non-fabricated fields — deliberately the
+ * same vocabulary Reports' CollisionReportCard already uses
+ * (Subsystems/Frames/Duration/Max Penetration/Status), not a second
+ * presentation invented for this control. No "Location"/"Severity" rows:
+ * collisionEngine.ts's testBodies()/testPrims() never compute or retain
+ * a contact-point coordinate or a severity classification — only an
+ * intersection boolean and a penetration/separation depth. Showing
+ * fields that don't exist would be fabrication, not diagnosis.
+ */
+function CollisionRecordRow({ event }: { event: CollisionEvent }) {
+  return (
+    <div className="py-2" style={{ borderTop: "var(--ff-border-width) solid var(--ff-panel-border)" }}>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-semibold" style={{ color: "var(--ff-text-primary)" }}>
+          {event.a} × {event.b}
+        </span>
+        <span
+          className="rounded-full px-2 py-0.5 text-[0.65rem] font-medium"
+          style={
+            event.persistent
+              ? { background: "var(--ff-status-critical)", color: "white" }
+              : { background: "var(--ff-status-warning)", color: "white" }
+          }
+        >
+          {event.persistent ? "Persistent" : "Transient"}
+        </span>
+      </div>
+      <DetailRow label="Frames" value={`${event.startFrame}–${event.endFrame}`} />
+      <DetailRow label="Duration" value={`${event.endFrame - event.startFrame} ticks (${event.samples} observed)`} />
+      <DetailRow label="Max Penetration" value={`${(event.maxPenetration * 1000).toFixed(1)} mm`} />
+    </div>
+  );
+}
+
+/**
+ * The Viewport Ribbon's collision disclosure control — real records
+ * behind the count, not a second readiness system. Deliberately scoped
+ * to ONGOING events (matches what the collapsed count already claims);
+ * the full session log, including resolved events, already has a real
+ * home in Reports' Collision Report card — this isn't a second copy of
+ * that log, just the live-right-now picture relevant to this viewport.
+ *
+ * The estop-reason banner below is the one place this control asserts
+ * causality, and only when the twin's own real `_estop_reason` says so
+ * (CE_Integrated_Cell_V3_0-6.py: `_estop_reason = {"source":
+ * "auto_collision", "pair": [...], "penetration_mm": ..., ...}`, set
+ * when a body pair's penetration streak reaches
+ * PERSISTENT_COLLISION_TICKS — a real, twin-side threshold, a different
+ * "persistent" than this frontend's own snapshot-based flag on
+ * CollisionEvent). That's the twin's own authoritative self-report, not
+ * an inference this UI is making — labeled as such, and only the named
+ * pair is described as the cause; any other concurrently-observed
+ * persistent contact is listed below it as merely observed, not implied
+ * causal.
+ */
+/** Explicit type predicate, not inline narrowing — TwinEstopReason's disclosed catch-all member (`source: string`) is structurally compatible with the literal "auto_collision" check too, so plain narrowing can't tell the two apart and TS falls back to `unknown` field types. An explicit `is` predicate asserts the real shape once, here, rather than fighting that at every call site. */
+function isAutoCollisionEstop(
+  reason: TwinEstopReason | null | undefined
+): reason is Extract<TwinEstopReason, { source: "auto_collision" }> {
+  return reason?.source === "auto_collision" && "pair" in reason && "penetration_mm" in reason && "frame" in reason;
+}
+
+function CollisionsControl({ estopReason }: { estopReason: TwinEstopReason | null | undefined }) {
+  const collision = useCollisionSnapshot();
+  const { open, anchor, triggerRef, popoverRef, toggle } = useViewportPopover();
+
+  if (!collision.monitoring) return null;
+
+  const persistentEvents = collision.events.filter((e) => e.ongoing && e.persistent);
+  const transientEvents = collision.events.filter((e) => e.ongoing && !e.persistent);
+  const hasPersistent = persistentEvents.length > 0;
+  const hasTransient = transientEvents.length > 0;
+
+  const label =
+    hasPersistent && hasTransient
+      ? `⚠ Collisions — ${persistentEvents.length} Persistent · ${transientEvents.length} Transient`
+      : hasPersistent
+        ? `⚠ Collisions — ${persistentEvents.length} Persistent`
+        : hasTransient
+          ? `Collisions — ${transientEvents.length} Transient`
+          : "Collisions";
+
+  const collisionCausedEstop = isAutoCollisionEstop(estopReason) ? estopReason : null;
+
+  return (
+    <div>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+        style={
+          hasPersistent
+            ? { background: "var(--ff-status-critical)", color: "white" }
+            : hasTransient
+              ? { background: "var(--ff-status-warning)", color: "white" }
+              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
+        }
+      >
+        {label}
+      </button>
+      {open && anchor && (
+        <ViewportPopoverPanel popoverRef={popoverRef} anchor={anchor} width="18rem">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ff-text-muted)" }}>
+            Collisions
+          </div>
+
+          {collisionCausedEstop && (
+            <div
+              className="mb-2 rounded-[0.2rem] p-2 text-xs"
+              style={{ background: "var(--ff-status-critical)", color: "white" }}
+            >
+              <div className="font-semibold">Twin reports: estop caused by this collision</div>
+              <div className="mt-0.5">
+                {collisionCausedEstop.pair[0]} ↔ {collisionCausedEstop.pair[1]} ·{" "}
+                {collisionCausedEstop.penetration_mm.toFixed(1)} mm · frame {collisionCausedEstop.frame}
+              </div>
+              <div className="mt-1 text-[0.65rem] opacity-90">
+                The twin's own real _estop_reason, not inferred by this UI.
+              </div>
+            </div>
+          )}
+
+          {!hasPersistent && !hasTransient && (
+            <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+              No collisions observed across {collision.checkedSnapshots} checked snapshot
+              {collision.checkedSnapshots === 1 ? "" : "s"}.
+            </p>
+          )}
+
+          {persistentEvents.map((event) => (
+            <CollisionRecordRow key={event.id} event={event} />
+          ))}
+          {transientEvents.map((event) => (
+            <CollisionRecordRow key={event.id} event={event} />
+          ))}
+
+          <p className="mt-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+            Ongoing contacts only — the full session log (including resolved events) is in Reports' Collision
+            Report.
+          </p>
+        </ViewportPopoverPanel>
+      )}
+    </div>
+  );
+}
+
 export default function FactoryGeometryViewport() {
   const { selected, setSelected } = useSelection();
   const { connected: manifestConnected, manifest } = useTwinManifest();
-  const { connected: twinLive, state } = useTwinState();
+  const { state } = useTwinState();
   const collision = useCollisionSnapshot();
   const twinControl = useTwinControl();
   const [showReach, setShowReach] = useState(false);
@@ -884,41 +1192,54 @@ export default function FactoryGeometryViewport() {
     startCollisionMonitor();
   }, []);
 
+  // Manifest = Digital Twin membership. Live state = pose/status enrichment.
+  // Loss of live connectivity must change confidence, not membership --
+  // confirmed live this session that the twin's own manifest already has
+  // no static/dynamic distinction (cell_manifest.json is 13 flat, equal
+  // entries); the prior disappearing-on-disconnect behavior was purely an
+  // FF rendering artifact, not anything CE's model implies.
+  //
+  // lastKnownStateRef caches the most recent REAL (non-null) state across
+  // a disconnect -- deliberately local to this component, not inside
+  // useTwinState.ts itself, so that hook's own null-on-disconnect
+  // behavior (relied on elsewhere, e.g. RunSimulationButton/
+  // CollisionsControl below, which must react to a genuine live
+  // disconnect, not a cached one) stays completely untouched. Only
+  // renderState -- fed to FactoryScene's 3D geometry, and nothing else --
+  // falls back to the cache. If the twin has never once reported state
+  // since this component mounted, the cache stays null and the affected
+  // subsystems render nothing: there is no honest pose to draw yet, and
+  // none is invented. liveNodes (below) is deliberately left on the raw
+  // `state`, not renderState -- its own existing "unknown" fallback
+  // (twinTranslator.ts's resolveLiveFields) is already the correct,
+  // already-built way this codebase expresses "connection lost" per
+  // subsystem, via SubsystemGroup's existing status-outline color, with
+  // no new uncertainty UI invented here.
+  const lastKnownStateRef = useRef<TwinState | null>(null);
+  if (state) lastKnownStateRef.current = state;
+  const renderState = state ?? lastKnownStateRef.current;
+
   const liveNodes: LiveFactoryNode[] = manifestConnected && manifest ? translateManifest(manifest, state) : [];
   const selectedId = selected?.feature === "factory" ? selected.objectId : undefined;
 
   const collidingIds = useMemo(() => new Set(collision.activeContactIds), [collision.activeContactIds]);
   const selectedRobot = selectedId?.startsWith("robots.") ? selectedId.split(".")[1] : null;
   const reachRobot = showReach && selectedRobot ? selectedRobot : null;
-  // Transient events are the signal; persistent by-construction contacts
-  // (real, but present since monitoring began) are counted separately so
-  // the badge doesn't sit permanently red — see the Reports split.
-  const transientCount = collision.events.filter((e) => e.ongoing && !e.persistent).length;
-  const persistentCount = collision.events.filter((e) => e.ongoing && e.persistent).length;
 
   return (
     <PanelCard title="Factory Digital Twin" className="h-full" bodyClassName="flex flex-col flex-1">
+      {/*
+        Viewport Ribbon — formally named now that this row has accumulated
+        real controls beyond a simple title bar (simulation run/reset,
+        camera aids, collision status, and now the Current State
+        diagnostic). Distinct from the app-level Command Ribbon
+        (Metrics | Filters | Instructions, FactoryToolbar) above this
+        page — that one stays untouched; this one belongs to the Factory
+        Digital Twin viewport specifically and travels with it.
+      */}
       <div className="flex flex-wrap items-center gap-6 px-6 py-4 border-b border-gray-100">
         <RunSimulationButton twinControl={twinControl} paused={state?.paused} manuallyMoved={state?._manually_moved} />
-        <Legend color="var(--ff-status-positive)" label="Running" />
-        <Legend color="var(--ff-status-warning)" label="Idle" />
-        <Legend color="var(--ff-status-critical)" label="Down" />
-        <Legend color="var(--ff-text-muted)" label="No Live Data" />
-        {collision.monitoring && (
-          <span
-            className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-            style={
-              transientCount > 0
-                ? { background: "var(--ff-status-critical)", color: "white" }
-                : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
-            }
-            title={`Real geometric checking of every written twin snapshot — ${persistentCount} persistent by-construction contact${persistentCount === 1 ? "" : "s"} tracked separately; see Reports for the full run log`}
-          >
-            {transientCount > 0
-              ? `⚠ ${transientCount} transient collision${transientCount === 1 ? "" : "s"}`
-              : `Collisions: 0 transient · ${persistentCount} persistent (${collision.checkedSnapshots} snapshots)`}
-          </span>
-        )}
+        <CollisionsControl estopReason={state?._estop_reason} />
         <button
           type="button"
           onClick={() => setShowReach((v) => !v)}
@@ -963,17 +1284,7 @@ export default function FactoryGeometryViewport() {
         >
           View Cube
         </button>
-        <span
-          className="ml-auto rounded-full px-2.5 py-0.5 text-xs font-medium"
-          style={
-            twinLive
-              ? { background: "var(--ff-status-positive)", color: "white" }
-              : { background: "var(--ff-chrome-bg)", color: "var(--ff-text-muted)" }
-          }
-          title={twinLive ? undefined : "Driver not confirmed live — frame not observed advancing"}
-        >
-          {twinLive ? "Live Twin Data" : "Twin Offline"}
-        </span>
+        <CurrentStateControl pid={twinControl.control?.pid} frame={twinControl.control?.frame} />
       </div>
 
       <div className="relative flex-1" style={{ background: "var(--ff-content-bg)" }}>
@@ -983,7 +1294,7 @@ export default function FactoryGeometryViewport() {
           <directionalLight position={[-20, 20, -20]} intensity={0.4} />
           <FactoryScene
             liveNodes={liveNodes}
-            state={state}
+            state={renderState}
             selectedId={selectedId}
             setSelected={setSelected}
             collidingIds={collidingIds}
