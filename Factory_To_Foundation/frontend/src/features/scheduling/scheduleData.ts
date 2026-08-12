@@ -138,6 +138,30 @@ export const scheduleNodes: ScheduleNodeData[] = [
   },
 ];
 
+/**
+ * Composition layer above the function-block graph, not a replacement of
+ * it — a Schedule is an ordered reference to existing stages, never a copy
+ * of one. Phase 1: fixture only, one hand-authored Schedule 1 using all 5
+ * real stages in pipeline order (real SQL parent-of-stages model land
+ * later, once this interaction shape is proven — see scheduling
+ * architecture discussion, 2026-08-12). Order is the array's own position,
+ * matching how scheduleWires already encodes sequence without a separate
+ * field.
+ */
+export type ScheduleDefinition = {
+  id: string;
+  title: string;
+  stepStageIds: string[];
+};
+
+export const schedules: ScheduleDefinition[] = [
+  {
+    id: "schedule-1",
+    title: "Schedule 1",
+    stepStageIds: scheduleNodes.map((n) => n.id),
+  },
+];
+
 export function getScheduleBounds(): Bounds {
   const xs = scheduleNodes.flatMap((n) => [n.x, n.x + n.width]);
   const ys = scheduleNodes.flatMap((n) => [n.y, n.y + n.height]);
