@@ -16,6 +16,17 @@ const TWIN_BRIDGE_URL = process.env.TWIN_BRIDGE_URL ?? "http://localhost:4100";
 // Absent locally, where factory-runtime has no such check.
 const TWIN_BRIDGE_ORIGIN_VERIFY = process.env.TWIN_BRIDGE_ORIGIN_VERIFY;
 
+// Self-reported environment identity — added after the 2026-08-11/12
+// shared-dev/prod-database incident (CE_Forge/ENVIRONMENT.md has the full
+// record): nothing let a client ask "which database am I actually talking
+// to" before writing, so a locally-running process pointed at the real
+// prod RDS instance looked indistinguishable from a safe dev target.
+// Deliberately fails closed, never guessed: unset reports "unknown", not
+// "development" or "production" — a caller that requires an exact match
+// (e.g. CE Forge's own preflight) aborts on anything but the value it
+// explicitly expects, including "unknown".
+const FF_TARGET_ENV = process.env.FF_TARGET_ENV ?? "unknown";
+
 // Real timeout, not indefinite — an unreachable twin-bridge must not make
 // /system/ready itself hang. 2s comfortably exceeds twin-bridge's own
 // 100ms poll cadence many times over; a real, live bridge always answers
@@ -78,6 +89,7 @@ export async function systemRoutes(app: FastifyInstance) {
     return {
       ready,
       backend: { reachable: true },
+      environment: FF_TARGET_ENV,
       twin,
       reasons,
     };
