@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 .env
+# Covers every ad-hoc local variant, not just ".env" exactly -- see
+# backend/.gitignore for the same fix and why. .env.example and
+# .env.production are both real, intended to be tracked.
+.env.*
+!.env.example
+!.env.production
 
 # Editor directories and files
 .vscode/*

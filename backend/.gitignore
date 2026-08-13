@@ -1,5 +1,12 @@
 node_modules/
 dist/
 .env
+# Covers every ad-hoc local variant (.env.local, .env.sandbox, any
+# .env.<temp-name> created for a one-off local process) -- exact ".env"
+# alone doesn't match these. Real secrets have leaked into "should be
+# gitignored" gaps like this before; .env.example is the one dotenv
+# variant meant to be tracked, explicitly un-ignored below.
+.env.*
+!.env.example
 credentials.local.json
 generated/
