@@ -1201,10 +1201,35 @@ enum SyntheticDataSource {
   CE_FORGE
 }
 
+/// Only meaningful for provenance rows tagging a record with actual binary
+/// content elsewhere (e.g. ProjectFile's S3 object) -- most tagged records
+/// (ScheduleTask, LogisticsDispatch, ...) have no content to have a status
+/// about, hence nullable, not required, on the row itself.
+/// RECOVERED = original bytes found and verified.
+/// RECONSTRUCTED = new bytes generated from the record's own authoritative
+/// metadata, honestly not a claim of matching the lost original.
+/// GENERATED = content created together with the record from the start,
+/// never claimed to be anything else.
+enum SyntheticDataContentStatus {
+  RECOVERED
+  RECONSTRUCTED
+  GENERATED
+}
+
 model SyntheticDataProvenance {
   id String @id @default(cuid())
 
   source SyntheticDataSource
+
+  contentStatus      SyntheticDataContentStatus? @map("content_status")
+  /// When the content (not necessarily the record itself) was produced --
+  /// distinct from generatedAt, which is about the record.
+  contentGeneratedAt DateTime?                    @map("content_generated_at")
+  /// Free-text description of what produced the content (e.g. "CE Forge
+  /// reconstruction pass (backend/scripts/reconstruct-construction-content.ts)")
+  /// -- not an enum, since this is meant to be human-readable provenance,
+  /// not a closed vocabulary.
+  contentGenerator   String?                      @map("content_generator")
 
   /// A named body of synthetic data this record belongs to (e.g. one pilot
   /// customer's dataset) -- distinct from runId: one dataset can be built
