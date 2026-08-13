@@ -29,6 +29,8 @@ import { userManagementRoutes } from "./routes/users";
 import { complianceDocumentRoutes } from "./routes/complianceDocuments";
 import { scheduleTaskRoutes } from "./routes/scheduleTasks";
 import { networkRoutes } from "./routes/network";
+import { syntheticDataProvenanceRoutes } from "./routes/syntheticDataProvenance";
+import { assetRoutes } from "./routes/assets";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
@@ -139,6 +141,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(complianceDocumentRoutes);
   await app.register(scheduleTaskRoutes);
   await app.register(networkRoutes);
+  await app.register(syntheticDataProvenanceRoutes);
+  await app.register(assetRoutes);
 
   return app;
 }

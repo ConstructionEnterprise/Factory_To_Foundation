@@ -2,9 +2,9 @@ import { useSelection } from "@/context/SelectionContext";
 import { Legend, PanelCard } from "@/framework/ui";
 import { EntityCanvas, Viewport, ViewportControls } from "@/framework/viewport";
 
-import { assetNodes, getAssetsBounds, toEntityNode } from "../assetsData";
+import { formatAssetDate, getAssetsBounds, toEntityNode, type AssetNodeData } from "../assetsData";
 
-export default function AssetsMap() {
+export default function AssetsMap({ assetNodes }: { assetNodes: AssetNodeData[] }) {
   const { selected, setSelected } = useSelection();
   const selectedId = selected?.feature === "assets" ? selected.objectId : undefined;
 
@@ -17,22 +17,36 @@ export default function AssetsMap() {
       </div>
 
       <div className="relative flex-1">
-        <Viewport contentBounds={getAssetsBounds()}>
+        <Viewport contentBounds={getAssetsBounds(assetNodes)}>
           <EntityCanvas
             nodes={assetNodes.map(toEntityNode)}
             selectedId={selectedId}
             onSelectNode={(entityNode) => {
-              const node = assetNodes.find((n) => n.id === entityNode.id);
-              if (!node) return;
-              setSelected({
-                feature: "assets",
-                objectType: node.subtitle,
-                objectId: node.id,
-                payload: { name: node.title, category: node.category, status: node.status, lastService: node.lastService },
-              });
-            }}
-          />
-          <ViewportControls />
+          const node = assetNodes.find((n) => n.id === entityNode.id);
+          if (!node) return;
+          setSelected({
+            feature: "assets",
+            objectType: node.family,
+            objectId: node.id,
+            payload: {
+              name: node.title,
+              family: node.family,
+              category: node.category,
+              status: node.status,
+              location: node.location,
+              manufacturer: node.manufacturer,
+              model: node.model,
+              serialNumber: node.serialNumber,
+              assetTag: node.assetTag,
+              acquisitionDate: formatAssetDate(node.acquisitionDate),
+              lastService: formatAssetDate(node.lastService),
+              nextService: formatAssetDate(node.nextService),
+              notes: node.notes,
+            },
+          });
+        }}
+      />
+      <ViewportControls />
         </Viewport>
       </div>
     </PanelCard>

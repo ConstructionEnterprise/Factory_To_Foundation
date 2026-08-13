@@ -29,8 +29,17 @@ export default function AssetsInspector() {
       </div>
 
       <div className="mt-5 space-y-0.5">
+        <DetailRow label="Family" value={sel?.payload.family ?? "--"} />
         <DetailRow label="Category" value={sel?.payload.category ?? "--"} />
+        <DetailRow label="Location" value={sel?.payload.location ?? "--"} />
+        <DetailRow label="Manufacturer" value={sel?.payload.manufacturer ?? "--"} />
+        <DetailRow label="Model" value={sel?.payload.model ?? "--"} />
+        <DetailRow label="Serial Number" value={sel?.payload.serialNumber ?? "--"} />
+        <DetailRow label="Asset Tag" value={sel?.payload.assetTag ?? "--"} />
+        <DetailRow label="Acquired" value={sel?.payload.acquisitionDate ?? "--"} />
         <DetailRow label="Last Service" value={sel?.payload.lastService ?? "--"} />
+        <DetailRow label="Next Service" value={sel?.payload.nextService ?? "--"} />
+        <DetailRow label="Notes" value={sel?.payload.notes ?? "--"} />
       </div>
     </PanelCard>
   );

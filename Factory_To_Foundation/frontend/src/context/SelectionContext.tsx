@@ -117,9 +117,19 @@ export type SchedulePayload = {
 
 export type AssetsPayload = {
   name: string;
+  family: string;
   category: string;
   status: "active" | "maintenance" | "retired";
+  location: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  assetTag: string;
+  acquisitionDate: string;
   lastService: string;
+  /** Real absence, never a placeholder string -- null for a retired asset with no next service scheduled. */
+  nextService: string | null;
+  notes: string | null;
 };
 
 /**

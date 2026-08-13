@@ -1131,3 +1131,109 @@ model NetworkDevice {
   @@index([uplinkDeviceId])
   @@map("network_device")
 }
+
+// ───────────────────── Assets ─────────────────────
+// Closes a real gap, not a new invention: RBAC's own MODULES list already
+// seeds a real "assets" module with real per-role permission grants
+// (backend/prisma/seed.ts) -- this model and its routes are what was
+// missing underneath a module that already existed. Field set mirrors the
+// frontend's own assetsData.ts fixture exactly (30 real Codex-generated
+// asset definitions, 2026-08-12) -- every field there has a home here,
+// nothing invented, nothing dropped.
+enum AssetStatus {
+  active
+  maintenance
+  retired
+}
+
+enum AssetCategory {
+  Vehicles
+  Equipment
+  Tools
+  Infrastructure
+}
+
+model Asset {
+  id String @id @default(cuid())
+
+  title    String
+  subtitle String
+  category AssetCategory
+  family   String
+  status   AssetStatus
+
+  manufacturer String
+  model        String
+  /// Real unique hardware identifier -- matches the fixture's own
+  /// per-asset uniqueness (never two rows share one).
+  serialNumber String @unique @map("serial_number")
+  /// Real unique CE-internal tag (e.g. "CE-VEH-001") -- same uniqueness
+  /// discipline as serialNumber, distinct namespace.
+  assetTag     String @unique @map("asset_tag")
+
+  location        String
+  acquisitionDate DateTime  @map("acquisition_date")
+  lastService     DateTime  @map("last_service")
+  /// Null is the real, honest state for a retired asset with no next
+  /// service scheduled -- the fixture's "N/A" becomes real null here,
+  /// never a placeholder string (same discipline as
+  /// ScheduleStage.ownedByModuleId, ScheduleTask.actualStart, etc.).
+  nextService     DateTime? @map("next_service")
+
+  notes String?
+
+  @@map("asset")
+}
+
+// ───────────────────── Synthetic Data Provenance ─────────────────────
+// Universal, source-agnostic tag: "this record was generated, not real."
+// Deliberately a single side table referenced by (recordType, recordId)
+// rather than a column added to every domain model — CE Forge (and any
+// future synthetic-data source) gains new domains constantly, and this
+// table's whole point is that a new domain never needs its own migration
+// just to become provenance-capable. Cost of that choice, accepted
+// deliberately: recordId is NOT a real FK (Prisma can't express a
+// polymorphic relation across many unrelated tables) -- integrity here is
+// an application-layer concern (the CE Forge -> FF write path), not a
+// database one. Never read by, or exposed through, any normal FF
+// domain route/DTO -- this is metadata beside the data, not part of it.
+enum SyntheticDataSource {
+  CE_FORGE
+}
+
+model SyntheticDataProvenance {
+  id String @id @default(cuid())
+
+  source SyntheticDataSource
+
+  /// A named body of synthetic data this record belongs to (e.g. one pilot
+  /// customer's dataset) -- distinct from runId: one dataset can be built
+  /// up across many separate generator runs over time.
+  datasetId String @map("dataset_id")
+  /// One real invocation of one generator -- the unit "undo everything
+  /// this run created" operates on.
+  runId     String @map("run_id")
+  /// CE Forge's own domain name (e.g. "logistics", "scheduling") -- kept
+  /// as a plain string, not an FK to anything FF-side and not an enum,
+  /// for the same reason recordId has no FK: CE Forge's domain list is
+  /// this project's own evolving taxonomy, not FF's.
+  domain    String
+
+  /// Real Prisma model name (e.g. "ScheduleTask", "LogisticsDispatch").
+  recordType String @map("record_type")
+  /// The real id of the tagged row in its own table.
+  recordId   String @map("record_id")
+
+  /// When the generator produced this record (may predate this row's own
+  /// creation -- e.g. a batch written to a log before being posted).
+  generatedAt DateTime @map("generated_at")
+  /// When this provenance row itself was written -- real audit distinction
+  /// from generatedAt, same convention as ScheduleTaskStatusEvent.changedAt
+  /// vs. the status transition it records.
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([runId])
+  @@index([datasetId])
+  @@index([recordType, recordId])
+  @@map("synthetic_data_provenance")
+}
