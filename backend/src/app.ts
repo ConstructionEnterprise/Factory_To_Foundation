@@ -120,29 +120,54 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.code(500).send({ error: "Internal server error", message: err instanceof Error ? err.message : String(err) });
   });
 
+  // /health stays unprefixed permanently, not part of the §31 /api
+  // migration below -- ff-backend-tg-443's own target group health check
+  // hits this exact path directly (confirmed via AWS: HealthCheckPath
+  // "/health"), not through CloudFront/the app-level namespace at all.
+  // Moving it would require a coordinated target-group change, a separate,
+  // deliberate infra decision outside this namespace migration's scope.
   await app.register(healthRoutes);
-  await app.register(systemRoutes);
+
+  // §31 API Namespace Rule migration, compatibility window: every
+  // application route is mounted at BOTH its existing bare path (unchanged
+  // behavior, still what CloudFront/nginx route to today) and the new
+  // canonical /api/* path (not yet reachable from outside until CloudFront
+  // §31.4 Phase 4 is done). Bare-path registrations are removed only in a
+  // later, separately-authorized cleanup phase -- this dual-mount is what
+  // "preserve existing production behavior until /api/* is proven" means
+  // in code. authRoutes takes an explicit basePath since Fastify prefixes
+  // route paths automatically but never touches manually-set cookie paths.
+  const namespacedPlugins = [
+    systemRoutes,
+    constructionSiteRoutes,
+    projectFileRoutes,
+    logisticsDocumentRoutes,
+    logisticsTruckRoutes,
+    logisticsDriverRoutes,
+    logisticsDispatchRoutes,
+    logisticsMaterialRoutes,
+    logisticsModuleRoutes,
+    mileageRateRoutes,
+    logisticsKpiRoutes,
+    manufacturingModelRoutes,
+    instructionExecutionRoutes,
+    userPreferenceRoutes,
+    rbacDirectoryRoutes,
+    userManagementRoutes,
+    complianceDocumentRoutes,
+    scheduleTaskRoutes,
+    networkRoutes,
+    syntheticDataProvenanceRoutes,
+    assetRoutes,
+  ];
+
   await app.register(authRoutes);
-  await app.register(constructionSiteRoutes);
-  await app.register(projectFileRoutes);
-  await app.register(logisticsDocumentRoutes);
-  await app.register(logisticsTruckRoutes);
-  await app.register(logisticsDriverRoutes);
-  await app.register(logisticsDispatchRoutes);
-  await app.register(logisticsMaterialRoutes);
-  await app.register(logisticsModuleRoutes);
-  await app.register(mileageRateRoutes);
-  await app.register(logisticsKpiRoutes);
-  await app.register(manufacturingModelRoutes);
-  await app.register(instructionExecutionRoutes);
-  await app.register(userPreferenceRoutes);
-  await app.register(rbacDirectoryRoutes);
-  await app.register(userManagementRoutes);
-  await app.register(complianceDocumentRoutes);
-  await app.register(scheduleTaskRoutes);
-  await app.register(networkRoutes);
-  await app.register(syntheticDataProvenanceRoutes);
-  await app.register(assetRoutes);
+  await app.register(authRoutes, { prefix: "/api", basePath: "/api" });
+
+  for (const plugin of namespacedPlugins) {
+    await app.register(plugin);
+    await app.register(plugin, { prefix: "/api" });
+  }
 
   return app;
 }

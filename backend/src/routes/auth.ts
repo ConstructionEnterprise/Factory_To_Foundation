@@ -19,7 +19,11 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function setAuthCookies(reply: FastifyReply, tokens: { accessToken: string; refreshToken: string }) {
+function setAuthCookies(
+  reply: FastifyReply,
+  tokens: { accessToken: string; refreshToken: string },
+  refreshCookiePath: string
+) {
   reply.setCookie(ACCESS_TOKEN_COOKIE, tokens.accessToken, {
     httpOnly: true,
     sameSite: "lax",
@@ -31,23 +35,32 @@ function setAuthCookies(reply: FastifyReply, tokens: { accessToken: string; refr
     httpOnly: true,
     sameSite: "lax",
     secure: COOKIES_SECURE,
-    // Scoped to /auth only — this token never needs to leave the two
-    // routes that actually consume it, unlike the access token.
-    path: "/auth",
+    // Scoped to wherever /auth actually resolves for this registration —
+    // this token never needs to leave the two routes that consume it,
+    // unlike the access token. Fastify auto-prefixes route *paths* when a
+    // plugin is registered with { prefix }, but never touches manually-set
+    // cookie paths, so this has to be threaded through explicitly (§31
+    // /api migration — authRoutes is now mounted at both "" and "/api"
+    // during the compatibility window; a cookie set under one mount must
+    // never be scoped to the other's path, or refresh silently breaks for
+    // whichever mount didn't set it).
+    path: refreshCookiePath,
     maxAge: REFRESH_TOKEN_MAX_AGE_SEC,
   });
 }
 
-function clearAuthCookies(reply: FastifyReply) {
+function clearAuthCookies(reply: FastifyReply, refreshCookiePath: string) {
   reply.clearCookie(ACCESS_TOKEN_COOKIE, { path: "/" });
-  reply.clearCookie(REFRESH_TOKEN_COOKIE, { path: "/auth" });
+  reply.clearCookie(REFRESH_TOKEN_COOKIE, { path: refreshCookiePath });
 }
 
-export async function authRoutes(app: FastifyInstance) {
+export async function authRoutes(app: FastifyInstance, opts: { basePath?: string } = {}) {
+  const refreshCookiePath = `${opts.basePath ?? ""}/auth`;
+
   app.post("/auth/login", async (request, reply) => {
     const { email, password } = loginSchema.parse(request.body);
     const result = await authService.login(email, password);
-    setAuthCookies(reply, result);
+    setAuthCookies(reply, result, refreshCookiePath);
     reply.send({ user: result.user });
   });
 
@@ -58,14 +71,14 @@ export async function authRoutes(app: FastifyInstance) {
       return;
     }
     const result = await authService.refresh(raw);
-    setAuthCookies(reply, result);
+    setAuthCookies(reply, result, refreshCookiePath);
     reply.send({ user: result.user });
   });
 
   app.post("/auth/logout", async (request, reply) => {
     const raw = request.cookies[REFRESH_TOKEN_COOKIE];
     await authService.logout(raw);
-    clearAuthCookies(reply);
+    clearAuthCookies(reply, refreshCookiePath);
     reply.code(204).send();
   });
 
