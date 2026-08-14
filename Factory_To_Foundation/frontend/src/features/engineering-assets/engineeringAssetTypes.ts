@@ -84,12 +84,32 @@ export type MigrationClass =
   /** Already migrated and verified (currently: assembly_cell_v100 only). */
   | "piloted";
 
+/**
+ * Phase 3B result, added without touching any source file. Deliberately
+ * separate from the top-level EngineeringAssetStatus -- a verified PyVista
+ * render path is real, checkable progress, but it is not the same claim as
+ * "previewable" (no committed preview image exists yet) or "launchable"
+ * (no browser-loadable web asset exists; PyVista here renders off-screen
+ * in a desktop Python environment, not something a browser can load).
+ * Keep those distinct rather than promoting status just because this
+ * exists.
+ */
+export type PyvistaMigrationRecord = {
+  status: "verified" | "not-migrated";
+  /** Relative path within simulations-/simulations/engineering-recovery/pyvista-pilot/, e.g. "cr6_v8_0_engine.py". Undefined when status is "not-migrated". */
+  engineFile?: string;
+  rendererFile?: string;
+  /** Free-text account of what was actually checked -- not a pass/fail flag on its own. */
+  verifiedBy: string;
+};
+
 export type VisualizationRecord = {
   currentRenderer: LegacyRenderer;
   migrationClass?: MigrationClass;
   migrationNotes?: string;
   previewImageUrl?: string;
   browserAssetUrl?: string;
+  pyvista?: PyvistaMigrationRecord;
 };
 
 export type RuntimeStatus =

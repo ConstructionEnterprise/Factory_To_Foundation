@@ -1,11 +1,20 @@
 /**
- * Real catalog data for all 12 governed simulation directories (11 unique
- * files), populated directly from the Phase 1 engineering-recovery records
- * in ConstructionEnterprise/simulations-'s simulations/engineering-recovery/
- * -- not invented ahead of that material. No preview images or browser
- * assets exist yet for any entry (Phase 1/2/3A produced documentation and
- * one renderer pilot, not deployed web assets), so every `visualization`
- * block is honest about that rather than assuming a future state.
+ * Real catalog data for all 12 governed simulation directories (12 unique
+ * files), populated directly from the engineering-recovery records in
+ * ConstructionEnterprise/simulations-'s simulations/engineering-recovery/
+ * -- not invented ahead of that material.
+ *
+ * Phase 4.5 sync (post-Phase-3B): every entry except the protected
+ * ce-integrated-cell-v3-0-6 now has a verified PyVista renderer path
+ * (visualization.pyvista). That is real, checkable progress -- but it is
+ * deliberately NOT the same claim as `status: "previewable"` (no committed
+ * preview image exists in this repo yet, only real generated frames
+ * inspected during verification and left in a scratch location) or
+ * `status: "launchable"` (no browser-loadable web asset exists; PyVista
+ * here renders off-screen in a desktop Python environment). Top-level
+ * `status` intentionally stays `not_ready` for the 10 non-piloted entries
+ * until an actual preview asset is committed and referenced -- do not
+ * promote it just because the renderer works.
  *
  * Not wired into any route, page, or nav item yet -- data model only.
  */
@@ -37,6 +46,12 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       migrationClass: "piloted",
       migrationNotes: "Phase 2 pilot: SimulationEngine extracted verbatim (programmatic sed, not retyped) into a standalone file with zero pygame dependency; a new PyVista renderer was written against its existing snapshot() method. Ran 600 real steps, verified correct state-machine progression and a real assembled frame corner rendered in the PyVista output. Original source file never opened for writing.",
       previewImageUrl: undefined,
+      pyvista: {
+        status: "verified",
+        engineFile: "simulation_engine.py",
+        rendererFile: "pyvista_renderer.py",
+        verifiedBy: "600 real steps; correct state-machine progression; a real assembled frame corner (track+stud at a right angle) rendered on the fixture table by frame 600.",
+      },
     },
     verification: {
       engineeringRecoveryStatus: "recovered",
@@ -61,8 +76,18 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CR6_6Axis_V3_1_Corrected.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/CR6_6Axis/CR6_6Axis_V3_1_Corrected.py", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "C", migrationNotes: "No classes -- state is 14 module-level globals mutated directly inside the animation callback. Needs a real state/render separation before any renderer swap." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "none", knownLimitations: ["No stated units", "\"CR6\" not confirmed against a real datasheet"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "C",
+      migrationNotes: "No classes -- state was 14 module-level globals mutated directly inside the animation callback. Phase 3B reimplemented the same computation inside a new CR6Engine class (not extracted, since there was no class to extract).",
+      pyvista: {
+        status: "verified",
+        engineFile: "cr6_v3_1_engine.py",
+        rendererFile: "cr6_v3_1_render.py",
+        verifiedBy: "Independent FK(IK(target)) kinematics round-trip (error ~4e-16); 2000-frame run confirmed all 5 documented states reached with real pick/attach events.",
+      },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "none", knownLimitations: ["No stated units", "\"CR6\" not confirmed against a real datasheet"] },
   },
   {
     id: "cr6-6axis-v6-1-workspace-guard",
@@ -78,8 +103,18 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CR6_6Axis_V6_1_Workspace_Guard.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/CR6_6axis_Object_Tracking/CR6_6Axis_V6_1_Workspace_Guard.py.py", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "C", migrationNotes: "Same as V3.1 -- no classes, globals mutated directly inside the animation callback." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "none", knownLimitations: ["Only file in the set with axis units explicitly labeled (meters)"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "C",
+      migrationNotes: "Same as V3.1 -- no classes, reimplemented inside a new engine class.",
+      pyvista: {
+        status: "verified",
+        engineFile: "cr6_v6_1_engine.py",
+        rendererFile: "cr6_v6_1_render.py",
+        verifiedBy: "FK/IK round-trip check passed, but the first full-cycle verification caught a real transcription error (STATE_SEQUENCE dropped the source's trailing \"HOME\", so PLACE was never reached). Fixed against the verified source (confirmed via grep on the actual file) and documented in the engine file's own docstring; re-verified with 10 complete pick-place cycles over 3000 frames.",
+      },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "none", knownLimitations: ["Only file in the set with axis units explicitly labeled (meters)", "Migration caught and fixed a state-cycle transcription bug -- see visualization.pyvista.verifiedBy"] },
   },
   {
     id: "cr6-v8-0-dual-robot-cell",
@@ -95,8 +130,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CR6_V8_0_Dual_Robot_Cell.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/CR6_V08_Dual_Robot_Cell/CR6_V8_0_Dual_Robot_Cell.py", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "Has Robot/Part/World classes; World.step() verified structurally separated from drawing -- same pattern as the successful assembly_cell_v100 pilot, needs a snapshot() method added." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "none", knownLimitations: ["Docstring says \"V7.5,\" filename/title say \"V8.0\" -- unresolved"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "Robot/Part/World classes present; World.step() verified structurally separated from drawing -- same pattern as the pilot.",
+      pyvista: { status: "verified", engineFile: "cr6_v8_0_engine.py", rendererFile: "cr6_v8_0_render.py", verifiedBy: "500 real steps; rendered output showed Robot A correctly holding the part at LIFT, matching the HELD_BY_A ownership state." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "none", knownLimitations: ["Docstring says \"V7.5,\" filename/title say \"V8.0\" -- unresolved"] },
   },
   {
     id: "dual-robot-jig-frame-v1-1",
@@ -111,8 +151,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/Dual_Robot_Jig_Frame_V1_1.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/Dual_Robot_Jig_Frame_V1_1/Dual_Robot_Jig_Frame_V1_1.py", lineage: "Identical file also present at simulations/Dual_Robot_Cell_Jig_Frame/ -- documented once, both directories point to the same record.", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "Robot/Member/World classes present, same pattern as the pilot." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "none", knownLimitations: ["Documented V2+ roadmap (rail travel, outfeed, cycle counter) was never implemented"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "Robot/Member/World classes present, same pattern as the pilot.",
+      pyvista: { status: "verified", engineFile: "jig_frame_engine.py", rendererFile: "jig_frame_render.py", verifiedBy: "800 real steps; rendered output showed real member status progression (IN_RACK/HELD/PLACED) matching the documented lifecycle." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "none", knownLimitations: ["Documented V2+ roadmap (rail travel, outfeed, cycle counter) was never implemented"] },
   },
   {
     id: "factory-rail-v2",
@@ -127,8 +172,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/Factory_Rail_V2.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/Factory_Rail_v2/Factory_Rail_V2.py", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "FactoryRail/CR6/WallFrame/World classes present, same pattern as the pilot." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "none", knownLimitations: [] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "FactoryRail/CR6/WallFrame/World classes present, same pattern as the pilot.",
+      pyvista: { status: "verified", engineFile: "factory_rail_engine.py", rendererFile: "factory_rail_render.py", verifiedBy: "800 real steps; rendered output showed the rail correctly returning to X=0 with the robot holding the flat wall frame at PLACE." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "none", knownLimitations: [] },
   },
   {
     id: "ce-overhead-gantry-v1",
@@ -144,8 +194,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CE_Overhead_Gantry_V1.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/Overhead_Gantry_V1/CE_Overhead_Gantry_V1.py", lineage: "Reference: Chappell Robotics 2.0T portal gantry render (June 2026) -- models real physical equipment, not an invented prop.", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "OverheadGantry/World classes present; update() verified as ax.clear() -> world.step() -> draw, same pattern as the pilot. Solid Poly3DCollection geometry, more directly portable than line-based robot-arm renders." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "shared-coordinate-space", knownLimitations: ["Developed/validated on Android/Pydroid 3 per its own docstring"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "OverheadGantry/World classes present; update() verified as ax.clear() -> world.step() -> draw, same pattern as the pilot. Solid Poly3DCollection geometry, more directly portable than line-based robot-arm renders.",
+      pyvista: { status: "verified", engineFile: "gantry_engine.py", rendererFile: "gantry_render.py", verifiedBy: "The file's own built-in run_headless_validation() (preserved verbatim) independently PASSED on import at frame 3792 -- exactly matching the frame number cited in the original docstring. 4000 further real steps rendered, showing correct end-truck/bridge/trolley/hook structure and NORTH/SOUTH panel placement." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "shared-coordinate-space", knownLimitations: ["Developed/validated on Android/Pydroid 3 per its own docstring"] },
   },
   {
     id: "ce-integrated-cell-v2-6",
@@ -166,8 +221,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CE_Integrated_Cell_V2_6.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/Integrated-_Cell_V2_6-/CE_Integrated_Cell_V2_6.py", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "Robot/OverheadCrane/CellState/World classes present, same pattern as the pilot." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "shared-coordinate-space", knownLimitations: ["Docstring claims 90-degree tilt; actual code and later V3_0-6 both confirm 60 degrees is correct"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "Robot/OverheadCrane/CellState/World classes present, same pattern as the pilot.",
+      pyvista: { status: "verified", engineFile: "v2_6_engine.py", rendererFile: "v2_6_render.py", verifiedBy: "3000 real steps; rendered output showed all 4 station robots (F1/F2/S1/S2) and real placed members on the fixed table." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "shared-coordinate-space", knownLimitations: ["Docstring claims 90-degree tilt; actual code and later V3_0-6 both confirm 60 degrees is correct"] },
   },
   {
     id: "ce-module-assembly-v1",
@@ -183,8 +243,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CE_Module_Assembly_V1.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/Module_Assembly_V1/CE_Module_Assembly_V1.py", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "Robot/OverheadCrane/WallCellState/ModuleState/World classes present, same pattern as the pilot." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "shared-coordinate-space", knownLimitations: [] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "Robot/OverheadCrane/WallCellState/ModuleState/World classes present, same pattern as the pilot.",
+      pyvista: { status: "verified", engineFile: "module_assembly_engine.py", rendererFile: "module_assembly_render.py", verifiedBy: "6000 real steps; rendered output showed 1 of 4 module panels (NORTH) actually placed and the crane positioned at the module jig." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "shared-coordinate-space", knownLimitations: [] },
   },
   {
     id: "ce-rail-system-v1",
@@ -200,8 +265,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CE_Rail_System_V1.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/Rail_System_V1/CE_Rail_System_V1.py", lineage: "Reference: Chappell Robotics CR6 Rail System finalized render (June 2026).", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "CR6Robot/RailWorld classes present; update() verified as ax.clear() -> world.step() -> draw, same pattern as the pilot." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "shared-robot-identity", knownLimitations: ["Not yet diffed parameter-by-parameter against the live twin"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "CR6Robot/RailWorld classes present; update() verified as ax.clear() -> world.step() -> draw, same pattern as the pilot.",
+      pyvista: { status: "verified", engineFile: "rail_system_engine.py", rendererFile: "rail_system_render.py", verifiedBy: "600 real steps; rendered output showed all 4 robots (A1/A2/B1/B2) at correct WORKING positions on either side of the table jig." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "shared-robot-identity", knownLimitations: ["Not yet diffed parameter-by-parameter against the live twin"] },
   },
   {
     id: "ce-integrated-cell-v1-3",
@@ -217,8 +287,13 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       recoveryDocPath: `${RECOVERY_DIR}/CE_Integrated_Cell_V1_3.md`,
     },
     source: { repository: SIM_REPO, path: "simulations/CE_Intergrated_Cell_V1_3/CE_Integrated_Cell_V1_3.py", lineage: "Directory named V1_3, docstring says V1.0 -- unresolved naming inconsistency in the source.", immutable: false },
-    visualization: { currentRenderer: "matplotlib", migrationClass: "A", migrationNotes: "Robot/FactoryRail/CellState/World classes present, same pattern as the pilot." },
-    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "not-assessed", liveTwinCorrelation: "none", knownLimitations: ["Most granular ownership-chain documentation of any file -- 4 separate tracked sub-processes"] },
+    visualization: {
+      currentRenderer: "matplotlib",
+      migrationClass: "A",
+      migrationNotes: "Robot/FactoryRail/CellState/World classes present, same pattern as the pilot.",
+      pyvista: { status: "verified", engineFile: "v1_3_engine.py", rendererFile: "v1_3_render.py", verifiedBy: "3000 real steps; rendered output showed all 5 robots including the rail-mounted inspection robot (RR) at the correct rail position." },
+    },
+    verification: { engineeringRecoveryStatus: "recovered", runtimeStatus: "runnable-headless", liveTwinCorrelation: "none", knownLimitations: ["Most granular ownership-chain documentation of any file -- 4 separate tracked sub-processes"] },
   },
   {
     id: "ce-integrated-cell-v3-0-6",
@@ -253,6 +328,7 @@ export const robotLibraryCatalog: EngineeringAsset[] = [
       currentRenderer: "matplotlib",
       migrationClass: "D",
       migrationNotes: "Outside classification. Never migrate, convert, or modify -- this entry exists in the library for reference only.",
+      pyvista: { status: "not-migrated", verifiedBy: "N/A -- protected source, no migration attempted or planned. All 11 other simulations have a verified PyVista path; this one deliberately does not." },
     },
     verification: {
       engineeringRecoveryStatus: "recovered",
