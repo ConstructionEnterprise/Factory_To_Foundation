@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
+import { Group, Panel, Separator } from "react-resizable-panels";
+
+import "@/framework/workspace/Workspace.css";
 
 import RobotLibraryBrowse from "./RobotLibraryBrowse";
 import RobotLibraryDetail from "./RobotLibraryDetail";
@@ -7,12 +10,11 @@ import RobotLibraryInspector from "./RobotLibraryInspector";
 
 type Rect = { top: number; left: number; width: number; height: number };
 type EdgeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+type DragHandle = EdgeHandle | "move";
 type DragOrigin = { x: number; y: number; rect: Rect };
 
 const MIN_WIDTH = 620;
 const MIN_HEIGHT = 320;
-const BROWSE_WIDTH = 224; // 14rem, matches the standalone page's browse column
-const INSPECTOR_WIDTH = 224;
 
 /**
  * Module-level, not component state: DropdownMenu only renders `children`
@@ -52,7 +54,10 @@ function defaultRect(bounds: Rect): Rect {
   return clampRect({ top: bounds.top + 16, left: bounds.left + 16, width, height }, bounds);
 }
 
-function applyHandle(handle: EdgeHandle, origin: DragOrigin, dx: number, dy: number): Rect {
+function applyHandle(handle: DragHandle, origin: DragOrigin, dx: number, dy: number): Rect {
+  if (handle === "move") {
+    return { ...origin.rect, top: origin.rect.top + dy, left: origin.rect.left + dx };
+  }
   let { top, left, width, height } = origin.rect;
   if (handle.includes("e")) width = origin.rect.width + dx;
   if (handle.includes("s")) height = origin.rect.height + dy;
@@ -115,7 +120,7 @@ export default function RobotLibraryRibbonMenu() {
   });
   const [maximized, setMaximized] = useState(wasMaximized);
   const [preMaximizeRect, setPreMaximizeRect] = useState<Rect>(rect);
-  const [activeHandle, setActiveHandle] = useState<EdgeHandle | null>(null);
+  const [activeHandle, setActiveHandle] = useState<DragHandle | null>(null);
   const [dragOrigin, setDragOrigin] = useState<DragOrigin | null>(null);
 
   useEffect(() => {
@@ -152,9 +157,9 @@ export default function RobotLibraryRibbonMenu() {
     };
   }, [activeHandle, dragOrigin]);
 
-  function startDrag(handle: EdgeHandle) {
+  function startDrag(handle: DragHandle) {
     return (e: React.PointerEvent) => {
-      if (maximized) return; // resizing a maximized window isn't a meaningful action
+      if (maximized) return; // moving/resizing a maximized window isn't a meaningful action
       e.preventDefault();
       setActiveHandle(handle);
       setDragOrigin({ x: e.clientX, y: e.clientY, rect });
@@ -191,13 +196,18 @@ export default function RobotLibraryRibbonMenu() {
       }}
       className="flex flex-col rounded-md border bg-white shadow-xl"
     >
-      <div className="flex items-center justify-between border-b px-3 py-1.5 shrink-0" style={{ borderColor: "var(--ff-panel-border)" }}>
+      <div
+        onPointerDown={startDrag("move")}
+        className="flex items-center justify-between border-b px-3 py-1.5 shrink-0"
+        style={{ borderColor: "var(--ff-panel-border)", cursor: maximized ? "default" : "move" }}
+      >
         <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ff-text-muted)" }}>
           Robot Library
         </span>
         <button
           type="button"
           onClick={toggleMaximize}
+          onPointerDown={(e) => e.stopPropagation()}
           title={maximized ? "Restore" : "Maximize"}
           className="rounded p-1 hover:bg-gray-100"
         >
@@ -205,16 +215,24 @@ export default function RobotLibraryRibbonMenu() {
         </button>
       </div>
 
-      <div className="flex flex-1 gap-2 p-2 min-h-0">
-        <div style={{ width: BROWSE_WIDTH, minWidth: BROWSE_WIDTH }} className="shrink-0 h-full">
-          <RobotLibraryBrowse activeId={selectedId} onSelect={setSelectedId} />
-        </div>
-        <div className="flex-1 h-full min-w-0">
-          <RobotLibraryDetail selectedId={selectedId} />
-        </div>
-        <div style={{ width: INSPECTOR_WIDTH, minWidth: INSPECTOR_WIDTH }} className="shrink-0 h-full">
-          <RobotLibraryInspector selectedId={selectedId} />
-        </div>
+      <div className="flex-1 p-2 min-h-0">
+        <Group orientation="horizontal" className="workspace">
+          <Panel id="robot-library-browse-panel" defaultSize="26%" minSize="18%">
+            <RobotLibraryBrowse activeId={selectedId} onSelect={setSelectedId} />
+          </Panel>
+
+          <Separator id="robot-library-browse-divider" className="resize-handle" />
+
+          <Panel id="robot-library-detail-panel" defaultSize="48%" minSize="30%">
+            <RobotLibraryDetail selectedId={selectedId} />
+          </Panel>
+
+          <Separator id="robot-library-inspector-divider" className="resize-handle" />
+
+          <Panel id="robot-library-inspector-panel" defaultSize="26%" minSize="18%">
+            <RobotLibraryInspector selectedId={selectedId} />
+          </Panel>
+        </Group>
       </div>
 
       {!maximized && (
