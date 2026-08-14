@@ -14,7 +14,6 @@ import {
   Truck,
   Cog,
   Wifi,
-  Library,
 } from "lucide-react";
 
 import Dashboard from "@/pages/dashboard/Dashboard";
@@ -30,7 +29,6 @@ import AdministrationPage from "@/pages/administration/AdministrationPage";
 import ReportsPage from "@/pages/reports/ReportsPage";
 import NetworkingPage from "@/pages/networking/NetworkingPage";
 import PermissionsPage from "@/pages/permissions/PermissionsPage";
-import RobotLibraryPage from "@/pages/robot-library/RobotLibraryPage";
 // ComingSoonPage (src/pages/ComingSoonPage.tsx) is no longer used by any
 // route now that Analytics/Administration/Reports are real pages — left
 // on disk, not deleted, for whatever feature is unbuilt next.
@@ -164,17 +162,5 @@ export const appRoutes: AppRoute[] = [
     icon: ShieldCheck,
     element: <AdministrationPage />,
     requiredPermission: { module: "administration", action: "read" },
-  },
-  {
-    // §31 Robot Library / engineering-recovery workstream, Phase 5. Read-only
-    // browse over the Engineering Asset Catalog (Phase 1-4.5) -- not yet a
-    // node editor or load/compose surface. Named "Robot Library" per explicit
-    // direction; note this label already exists on /robotics's RoboticsBrowse
-    // panel for the live A1/A2/B1/B2 robots, a different thing. That naming
-    // tension is unresolved, not accidental -- see RobotLibraryPage.tsx.
-    path: "/robot-library",
-    label: "Robot Library",
-    icon: Library,
-    element: <RobotLibraryPage />,
   },
 ];

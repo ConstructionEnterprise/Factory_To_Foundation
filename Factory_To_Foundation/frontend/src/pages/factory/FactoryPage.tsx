@@ -1,6 +1,7 @@
 import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 
 import { FactoryInstructions, FactoryToolbar, FactoryWorkspace } from "@/features/factory";
+import { RobotLibraryRibbonMenu } from "@/features/engineering-assets";
 
 const factoryKpis: KpiDefinition[] = [
   { title: "Active Lines", value: "2 / 2" },
@@ -18,7 +19,10 @@ export default function FactoryPage() {
       pageSubtitle="Digital Twin Manufacturing Operations"
       kpis={<KpiList kpis={factoryKpis} />}
       toolbar={<FactoryToolbar />}
-      extraMenus={[{ label: "Instructions", content: <FactoryInstructions /> }]}
+      extraMenus={[
+        { label: "Instructions", content: <FactoryInstructions /> },
+        { label: "Robot Library", content: <RobotLibraryRibbonMenu /> },
+      ]}
       workspace={<FactoryWorkspace />}
     />
   );
