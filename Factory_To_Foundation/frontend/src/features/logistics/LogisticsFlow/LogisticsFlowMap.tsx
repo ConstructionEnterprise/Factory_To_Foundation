@@ -5,6 +5,7 @@ import "@xyflow/react/dist/style.css";
 import { PanelCard } from "@/framework/ui";
 
 import FlowMapNode, { type FlowMapNodeData } from "./FlowMapNode";
+import { resolveFlowPointAsset, useFlowAssetLookups } from "./flowPointResolution";
 import * as api from "./logisticsFlowApi";
 import {
   clearFlowSelection,
@@ -37,6 +38,7 @@ const nodeTypes = { flowPoint: FlowMapNode };
 function LogisticsFlowMapInner() {
   const { points, connections, loading, error, selection } = useLogisticsFlowState();
   const { fitView } = useReactFlow();
+  const assetLookups = useFlowAssetLookups();
 
   useEffect(() => {
     ensureLogisticsFlowLoaded();
@@ -49,9 +51,15 @@ function LogisticsFlowMapInner() {
         type: "flowPoint",
         position: { x: p.positionX, y: p.positionY },
         selected: selection?.kind === "point" && selection.id === p.id,
-        data: { name: p.name, type: p.type, status: p.status, assetRef: p.assetRef },
+        data: {
+          name: p.name,
+          type: p.type,
+          status: p.status,
+          assetRef: p.assetRef,
+          resolvedAssetLabel: resolveFlowPointAsset(p.type, p.assetRef, assetLookups),
+        },
       })),
-    [points, selection]
+    [points, selection, assetLookups]
   );
 
   const flowEdges: Edge[] = useMemo(

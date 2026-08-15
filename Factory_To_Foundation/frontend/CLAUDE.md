@@ -1436,4 +1436,60 @@ Chosen over teaching CloudFront to distinguish document requests from API reques
 
 **Explicit compatibility note carried into the migration:** old bare-path API routes should not be deleted merely on principle — except `/assets` itself, which cannot coexist indefinitely once the SPA claims that path outright as its own route. Any migration plan for this section must account for that one forced exception even if every other route gets a compatibility window.
 
+## 32. Logistics Flow — internal movement sequence (decided 2026-08-15)
+
+Logistics Flow (the `FlowPoint`/`FlowConnection` domain added earlier the
+same day, commit `b21e24b`) models one specific real sequence, decided by
+Joshua and confirmed live in this session:
+
+> Receiving → Factory → Autonomous Handling → Staging → Load Assignment →
+> Loading → **Transportation Handoff**.
+
+**The hard boundary — the reason this section exists:** *Logistics Flow
+gets the asset onto the truck. Transportation gets the truck to the site.*
+Logistics Flow's own graph **stops at Transportation Handoff** — it never
+models a destination node, and it never becomes a highway/GPS routing
+feature. Operations mode's `LogisticsMap` (the real road/highway view,
+`northTexasRoads.ts`/`PROJECTED_ROADS`) already owns that visualization;
+duplicating it here would be exactly the kind of scope creep this boundary
+exists to prevent.
+
+**`SUGGESTED_FLOW_POINT_TYPES`** (`LogisticsFlow/logisticsFlowApi.ts`) was
+updated to this real 7-stage vocabulary, replacing the speculative
+pre-brief list it shipped with a few hours earlier. `type` stays free text
+on both ends (no enum, no migration) — same "suggested, never enforced"
+posture the field always had.
+
+**Real, resolved cross-domain linkage — no schema change.** `load_assignment`
+and `transportation_handoff` are the two types that need a real reference
+instead of plain text:
+- `load_assignment.assetRef` holds a real `LogisticsTruck.id`.
+- `transportation_handoff.assetRef` holds a real `LogisticsDispatch.id` —
+  whose own `truckId`/`destinationProjectId` resolve further (real truck
+  identifier, real `ConstructionProject.title`, e.g. "Skyline Towers").
+  **The destination is never a Logistics Flow field** — it's real data
+  Transportation already owns (`LogisticsDispatch.destinationProjectId`),
+  surfaced here, not duplicated. This was the explicit design call: the
+  destination is shared, visible data — one real entry point, not two.
+
+Implemented as a small type-driven resolver
+(`LogisticsFlow/flowPointResolution.ts`, `resolveFlowPointAsset()` +
+`useFlowAssetLookups()`), reusing the existing real
+`logisticsOperationsApi.ts` (`listTrucks`/`listDispatches`) and
+`constructionData.ts` (`constructionProjects`) — no new backend endpoints.
+`AddFlowPointForm.tsx` swaps its free-text Asset Reference field for a real
+`<select>` over real trucks/dispatches for these two types only (same
+fetch-on-mount pattern as `LogisticsDispatchForm.tsx`'s truck/driver
+pickers); `FlowMapNode.tsx`/`LogisticsFlowInspector.tsx` show the resolved
+real name instead of a raw id. Every other type keeps the original
+free-text `assetRef` behavior unchanged.
+
+**nginx allowlist note:** `/flow-points`/`/flow-connections` got explicit
+bare-path entries in `deploy/ff-backend-asg-locations.conf` for parity with
+every other still-bare-path Logistics route (the frontend itself calls
+through `/api/`, already allowlisted, so this was never a live-breaking
+gap). This is transitional, pre-§31.4-migration state — once §31.4's
+`/api/*` collapse actually executes, these per-route bare entries (this one
+included) go away in favor of the single `/api*` rule.
+
 **Deployed the same real way as §29.2, this time applying its own lessons and finding no new surprises:** packaged and deployed to both real `ff-backend-asg` instances **one at a time**, verifying each instance's own health check and the NLB target-group state before touching the second — the zero-redundancy risk §29.2 explicitly flagged and didn't correct for is avoided here. Frontend rebuilt with the same three real production env vars (`VITE_BACKEND_URL=""`/`VITE_TWIN_BRIDGE_URL="/twin-bridge-api"`/`VITE_BLENDER_BRIDGE_URL="/blender-bridge-api"`), bundle-grepped before deploying to confirm no `localhost:41xx` regression and no Git-Bash path-mangling, same as before. `/logistics-kpis` needed the identical two-layer allowlist addition (`cloudfront update-distribution` cloning `/logistics-dispatches*`'s settings, plus `deploy/ff-backend-asg-locations.conf`) — added proactively this time rather than found by a live failure, and the nginx reload's own race condition (§29.2's false-negative) was avoided by adding a real `sleep 2` between `systemctl reload` and the verifying `curl` in the same SSM command, confirming real `401 application/json` on the first check rather than a stale `404` requiring a second look.

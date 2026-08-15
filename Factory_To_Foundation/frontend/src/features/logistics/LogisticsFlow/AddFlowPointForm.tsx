@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { usePermission } from "@/context/AuthContext";
 
+import { listDispatches, listTrucks, type LogisticsDispatch, type LogisticsTruck } from "../logisticsOperationsApi";
+import { resolveFlowPointAsset } from "./flowPointResolution";
 import { createFlowPoint, SUGGESTED_FLOW_POINT_TYPES } from "./logisticsFlowApi";
 import { loadLogisticsFlow } from "./logisticsFlowStore";
 
@@ -15,6 +17,13 @@ type AddFlowPointFormProps = { onClose: () => void };
  * (logisticsFlowApi.ts's SUGGESTED_FLOW_POINT_TYPES) plus a free-text
  * "Custom…" fallback — never enforced as a closed set, matching the real
  * architecture decision behind this whole feature.
+ *
+ * `load_assignment`/`transportation_handoff` are the two types with a real
+ * cross-domain reference (see flowPointResolution.ts) — for those, Asset
+ * Reference becomes a real picker over the real LogisticsTruck/
+ * LogisticsDispatch list (same fetch-on-mount pattern as
+ * LogisticsDispatchForm.tsx's truck/driver pickers) instead of free text,
+ * so the id is always a real row, never typed/guessed.
  */
 export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
   const createPermission = usePermission("logistics", "create");
@@ -27,7 +36,23 @@ export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [trucks, setTrucks] = useState<LogisticsTruck[]>([]);
+  const [dispatches, setDispatches] = useState<LogisticsDispatch[]>([]);
+  const [refLoadError, setRefLoadError] = useState<string | null>(null);
+
   const resolvedType = typeChoice === CUSTOM_TYPE_OPTION ? customType.trim() : typeChoice;
+  const needsTruckPicker = resolvedType === "load_assignment";
+  const needsDispatchPicker = resolvedType === "transportation_handoff";
+
+  useEffect(() => {
+    if (!needsTruckPicker && !needsDispatchPicker) return;
+    Promise.all([listTrucks(), listDispatches()])
+      .then(([truckRows, dispatchRows]) => {
+        setTrucks(truckRows);
+        setDispatches(dispatchRows);
+      })
+      .catch((err) => setRefLoadError(err instanceof Error ? err.message : String(err)));
+  }, [needsTruckPicker, needsDispatchPicker]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -124,15 +149,51 @@ export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
 
           <div>
             <label className="mb-1 block text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
-              Asset Reference <span style={{ color: "var(--ff-text-muted)" }}>(optional — an id from the Engineering Asset Catalog or elsewhere)</span>
+              {needsTruckPicker
+                ? "Truck"
+                : needsDispatchPicker
+                  ? "Dispatch"
+                  : "Asset Reference"}{" "}
+              <span style={{ color: "var(--ff-text-muted)" }}>
+                {needsTruckPicker
+                  ? "(optional — the real truck this asset is assigned to)"
+                  : needsDispatchPicker
+                    ? "(optional — the real dispatch handing this asset to Transportation)"
+                    : "(optional — an id from the Engineering Asset Catalog or elsewhere)"}
+              </span>
             </label>
-            <input
-              type="text"
-              placeholder="e.g. ce-integrated-cell-v3-0-6"
-              className="w-full rounded border px-2 py-1.5 text-sm"
-              value={assetRef}
-              onChange={(e) => setAssetRef(e.target.value)}
-            />
+            {refLoadError && (
+              <p className="mb-1 text-xs" style={{ color: "var(--ff-status-critical)" }}>
+                Couldn't load real trucks/dispatches ({refLoadError}).
+              </p>
+            )}
+            {needsTruckPicker ? (
+              <select className="w-full rounded border px-2 py-1.5 text-sm" value={assetRef} onChange={(e) => setAssetRef(e.target.value)}>
+                <option value="">— none —</option>
+                {trucks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.identifier}
+                  </option>
+                ))}
+              </select>
+            ) : needsDispatchPicker ? (
+              <select className="w-full rounded border px-2 py-1.5 text-sm" value={assetRef} onChange={(e) => setAssetRef(e.target.value)}>
+                <option value="">— none —</option>
+                {dispatches.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {resolveFlowPointAsset("transportation_handoff", d.id, { trucks, dispatches })}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder="e.g. ce-integrated-cell-v3-0-6"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                value={assetRef}
+                onChange={(e) => setAssetRef(e.target.value)}
+              />
+            )}
           </div>
 
           <div>

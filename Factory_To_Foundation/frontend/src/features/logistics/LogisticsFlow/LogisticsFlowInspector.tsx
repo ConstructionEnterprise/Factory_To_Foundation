@@ -4,6 +4,7 @@ import { usePermission } from "@/context/AuthContext";
 import { DetailRow, PanelCard } from "@/framework/ui";
 
 import AddFlowConnectionForm from "./AddFlowConnectionForm";
+import { resolveFlowPointAsset, useFlowAssetLookups } from "./flowPointResolution";
 import * as api from "./logisticsFlowApi";
 import { clearFlowSelection, loadLogisticsFlow, useLogisticsFlowState } from "./logisticsFlowStore";
 
@@ -13,6 +14,7 @@ export default function LogisticsFlowInspector() {
   const updatePermission = usePermission("logistics", "update");
   const deletePermission = usePermission("logistics", "delete");
   const createPermission = usePermission("logistics", "create");
+  const assetLookups = useFlowAssetLookups();
 
   const [showAddConnection, setShowAddConnection] = useState(false);
   const [status, setStatus] = useState("");
@@ -142,6 +144,15 @@ export default function LogisticsFlowInspector() {
               Asset Reference
             </label>
             <input type="text" className="w-full rounded border px-2 py-1.5 text-sm" value={assetRef} onChange={(e) => setAssetRef(e.target.value)} />
+            {(selectedPoint.type === "load_assignment" || selectedPoint.type === "transportation_handoff") &&
+              (() => {
+                const resolved = resolveFlowPointAsset(selectedPoint.type, assetRef.trim() || null, assetLookups);
+                return resolved ? (
+                  <p className="mt-1 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+                    Resolves to: {resolved}
+                  </p>
+                ) : null;
+              })()}
           </div>
 
           <div>

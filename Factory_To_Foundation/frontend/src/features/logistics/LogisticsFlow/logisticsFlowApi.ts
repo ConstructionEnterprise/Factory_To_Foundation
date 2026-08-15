@@ -14,18 +14,23 @@ const API_BASE = BACKEND_URL;
  * Suggested vocabulary only, per the architecture decision this feature was
  * built against — not a closed/enforced set anywhere (frontend or backend).
  * Offered as the form's default options; "Custom…" always falls through to
- * free text. Covers internal material flow today; expected to grow to
- * cover autonomous dolly movement, staging, and yard flow without needing
- * a schema change, since `type` was never a closed enum.
+ * free text.
+ *
+ * Real internal-movement sequence (2026-08-15 architecture decision, see
+ * frontend/CLAUDE.md's own "Logistics Flow" section for the full boundary
+ * rule): Receiving → Factory → Autonomous Handling → Staging → Load
+ * Assignment → Loading → Transportation Handoff. `load_assignment` and
+ * `transportation_handoff` are the two types that get real resolved
+ * references (see flowPointResolution.ts) instead of plain free text.
  */
 export const SUGGESTED_FLOW_POINT_TYPES = [
-  "material",
-  "process",
-  "buffer",
+  "receiving",
+  "factory",
+  "autonomous_handling",
   "staging",
-  "assembly",
-  "finished_product",
-  "outbound",
+  "load_assignment",
+  "loading",
+  "transportation_handoff",
 ] as const;
 
 export type FlowPoint = {

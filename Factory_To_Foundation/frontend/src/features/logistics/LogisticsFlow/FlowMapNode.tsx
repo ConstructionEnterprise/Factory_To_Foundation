@@ -24,6 +24,8 @@ export type FlowMapNodeData = {
   type: string;
   status: string | null;
   assetRef: string | null;
+  /** Real resolved display name for assetRef (see flowPointResolution.ts) — set only for load_assignment/transportation_handoff; null otherwise, falls back to assetRef. */
+  resolvedAssetLabel: string | null;
 };
 
 /**
@@ -61,8 +63,12 @@ export default function FlowMapNode({ data, selected }: NodeProps & { data: Flow
         )}
       </div>
       {data.assetRef && (
-        <div className="mt-0.5 truncate text-[0.6rem]" style={{ color: "var(--ff-text-muted)" }} title={`References asset: ${data.assetRef}`}>
-          asset: {data.assetRef}
+        <div
+          className="mt-0.5 truncate text-[0.6rem]"
+          style={{ color: "var(--ff-text-muted)" }}
+          title={data.resolvedAssetLabel ? `${data.resolvedAssetLabel} (${data.assetRef})` : `References asset: ${data.assetRef}`}
+        >
+          {data.resolvedAssetLabel ?? `asset: ${data.assetRef}`}
         </div>
       )}
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
