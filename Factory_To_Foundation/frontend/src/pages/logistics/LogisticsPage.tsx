@@ -6,12 +6,16 @@ import {
   LogisticsBrowse,
   LogisticsDispatchForm,
   LogisticsDispatchTracker,
+  LogisticsFlowBrowse,
+  LogisticsFlowInspector,
+  LogisticsFlowMap,
   LogisticsInspector,
   LogisticsMap,
   LogisticsMaterialForm,
   LogisticsModuleForm,
   LogisticsToolbar,
   MileageRateManager,
+  type LogisticsMode,
 } from "@/features/logistics";
 import { getLogisticsKpis, type LogisticsKpis } from "@/features/logistics/logisticsOperationsApi";
 
@@ -35,6 +39,7 @@ function buildKpis(kpis: LogisticsKpis | null): KpiDefinition[] {
 }
 
 export default function LogisticsPage() {
+  const [mode, setMode] = useState<LogisticsMode>("operations");
   const [showDispatchForm, setShowDispatchForm] = useState(false);
   const [showDispatchTracker, setShowDispatchTracker] = useState(false);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
@@ -59,10 +64,12 @@ export default function LogisticsPage() {
     <>
       <FeaturePage
         pageLabel="Logistics"
-        pageSubtitle="Material & Module Flow"
+        pageSubtitle={mode === "operations" ? "Material & Module Flow" : "Logistics Flow — Point-to-Point Map"}
         kpis={<KpiList kpis={buildKpis(kpis)} />}
         toolbar={
           <LogisticsToolbar
+            mode={mode}
+            onModeChange={setMode}
             onNewMaterial={() => setShowMaterialForm(true)}
             onNewModule={() => setShowModuleForm(true)}
             onNewDispatch={() => setShowDispatchForm(true)}
@@ -70,9 +77,9 @@ export default function LogisticsPage() {
             onMileageRate={() => setShowMileageRateManager(true)}
           />
         }
-        left={<LogisticsBrowse key={browseRefreshKey} />}
-        center={<LogisticsMap />}
-        right={<LogisticsInspector />}
+        left={mode === "operations" ? <LogisticsBrowse key={browseRefreshKey} /> : <LogisticsFlowBrowse />}
+        center={mode === "operations" ? <LogisticsMap /> : <LogisticsFlowMap />}
+        right={mode === "operations" ? <LogisticsInspector /> : <LogisticsFlowInspector />}
       />
       {showDispatchForm && (
         <LogisticsDispatchForm onClose={() => setShowDispatchForm(false)} onCreated={refreshBrowse} />

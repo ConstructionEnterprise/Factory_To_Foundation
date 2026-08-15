@@ -21,6 +21,12 @@ import { logisticsMaterialRoutes } from "./routes/logisticsMaterials";
 import { logisticsModuleRoutes } from "./routes/logisticsModules";
 import { mileageRateRoutes } from "./routes/mileageRates";
 import { logisticsKpiRoutes } from "./routes/logisticsKpis";
+// Logistics Flow — point-to-point movement relationships (see
+// flowPoints.ts's own doc comment for the 2026-08-14 domain-correction
+// note: originally placed under manufacturing, moved here on review since
+// the underlying model was confirmed domain-neutral).
+import { flowPointRoutes } from "./routes/flowPoints";
+import { flowConnectionRoutes } from "./routes/flowConnections";
 import { manufacturingModelRoutes } from "./routes/manufacturingModel";
 import { instructionExecutionRoutes } from "./routes/instructionExecutions";
 import { userPreferenceRoutes } from "./routes/userPreferences";
@@ -149,6 +155,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     logisticsModuleRoutes,
     mileageRateRoutes,
     logisticsKpiRoutes,
+    flowPointRoutes,
+    flowConnectionRoutes,
     manufacturingModelRoutes,
     instructionExecutionRoutes,
     userPreferenceRoutes,

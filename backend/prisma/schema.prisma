@@ -1262,3 +1262,79 @@ model SyntheticDataProvenance {
   @@index([recordType, recordId])
   @@map("synthetic_data_provenance")
 }
+
+/// Logistics Flow (Point-to-Point) Map -- a real, minimal relationship
+/// model for point-to-point movement (Material Point -> Process Point ->
+/// Buffer/Staging -> Assembly Cell -> Finished Module -> Outbound today;
+/// expected to grow to cover autonomous dolly movement, staging, and yard
+/// flow without a schema change, since FlowPoint.type/FlowConnection
+/// .relationship are both open, not enums). A real peer of
+/// LogisticsDispatch/Module/Material above, not a separate domain --
+/// those model outbound trucking to a real Construction project, this
+/// models point-to-point movement relationships generally. Domain
+/// correction (2026-08-14): this model was originally placed under
+/// Manufacturing; on review the model itself was confirmed domain-neutral
+/// and moved here, with no schema change. This feature owns relationships
+/// only -- it never duplicates another domain's own data, only references
+/// it by id via assetRef (an Engineering Asset Catalog id, a Manufacturing
+/// model node id, a dolly, a yard/staging capability, etc., owned and
+/// defined elsewhere).
+model FlowPoint {
+  id String @id @default(cuid())
+
+  /// Free-text, not a Postgres enum -- deliberately extensible taxonomy.
+  /// Suggested vocabulary (documented/offered in the frontend form, not
+  /// enforced here): material, process, buffer, staging, assembly,
+  /// finished_product, outbound.
+  type String
+
+  name String
+
+  /// Layout position on this map's own 2D plane -- not a real-world
+  /// geographic coordinate, unlike ConstructionMap's/LogisticsMap's own
+  /// real lon/lat-derived positions.
+  positionX Float @map("position_x")
+  positionY Float @map("position_y")
+
+  /// Generic pointer to a real asset owned elsewhere (an Engineering Asset
+  /// Catalog id, a Manufacturing model node id, a dolly, a yard/staging
+  /// capability, etc.) -- this table never duplicates that asset's own
+  /// geometry/engineering/behavior data.
+  assetRef String? @map("asset_ref")
+
+  status String?
+  notes  String?
+
+  outgoingConnections FlowConnection[] @relation("FlowConnectionSource")
+  incomingConnections FlowConnection[] @relation("FlowConnectionTarget")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("flow_point")
+}
+
+/// A real, directed relationship between two FlowPoints -- direction is
+/// inherent in source -> target, not a separate field.
+model FlowConnection {
+  id String @id @default(cuid())
+
+  sourcePointId String    @map("source_point_id")
+  sourcePoint   FlowPoint @relation("FlowConnectionSource", fields: [sourcePointId], references: [id], onDelete: Cascade)
+
+  targetPointId String    @map("target_point_id")
+  targetPoint   FlowPoint @relation("FlowConnectionTarget", fields: [targetPointId], references: [id], onDelete: Cascade)
+
+  /// Free-text relationship label (e.g. "material-transfer") -- same
+  /// extensible-not-enumerated posture as FlowPoint.type.
+  relationship String?
+
+  distanceMeters Float?  @map("distance_meters")
+  notes          String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([sourcePointId])
+  @@index([targetPointId])
+  @@map("flow_connection")
+}
