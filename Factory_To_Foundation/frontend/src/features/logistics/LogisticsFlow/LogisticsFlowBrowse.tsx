@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { usePermission } from "@/context/AuthContext";
 import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
@@ -12,7 +12,9 @@ export default function LogisticsFlowBrowse() {
   const createPermission = usePermission("logistics", "create");
   const [showAddForm, setShowAddForm] = useState(false);
 
-  ensureLogisticsFlowLoaded();
+  useEffect(() => {
+    ensureLogisticsFlowLoaded();
+  }, []);
 
   const items: BrowseListItem[] = useMemo(() => {
     const byType = new Map<string, typeof points>();
