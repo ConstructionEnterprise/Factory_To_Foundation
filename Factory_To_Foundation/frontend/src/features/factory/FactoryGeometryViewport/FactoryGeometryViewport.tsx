@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { GizmoHelper, GizmoViewcube, Line, OrbitControls, PerspectiveCamera, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -59,12 +59,42 @@ import {
 const SCENE_TARGET: [number, number, number] = [18, 2, 0];
 const CAMERA_EYE: [number, number, number] = [18, 26, 30];
 
-function InitialCamera() {
+/**
+ * The container aspect ratio CAMERA_EYE/fov=50 was actually tuned against
+ * (a landscape desktop panel) — not a real twin value, a UI reference
+ * point. Vertical FOV is fixed, so horizontal FOV shrinks with aspect;
+ * without this, a narrower container (phone-portrait's full-width-but-
+ * short stacked row, see FactoryWorkspace.tsx) shows dramatically less of
+ * the real scene's width at the same fixed distance — geometry present,
+ * framing wrong, exactly the mobile-vs-desktop discrepancy this constant
+ * exists to correct.
+ */
+const REFERENCE_ASPECT = 16 / 9;
+
+function InitialCamera({ userAdjustedRef }: { userAdjustedRef: React.RefObject<boolean> }) {
   const camRef = useRef<THREE.PerspectiveCamera>(null);
+  const size = useThree((s) => s.size);
+
   useLayoutEffect(() => {
-    camRef.current?.position.set(...CAMERA_EYE);
-    camRef.current?.lookAt(...SCENE_TARGET);
-  }, []);
+    if (!camRef.current || userAdjustedRef.current) return;
+    // Real container aspect (R3F's own size, driven by the actual canvas
+    // element via ResizeObserver) — never window.innerWidth/innerHeight,
+    // which can differ substantially from this viewport's own container
+    // (it lives inside a react-resizable-panels Panel, not the full
+    // viewport). Only pull the eye back for aspects narrower than the
+    // reference — a wider-than-reference desktop keeps the framing this
+    // was originally tuned against, unchanged.
+    const aspect = size.width / size.height;
+    const distanceScale = aspect < REFERENCE_ASPECT ? REFERENCE_ASPECT / aspect : 1;
+
+    const target = new THREE.Vector3(...SCENE_TARGET);
+    const eye = new THREE.Vector3(...CAMERA_EYE);
+    const offset = eye.clone().sub(target).multiplyScalar(distanceScale);
+    camRef.current.position.copy(target).add(offset);
+    camRef.current.lookAt(...SCENE_TARGET);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size.width, size.height]);
+
   return <PerspectiveCamera ref={camRef} makeDefault fov={50} near={0.5} far={200} />;
 }
 
@@ -1185,6 +1215,12 @@ export default function FactoryGeometryViewport() {
   const [showAxes, setShowAxes] = useState(false);
   const [showGizmo, setShowGizmo] = useState(true);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  // Once the user actually orbits/zooms, the aspect-aware auto-reframe in
+  // InitialCamera must stop overriding their camera on every container
+  // resize (panel drag, orientation change) — same "don't fight the user"
+  // principle the file's own OrbitControls-vs-Bounds comment above already
+  // established for the fixed-framing case.
+  const userAdjustedCameraRef = useRef(false);
 
   // The collision monitor runs on its own fast poll (every written twin
   // snapshot), independent of this component's 750ms display poll.
@@ -1301,8 +1337,17 @@ export default function FactoryGeometryViewport() {
             reachRobot={reachRobot}
             showAxes={showAxes}
           />
-          <InitialCamera />
-          <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.08} target={SCENE_TARGET} />
+          <InitialCamera userAdjustedRef={userAdjustedCameraRef} />
+          <OrbitControls
+            ref={controlsRef}
+            makeDefault
+            enableDamping
+            dampingFactor={0.08}
+            target={SCENE_TARGET}
+            onStart={() => {
+              userAdjustedCameraRef.current = true;
+            }}
+          />
           {showGizmo && (
             <GizmoHelper alignment="bottom-right" margin={[80, 80]} onUpdate={() => controlsRef.current?.update()}>
               <GizmoViewcube />
