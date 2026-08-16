@@ -1,9 +1,11 @@
 # FF Construction Intelligence — Phase 1 Implementation Plan
 
-**Status:** Plan finalized across three rounds of review (validated against
+**Status:** Plan finalized across four rounds of review (validated against
 real code, compared against a second relayed steering doc, adjusted per
-Joshua's final call on Analytics scope). Requires explicit go-ahead before
-work starts; Phase 1 and Phase 2 are separately gated, same discipline as
+Joshua's final call on Analytics scope, then split again after a third
+relayed proposal to transform Analytics into a CloudWatch-style
+observability surface). Requires explicit go-ahead before work starts;
+Phase 1, Phase 2, and Phase 3 are separately gated, same discipline as
 the Inventory/Fleet rollout's own phase gates.
 
 **Source of truth:** validated directly against the real FF codebase
@@ -23,7 +25,16 @@ Logistics/Dispatch rather than extending them — that resolution was
 adopted. Joshua's final call: **Analytics stays in this phase** (the
 second relayed plan had it in-scope; an earlier draft of this doc had
 deferred it); **Modular Sequencing + Timeliner becomes the separately
-scoped Phase 2.**
+scoped Phase 2.** A third relayed proposal then reframed Analytics again —
+not "add a few widgets" but "transform FF Analytics into a
+CloudWatch-inspired operational observability environment" (metric
+graphs, time-range controls, alarm/state indicators, dashboards,
+events/logs, drill-down). Validated against real code: zero charting
+infrastructure exists anywhere in the frontend, zero threshold/alarm
+concept exists anywhere, and a real merged events feed *is* honestly
+buildable today from existing audit-trail tables. Split accordingly —
+the real, buildable slice (§3.2 item 3) joins Phase 1; the rest becomes
+**Phase 3** (§9).
 
 ---
 
@@ -37,6 +48,13 @@ real, existing FF data with no fabrication and no reopened boundaries.
 Sequencing + Timeliner.** Recorded in §8 so the reasoning already done
 doesn't get re-litigated when it's picked up, but explicitly not started
 as part of this run.
+
+**Phase 3 (separately scoped, own plan doc, own go-ahead): CloudWatch-
+style Analytics observability transformation** (metric graphs, time-range
+controls, alarm states, dashboards). Recorded in §9. Phase 1's Analytics
+work (§3) ships a real, honest slice of this idea now — a merged
+Events/Logs feed — without the parts that would require infrastructure
+that doesn't exist yet.
 
 **Explicitly not touched by either phase:**
 - **Logistics Flow's real 7-stage vocabulary** (Receiving → Factory →
@@ -202,9 +220,17 @@ object count. **No Logistics/Dispatch widget exists at all today.** No
 Cost Estimating widget exists (nothing to show — the model doesn't exist
 until §2 ships).
 
+`ProductionOutputWidget` (line 266) is the closest existing precedent for
+a real event feed: it reads `InstructionExecution` history (real, ordered
+`executedAt desc`), shows real counts + most-recent timestamp, and has a
+real honest-empty state ("No real executions logged yet..."). No widget
+anywhere plots a graph — every existing widget is a real label/value list,
+never a chart. Confirmed no charting library exists in `package.json`
+either.
+
 ### 3.2 Design — extend what's real, badge honestly, no new fake datasets
 
-Two changes, both additive to the existing widget grid, no new page:
+Three changes, all additive to the existing widget grid, no new page:
 
 1. **Upgrade `ConstructionWidget`** to also show real logistics context
    per project — reuse §1's `GET /construction-projects/:id/relationships`
@@ -216,14 +242,24 @@ Two changes, both additive to the existing widget grid, no new page:
    counts/totals per project (e.g. "3 real projects have active
    estimates, $290K-$330K range on Cedarwood Flats"). Built after §2, not
    before — there's nothing real to show until scenarios exist.
+3. **New `EventsWidget`** — the real, honestly-buildable slice of the
+   CloudWatch-style proposal (§9): a merged, real, timestamp-ordered feed
+   across `LogisticsCustodyEvent` (dispatch status changes),
+   `ScheduleTaskStatusEvent` (schedule task status changes), and
+   `InstructionExecution` history (already used by `ProductionOutputWidget`
+   — reused, not re-fetched) — one real cross-domain "what happened
+   recently" list. Built on `ProductionOutputWidget`'s exact pattern: real
+   rows, real honest-empty state per source if a table has zero rows, no
+   fabricated event types. **This is a list, not a graph** — no charting
+   library, no time-range selector, no alarm state. Those are Phase 3.
 
-**No Logistics/Dispatch-specific widget in this phase.** The existing
-`ConstructionWidget` upgrade (item 1) already surfaces real dispatch data
-per project, which covers the real operational question ("what's headed
-to my projects"). A separate cross-project Logistics analytics widget
-(fleet-wide utilization, transit performance, etc.) is a legitimate future
-idea but isn't implied by anything currently real — not fabricated here
-to fill a slot.
+**No Logistics/Dispatch-specific widget beyond the Events feed in this
+phase.** The `ConstructionWidget` upgrade (item 1) already surfaces real
+dispatch data per project; the `EventsWidget` (item 3) surfaces real
+dispatch/schedule/execution activity across all projects. A dedicated
+cross-project Logistics/Fleet analytics widget (utilization, transit
+performance) is a legitimate future idea but isn't implied by anything
+currently real — not fabricated here to fill a slot.
 
 ### 3.3 New code
 
@@ -232,8 +268,13 @@ to fill a slot.
   fetch real per-project logistics data.
 - New `CostEstimatingWidget` function in the same file, following the
   exact same `PanelCard` + `StatusBadge` pattern every other widget uses.
-- No new backend routes beyond what §1/§2 already add — Analytics reuses
-  those, doesn't duplicate them.
+- New `EventsWidget` function, same file — a real backend aggregation
+  route (`GET /analytics/events`, or client-side merge of three existing
+  real fetches if a new route isn't warranted for this volume of data)
+  feeding one real merged, sorted list.
+- No new backend routes beyond what §1/§2 already add plus the events
+  aggregation above — Analytics reuses existing read paths, doesn't
+  duplicate them.
 
 ---
 
@@ -276,10 +317,12 @@ data, doesn't fabricate its own).
 **Phase 1.3 — Analytics integration (after 1.1 and 1.2 land):**
 1.3a Upgrade `ConstructionWidget` to real per-project logistics data.
 1.3b New `CostEstimatingWidget`.
-1.3c Live-verify in browser, commit/push.
+1.3c New `EventsWidget` (real merged Logistics/Schedule/Execution feed).
+1.3d Live-verify in browser, commit/push.
 
 **Not scheduled in Phase 1:** Modular Sequencing, Timeliner, Logistics
-Flow chain extension, Dispatch granularity extension.
+Flow chain extension, Dispatch granularity extension, metric graphs,
+time-range controls, alarm states, dashboards (all Phase 3, §9).
 
 ---
 
@@ -291,6 +334,7 @@ Flow chain extension, Dispatch granularity extension.
 | Data integrity | Data Map shows only relationships backed by real FKs (`logisticsDispatches`, `treeNodes`, `site`, `vehicle`) — no fabricated graph edges |
 | Cost integrity | Scenario totals are always server-derived from `squareFootage`/`rate`/`overhead`/`markup`; never client-supplied; no target-price reverse-derivation |
 | Analytics integrity | Every widget reuses an existing or newly-added real read path; badges honestly reflect live vs. static data; no invented metric (dock utilization, transit performance, etc.) ships without real backing data |
+| Events feed integrity | `EventsWidget` shows only real rows from `LogisticsCustodyEvent`/`ScheduleTaskStatusEvent`/`InstructionExecution`; a source with zero real rows shows an honest empty state, never a fabricated placeholder event |
 | Reuse | No parallel navigation mechanism, no duplicate `ConstructionProject`/`LogisticsDispatch` read path between Data Map and Analytics |
 | Verification | typecheck → build → sandbox exact-count/behavior verify → real browser verify → commit → push, per sub-phase |
 | Honesty | Any relationship genuinely absent (e.g. Genealogy↔Construction linkage) is shown as absent, never inferred by name-matching |
@@ -365,3 +409,56 @@ explicitly, not discover mid-build:**
 FF-owned Construction capability (what folding it straight into the
 Command Ribbon implies) or held until CE_Forge/Construction_Enterprises
 grows a real product surface of its own. Flagged for Joshua's call.
+
+---
+
+## 9. Phase 3 (separate plan, separate go-ahead) — CloudWatch-style Analytics observability transformation
+
+Not started as part of this plan. A third relayed proposal reframed
+Analytics from "add a few real widgets" to "transform FF Analytics into a
+CloudWatch-inspired operational observability environment" — adopting
+CloudWatch's interaction model (*observe → filter → graph → detect →
+investigate → drill into related objects*), not its branding or
+infrastructure semantics.
+
+**What's genuinely good about this idea, worth carrying forward:** the
+interaction model itself is a legitimate, FF-native-compatible UX
+pattern — it's the same *pick something real → see its real detail →
+drill into a related real object* shape Inventory and Fleet already use,
+just applied across time instead of category. The real events-feed piece
+of it already shipped in Phase 1 (§3.2 item 3) because it needed no new
+infrastructure.
+
+**What doesn't hold up yet, confirmed against real code, and why this
+isn't Phase 1.3:**
+
+1. **No charting infrastructure exists.** Zero chart/graph library
+   (Recharts, D3, Chart.js, etc.) anywhere in `package.json`. Every
+   existing Analytics widget is a real label/value list — "metric graphs
+   as first-class objects" means picking and integrating a charting
+   library from scratch, plus building real time-bucketed aggregation
+   logic that doesn't exist anywhere in the backend today.
+2. **No threshold/alarm concept exists anywhere in FF.** CloudWatch
+   alarms mean something because a threshold is explicitly defined and
+   evaluated. Building "state: OK/ALARM" without a real defined threshold
+   means either fabricating one — the exact kind of fabrication this
+   rollout has refused everywhere else — or leaving it meaninglessly
+   undefined. Any alarm/state feature needs a real answer to "who defines
+   the threshold, and where is it stored" before it's built, not after.
+3. **"Dashboards" (plural, selectable) implies a saved/configurable
+   dashboard system** — a real feature in its own right, unscoped
+   anywhere, not just an Analytics-page tweak.
+4. **Real data volume is currently small.** Dozens of records across
+   dispatches/scenarios/executions, not a continuous stream. A granular
+   CloudWatch-style time-range selector (1h/3h/12h/1d/3d/1w/custom) may
+   not show meaningfully different content between ranges yet — worth
+   designing with real data density in mind, not assumed away.
+
+**Recommended shape for Phase 3's own plan doc, once scoped:** design the
+real threshold/alarm data model first (§2's own point 2 applies the same
+"never accept a derived number without a real source" discipline —
+alarm state must derive from a real, stored threshold, never be
+invented), pick a charting library deliberately, and build time-bucketed
+aggregation as real backend logic before any graph renders. Not decided
+here — flagged for its own validated plan when Joshua gives it a
+go-ahead, same treatment as Phase 2.
