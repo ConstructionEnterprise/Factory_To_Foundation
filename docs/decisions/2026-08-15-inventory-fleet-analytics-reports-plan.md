@@ -1,6 +1,10 @@
 # Inventory / Fleet / Analytics / Reports — Validated Implementation Plan
 
-**Status:** Phase 0 locked. **Phase 1 complete** (1A Analytics truth
+**Status:** Phase 0 locked. **Phase 3 (Fleet) complete and deployed to
+production** (2026-08-15/16) — Inventory, live Genealogy, and Fleet are
+all real, live, and verified on `https://dgzxyhsayte98.cloudfront.net`,
+not just sandbox. See the "Production deploy, full stack" note below for
+the full record. **Phase 1 complete** (1A Analytics truth
 cleanup, 1B Genealogy real-data path, 1C Reports search backend, 1D
 Networking → API foundation — all four built, typechecked, live-verified
 against real data, committed, pushed: `04aef52`, `cc580f3`, `4c1d295`,
@@ -75,7 +79,53 @@ cruft; the Phase 2 backend (`InventoryItem` schema/migration/backfill/
 routes) is untouched and stays real, tested infrastructure regardless of
 how the UI presents it today.
 
-Phase 3 (Fleet) is next and requires its own go-ahead.
+**Production deploy, full stack (2026-08-15/16, same day as Phase 3):**
+production had never received *any* of Phases 1-3 before this — confirmed
+directly (`/api/inventory-items`, `/api/vehicles`, `/api/genealogy-nodes`
+all `404` against the live site; the live frontend bundle had none of
+those API path strings in it) rather than assumed. Real production
+topology (`ff-backend-asg` instances `i-06423e2d1823f0e74`/
+`i-0abc1ce2da7bac55c` behind an NLB, RDS `ff-postgres-dev`) confirmed via
+AWS SSM before touching anything, same discipline as CLAUDE.md §30.8/§29.3.
+Sequence: (1) packaged `ff-app.tar.gz` locally with every local `.env`
+explicitly excluded (a real secret-leak near-miss avoided the same way
+§29.2 already flagged once), uploaded to S3, rolling-deployed to both ASG
+instances one at a time, each verified healthy on the NLB before the next.
+(2) `prisma migrate deploy` against the live production DB from inside
+the already-configured container (never pulled raw prod credentials to a
+local shell). **A real bug surfaced here, not previously visible in
+sandbox:** the `add_inventory_item` migration folder was timestamped
+*after* the two Vehicle/Fleet migrations even though it was applied first
+everywhere it had run before — `prisma migrate deploy` applies strictly in
+filename order on a from-scratch target, so production (the first true
+from-scratch deploy) hit `ALTER TYPE "InventoryItemKind" ADD VALUE` before
+that type existed — `P3018`. Fixed at the root: renamed the folder to
+`20260815200000_add_inventory_item` (sorts before both Vehicle/Fleet
+migrations, matching real dependency order), reconciled sandbox's own
+migration history to match, cleaned up the two orphan enum types the
+failed attempt had created, redeployed the corrected code, re-ran deploy
+clean. (3) Ran all three backfill scripts against production in order —
+exact-count verified throughout: 30 Asset + 13 GenealogyNode → 43
+InventoryItem rows, 3 LogisticsTruck → 3 Vehicle rows (incl. real "Flatbed
+7"), 6 LogisticsDispatch → 6 vehicleId links. (4) Discovered nginx's
+allowlist config didn't need any change — production's real, live config
+already has a generic `location ^~ /api/` rule (superseding the old
+per-route allowlist the repo's own tracked copy still showed); synced the
+repo copy to match reality, no live nginx change needed. (5) Frontend
+rebuilt with real production env vars, bundle-verified (no `localhost`
+leaks, new route/Fleet strings present), synced to S3, CloudFront
+invalidated.
+
+**End-to-end verified against the real public site**, not just API
+checks: logged in as the real `qa.ceo@factoryfoundation.test` account,
+confirmed sidebar has no Assets/Genealogy entries, Logistics' ribbon shows
+`Metrics | Filters | Logistics | Fleet`, Fleet → Flatbed 7 shows its real
+dispatch history (`Flatbed 7 → Skyline Towers`, `delivered`, `44 mi` —
+genuinely different from sandbox's `staged`, confirming this is real
+production data, not a sandbox echo), and Inventory's `Assets`/`Genealogy`
+ribbon switches both render real data (30 assets, the real 13-node
+Genealogy DAG). Zero console errors.
+
 **Source of truth:** The evidence-based validation of the Manus AI review
 completed earlier in this session (four parallel codebase investigations —
 Inventory/Assets/Genealogy, Fleet/Autonomous Dolly, Analytics/CloudFront UX,
