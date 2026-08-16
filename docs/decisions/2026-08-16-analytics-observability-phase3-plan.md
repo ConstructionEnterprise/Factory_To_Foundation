@@ -324,6 +324,25 @@ catalog entries render with working controls; deleted the test dashboard
 and confirmed the picker correctly fell back to Default. Zero console
 errors throughout.
 
+**Post-3.4 follow-up (2026-08-16, `b73ec6c`): every widget now defaults
+to a real chart, not just the new metric_graph type.** Joshua's direct
+feedback after seeing 3.4 live: the dashboard-driven page still carried
+Phase 1's original 12 widgets forward unchanged -- real label/value
+lists, no charts, because nothing new touched them. Only a manually-added
+metric_graph widget ever showed a Recharts graph. Resolution (his call,
+not assumed): every widget, present and future, gets a Chart/Text toggle
+defaulting to **Chart**. Built a shared `ViewToggle` + `ChartableWidgetCard`
+(Recharts `BarChart`) and wired all 12 pre-existing widgets + Events
+through it, deriving each widget's chart data from numbers it already
+computes -- no new fetches, no fabricated series. `QualityControlWidget`
+has no real chartable series (a single live record, not a trend) so its
+chart view honestly says so rather than faking a bar. `MetricGraphWidget`
+got the same toggle for consistency (text view = its real per-bucket
+series as rows). Live-verified: real bar charts render correctly at
+every scale (Factory's small 0-8 running/idle/unknown counts, Cost
+Estimating's real $330,000 bar), Text toggle correctly reverts to the
+exact original row display, zero regressions, zero console errors.
+
 **3.5 — Live-verify in sandbox (partially covered by 3.4's testing
 above; remaining items before calling Phase 3 fully done):** setting a
 real threshold *through the UI* and confirming `MetricGraphWidget`'s
