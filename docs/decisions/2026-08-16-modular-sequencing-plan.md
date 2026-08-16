@@ -1,11 +1,26 @@
 # Modular Sequencing + Timeliner — Phase 2 Implementation Plan
 
-**Status:** Draft for review, nothing implemented. Requires explicit
-go-ahead before Phase 2.1, same discipline as every phase gate this
-rollout. **Revised (2026-08-16, second pass)** after a real domain-
+**Status:** Phase 2.1 complete (schema + backfill, `d4c9b5d`). Phase 2.2
+requires its own explicit go-ahead, same discipline as every phase gate
+this rollout. **Revised (2026-08-16, second pass)** after a real domain-
 boundary correction: v1 of this doc anchored the schema directly on
 `LogisticsModule`, which made the Timeliner structurally a Logistics
 model. It isn't one — see §0.5.
+
+**Read this before anything else, because the same misreading has
+recurred twice already:** `InventoryItem` is a **domain-neutral
+identity/reference layer**, used here exactly the way `Vehicle`/`Asset`/
+`GenealogyNode` already use it. **This does not make Modular Sequencing
+an Inventory feature.** Sequencing is a Construction Command Ribbon
+capability with its own tables, its own routes, its own RBAC gating
+(`construction`, not `inventory`), and no presence anywhere in the
+Inventory UI. `InventoryItem.kind` is what supplies the real
+"what kind of manufactured output is this" discriminator this plan
+needs (today: `asset | genealogy_node | vehicle | logistics_module`; a
+real Wall or Panel table, if one is ever built, gets its own kind the
+same way) — that discriminator lives on `InventoryItem` because that's
+where the shared-identity layer already lives, not because Sequencing is
+secretly an Inventory concept underneath.
 
 **Ownership, decided:** built in FF, as a new Construction Command Ribbon
 capability — same pattern as Data Map/Estimating. Neither real CE-side
