@@ -291,10 +291,18 @@ prior backfill).
 `analyticsThresholdsService`, `analyticsDashboardsService`, all three
 route files, RBAC-gated.
 
-**3.3 — Frontend foundation:** install Recharts, build
-`MetricGraphWidget` + time-range control against the real
-`/analytics/metrics/:key/series` endpoint, build the threshold admin
-panel.
+**3.3 — Frontend foundation (complete):** installed Recharts, built
+`MetricGraphWidget` + the 6-preset CloudWatch-style time-range control
+against the real `GET /analytics/metrics/:key/series` +
+`GET /analytics/metrics/:key/current` endpoints, built the threshold
+admin panel (RBAC-gated in the UI via `usePermission("analytics",
+"update"/"delete")`, real enforcement already on the backend). Typecheck
+clean. **Real finding, not a bug:** the production build's bundle byte
+count was unchanged and a direct grep of the built JS found zero
+occurrences of "recharts" — neither component is imported by any real
+route yet, so Vite's tree-shaking correctly excludes them. Live browser
+verification and confirming Recharts actually lands in the bundle both
+wait for 3.4, once these mount to a real page.
 
 **3.4 — Frontend dashboards:** `DashboardPicker`/`DashboardEditor`/
 `DashboardView`, rewire `AnalyticsPage`, confirm the default dashboard
