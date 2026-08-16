@@ -1,11 +1,36 @@
 # Modular Sequencing + Timeliner — Phase 2 Implementation Plan
 
-**Status:** Phase 2.1 complete (schema + backfill, `d4c9b5d`). Phase 2.2
-requires its own explicit go-ahead, same discipline as every phase gate
-this rollout. **Revised (2026-08-16, second pass)** after a real domain-
-boundary correction: v1 of this doc anchored the schema directly on
-`LogisticsModule`, which made the Timeliner structurally a Logistics
-model. It isn't one — see §0.5.
+**Status:** Phase 2.1 (`d4c9b5d`) and Phase 2.2 (`b2d0dca`) both complete
+and evidence-verified in sandbox. Phase 2.3 (frontend: ribbon capability +
+Timeliner UI) requires its own explicit go-ahead, same discipline as
+every phase gate this rollout. **Revised (2026-08-16, second pass)**
+after a real domain-boundary correction: v1 of this doc anchored the
+schema directly on `LogisticsModule`, which made the Timeliner
+structurally a Logistics model. It isn't one — see §0.5.
+
+**Phase 2.2 evidence gate, real and sandbox-only (2026-08-16):** per
+explicit instruction, no schema/backend work was trusted until a real
+dispatch had actually crossed the handoff. Created one real test dispatch
+for `LogisticsModule` CWF-B-089 through FF's own dispatch-creation API,
+drove it `staged → in_transit → delivered` through the real state
+machine (real `LogisticsCustodyEvent` trail, 3 rows). Then verified,
+against the real live sandbox API:
+- **Positive case:** `POST .../module-sequences` for CWF-B-089's
+  `InventoryItem` succeeds once its dispatch is delivered.
+- **Negative case:** the same call for CWF-B-091 (left undelivered as a
+  control) is correctly refused — `"Cannot sequence this item until its
+  real dispatch reaches 'delivered'"` — proving the handoff contract is
+  enforced, not cosmetic.
+- **Full lifecycle:** `pending → site_arrival → site_acceptance →
+  installation → placement → complete`, driven via 5 real `PATCH`
+  transitions, producing 6 real `ModuleSequenceEvent` rows (the
+  Timeliner's actual future data source).
+- **Guards:** a duplicate-entry attempt and a skip-ahead transition
+  attempt (post-`complete`) were both correctly refused.
+
+No relationships were invented at any point — every project/building/
+dispatch link traces to real, already-existing data or data created
+through FF's own real API.
 
 **Read this before anything else, because the same misreading has
 recurred twice already:** `InventoryItem` is a **domain-neutral
