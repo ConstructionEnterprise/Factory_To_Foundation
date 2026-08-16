@@ -13,8 +13,12 @@ import {
   ConstructionToolbar,
   CostEstimatingInspector,
   CostEstimatingPanel,
+  SequencingInspector,
+  SequencingPanel,
+  Timeliner,
   type ConstructionDispatchSummary,
   type CostEstimateScenario,
+  type ModuleSequenceEntry,
 } from "@/features/construction";
 import { useDocumentPreview } from "@/features/construction/constructionDocumentPreviewStore";
 
@@ -25,7 +29,7 @@ const constructionKpis: KpiDefinition[] = [
   { title: "Avg Progress", value: "54%" },
 ];
 
-type ConstructionCapability = "map" | "dataMap" | "estimating";
+type ConstructionCapability = "map" | "dataMap" | "estimating" | "sequencing";
 
 /**
  * Real Construction Data Map capability (Phase 1.1, 2026-08-16 rollout) --
@@ -45,6 +49,13 @@ export default function ConstructionPage() {
   // refetches without the Inspector owning that read path itself.
   const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
 
+  const [sequencingProjectId, setSequencingProjectId] = useState<string | null>(null);
+  const [sequenceEntries, setSequenceEntries] = useState<ModuleSequenceEntry[]>([]);
+  const [selectedSequenceEntry, setSelectedSequenceEntry] = useState<ModuleSequenceEntry | null>(null);
+  // Bumped after a real status/position/dependency change so the Panel's
+  // own list refetches without the Inspector owning that read path itself.
+  const [sequenceRefreshKey, setSequenceRefreshKey] = useState(0);
+
   // Construction tab reorg — the center panel toggles between the map
   // (default) and a document viewer, driven by constructionDocumentPreviewStore.
   // Selecting a document in the left "Construction Projects" tree
@@ -57,7 +68,51 @@ export default function ConstructionPage() {
     { label: "Map", onClick: () => setCapability("map"), active: capability === "map" },
     { label: "Data Map", onClick: () => setCapability("dataMap"), active: capability === "dataMap" },
     { label: "Estimating", onClick: () => setCapability("estimating"), active: capability === "estimating" },
+    { label: "Sequencing", onClick: () => setCapability("sequencing"), active: capability === "sequencing" },
   ];
+
+  if (capability === "sequencing") {
+    return (
+      <FeaturePage
+        pageLabel="Construction"
+        pageSubtitle="Modular Sequencing — Real Handoff-Gated Timeline"
+        extraMenus={extraMenus}
+        kpis={<KpiList kpis={constructionKpis} />}
+        left={
+          <ConstructionDataMapBrowse
+            title="Sequencing"
+            selectedProjectId={sequencingProjectId}
+            onSelectProject={(id) => {
+              setSequencingProjectId(id);
+              setSelectedSequenceEntry(null);
+            }}
+          />
+        }
+        center={
+          <div className="flex h-full flex-col">
+            <SequencingPanel
+              projectId={sequencingProjectId}
+              selectedEntryId={selectedSequenceEntry?.id ?? null}
+              onSelectEntry={setSelectedSequenceEntry}
+              refreshKey={sequenceRefreshKey}
+              onEntriesLoaded={(entries) => {
+                setSequenceEntries(entries);
+                setSelectedSequenceEntry((prev) => (prev ? entries.find((e) => e.id === prev.id) ?? prev : prev));
+              }}
+            />
+            <Timeliner entries={sequenceEntries} />
+          </div>
+        }
+        right={
+          <SequencingInspector
+            entry={selectedSequenceEntry}
+            otherEntries={sequenceEntries}
+            onChanged={() => setSequenceRefreshKey((k) => k + 1)}
+          />
+        }
+      />
+    );
+  }
 
   if (capability === "estimating") {
     return (

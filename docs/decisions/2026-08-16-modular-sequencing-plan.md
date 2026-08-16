@@ -1,12 +1,23 @@
 # Modular Sequencing + Timeliner — Phase 2 Implementation Plan
 
-**Status:** Phase 2.1 (`d4c9b5d`) and Phase 2.2 (`b2d0dca`) both complete
-and evidence-verified in sandbox. Phase 2.3 (frontend: ribbon capability +
-Timeliner UI) requires its own explicit go-ahead, same discipline as
-every phase gate this rollout. **Revised (2026-08-16, second pass)**
-after a real domain-boundary correction: v1 of this doc anchored the
-schema directly on `LogisticsModule`, which made the Timeliner
-structurally a Logistics model. It isn't one — see §0.5.
+**Status:** Phase 2.1 (`d4c9b5d`), Phase 2.2 (`b2d0dca`), and Phase 2.3
+(frontend) all complete and live-verified in sandbox. **Revised (2026-08-16,
+second pass)** after a real domain-boundary correction: v1 of this doc
+anchored the schema directly on `LogisticsModule`, which made the
+Timeliner structurally a Logistics model. It isn't one — see §0.5.
+
+**Phase 2.3 live verification (2026-08-16):** 4th ribbon capability
+(`Sequencing`, same `onClick`/`active` pattern as Map/Data Map/Estimating)
+built and confirmed in the browser against the real local dev stack
+(backend + frontend + Factory Runtime all up). Selecting Cedarwood Flats
+renders the real CWF-B-089 entry under "Building B" with its real
+`complete` status and the real 6-event history from the Phase 2.2 evidence
+run (`pending → site_arrival → site_acceptance → installation → placement
+→ complete`, real timestamps). The Timeliner renders that same real event
+data as a horizontal status band. The "+ Add Module" picker correctly
+shows "No real modules are eligible yet" for CWF-B-091 (still undelivered)
+— the handoff gate holds in the UI, not just the API. No fabricated data
+anywhere; every panel reads real backend state.
 
 **Phase 2.2 evidence gate, real and sandbox-only (2026-08-16):** per
 explicit instruction, no schema/backend work was trusted until a real

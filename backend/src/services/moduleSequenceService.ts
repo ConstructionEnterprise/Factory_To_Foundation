@@ -48,6 +48,26 @@ export async function listEntriesForProject(projectId: string): Promise<ModuleSe
   return rows.map(toDto);
 }
 
+export type EligibleModuleDto = {
+  inventoryItemId: string;
+  title: string;
+  buildingTreeNodeId: string | null;
+  buildingTitle: string | null;
+};
+
+/** Real, handoff-eligible modules for the "add to sequence" UI flow (Phase 2.3). */
+export async function listEligibleModules(projectId: string): Promise<EligibleModuleDto[]> {
+  const rows = await repo.findEligibleModules(projectId);
+  return rows
+    .filter((r): r is typeof r & { inventoryItemId: string } => r.inventoryItemId !== null)
+    .map((r) => ({
+      inventoryItemId: r.inventoryItemId,
+      title: r.name,
+      buildingTreeNodeId: r.buildingTreeNodeId,
+      buildingTitle: r.buildingTreeNode?.title ?? null,
+    }));
+}
+
 /**
  * Real handoff contract (docs/decisions/2026-08-16-modular-sequencing-plan.md
  * §1): a ModuleSequenceEntry cannot be created until the real InventoryItem

@@ -37,6 +37,15 @@ export async function moduleSequenceRoutes(app: FastifyInstance) {
     }
   );
 
+  app.get(
+    "/construction-projects/:id/eligible-sequence-modules",
+    { preHandler: [authenticate, requirePermission("construction", "read")] },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      return service.listEligibleModules(id);
+    }
+  );
+
   app.post(
     "/construction-projects/:id/module-sequences",
     { preHandler: [authenticate, requirePermission("construction", "create")] },

@@ -38,6 +38,29 @@ export function findEntryById(id: string): Promise<ModuleSequenceEntry | null> {
   return prisma.moduleSequenceEntry.findUnique({ where: { id } });
 }
 
+/**
+ * Real, eligible-for-sequencing LogisticsModule rows (Phase 2.3) -- has a
+ * real delivered dispatch (the handoff has occurred) and no existing
+ * ModuleSequenceEntry yet. Feeds the frontend's "add module" flow so a
+ * user only ever picks from real, handoff-eligible items, never a raw
+ * inventoryItemId typed blind.
+ */
+export function findEligibleModules(projectId: string) {
+  return prisma.logisticsModule.findMany({
+    where: {
+      constructionProjectId: projectId,
+      dispatch: { status: "delivered" },
+      inventoryItem: { moduleSequenceEntry: null },
+    },
+    select: {
+      inventoryItemId: true,
+      name: true,
+      buildingTreeNodeId: true,
+      buildingTreeNode: { select: { title: true } },
+    },
+  });
+}
+
 export function findEntriesByProject(projectId: string) {
   return prisma.moduleSequenceEntry.findMany({
     where: { constructionProjectId: projectId },
