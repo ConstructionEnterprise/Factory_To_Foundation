@@ -50,7 +50,7 @@ export default function InventoryPage() {
       toolbar={<InventoryToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={() => setActiveQuery(queryInput)} />}
       left={<InventoryBrowse items={items} loading={loading} error={error} />}
       center={<InventoryInspector />}
-      right={<InventoryRelationships />}
+      right={<InventoryRelationships items={items} />}
     />
   );
 }
