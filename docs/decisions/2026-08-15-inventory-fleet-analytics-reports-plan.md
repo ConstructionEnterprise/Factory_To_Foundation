@@ -75,17 +75,23 @@ Inventory may represent CE-Forge-sourced data — see §1.
   verification, the same discipline already used for the Logistics Flow
   work earlier this session. Sandbox-first for anything touching real
   data; exact-count verification before/after any migration.
-- **UI pattern rule (2026-08-15, mid-rollout addendum):** prefer wiring new
-  domain capabilities into a page's existing `CommandRibbon` (via
-  `FeaturePage`'s `extraMenus`, the same mechanism Factory's "Instructions"
-  menu and Fleet's own ribbon placement use) over inventing a fresh,
-  disconnected toggle each time — where the host page already supports it.
+- **Standing FF UI rule (2026-08-15):** three real layers, not
+  interchangeable —
+  **sidebar = major system domains**, **CommandRibbon = contextual
+  capabilities/actions within the current domain**, **workspace/content
+  area = the actual operational view**. Before adding any new button, tab,
+  or navigation surface, ask: *"is this a domain, or a capability of the
+  current domain?"* A capability's default home is the CommandRibbon
+  (`FeaturePage`'s `extraMenus`, the mechanism Factory's "Instructions"
+  menu and Fleet's own ribbon placement use), not a new sidebar item or a
+  bespoke toggle. Concrete example already applied: Logistics' ribbon is
+  `Metrics | Filters | Fleet`, with Fleet a sibling capability inside
+  Logistics — never a child of the Logistics Flow workspace view.
   `SimplePage` (Analytics/Reports/Administration/Networking) doesn't
   support `extraMenus` yet, which is why Phase 1D's Topology/API toggle
   used plain inline buttons instead — a real, disclosed constraint, not an
-  oversight. If/when `SimplePage` gets extended (§3's open decision), its
-  new consumers should move to the ribbon pattern rather than keep
-  multiplying toggle styles.
+  exception to the rule. If/when `SimplePage` gets extended (§3's open
+  decision), its consumers should move to the ribbon pattern.
 
 ---
 
