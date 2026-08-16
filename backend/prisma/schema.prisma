@@ -112,6 +112,8 @@ model User {
   taxReportedLogisticsDispatches LogisticsDispatch[]
   costEstimateScenarios      CostEstimateScenario[]
   moduleSequenceEvents       ModuleSequenceEvent[]
+  analyticsThresholds        AnalyticsThreshold[]
+  analyticsDashboards        AnalyticsDashboard[]
 
   @@map("user")
 }
@@ -628,6 +630,97 @@ model ModuleSequenceEvent {
   /// state, never backfilled with invented history.
   @@index([sequenceEntryId])
   @@map("module_sequence_event")
+}
+
+// ───────────────────── Analytics Observability ─────────────────────
+// Phase 3, 2026-08-16 rollout (docs/decisions/
+// 2026-08-16-analytics-observability-phase3-plan.md). The metric catalog
+// itself is a real backend constant (analyticsMetricCatalog.ts), not a
+// table -- every metricKey below is validated against that fixed list at
+// the service layer, never a free string a client could invent.
+
+enum AlarmComparator {
+  greater_than
+  less_than
+}
+
+/// One real, stored threshold per metric (@@unique), evaluated live on
+/// read -- no cron/evaluator, no notification pipeline. See §2.3 of the
+/// plan doc for why this is deliberately not a polled/pushed alarm system.
+model AnalyticsThreshold {
+  id String @id @default(cuid())
+
+  metricKey String @unique @map("metric_key")
+
+  comparator AlarmComparator
+  value      Float
+
+  /// The real time window (in minutes) the current-value evaluation
+  /// aggregates over -- e.g. "60" means "count/rate over the last hour."
+  windowMinutes Int @default(60) @map("window_minutes")
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("analytics_threshold")
+}
+
+enum AnalyticsWidgetType {
+  /// A real Recharts time-series graph over one fixed catalog metricKey.
+  metric_graph
+  /// The existing real merged Events feed (Phase 1.3's EventsWidget),
+  /// exposed as a selectable widget type in its own right.
+  events_feed
+  /// One of the 13 pre-existing real Phase 1 Analytics widgets
+  /// (FactoryWidget, ConstructionWidget, etc.), referenced by key rather
+  /// than rebuilt -- see summaryWidgetKey below.
+  existing_summary
+}
+
+/// A real, shared (not per-user-private) saved dashboard -- see §3.3 of
+/// the plan doc for why "shared" is the assumed default. createdById is
+/// real authorship, not an ownership/visibility gate.
+model AnalyticsDashboard {
+  id String @id @default(cuid())
+
+  title     String
+  /// Exactly one real row has this true -- the real backfilled dashboard
+  /// (see backend/scripts/backfill-default-analytics-dashboard.ts)
+  /// reproducing today's exact 13-widget layout, so upgrading to Phase 3
+  /// causes zero visual regression.
+  isDefault Boolean @default(false) @map("is_default")
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  widgets AnalyticsDashboardWidget[]
+
+  @@map("analytics_dashboard")
+}
+
+model AnalyticsDashboardWidget {
+  id String @id @default(cuid())
+
+  dashboardId String             @map("dashboard_id")
+  dashboard   AnalyticsDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  widgetType AnalyticsWidgetType @map("widget_type")
+
+  /// Required (validated at the service layer) when widgetType =
+  /// metric_graph, null otherwise.
+  metricKey String? @map("metric_key")
+  /// Required (validated at the service layer) when widgetType =
+  /// existing_summary -- one of the 13 real Phase 1 widget keys.
+  summaryWidgetKey String? @map("summary_widget_key")
+
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("analytics_dashboard_widget")
 }
 
 // ───────────────────── Genealogy ─────────────────────

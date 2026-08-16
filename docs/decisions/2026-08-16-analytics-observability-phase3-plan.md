@@ -26,9 +26,14 @@ properly rather than assuming defaults.
   speculative — the time-range selector (§3.3) will legitimately show
   empty buckets at sub-day granularity today. That's an honest empty
   state, not a reason to fabricate density.
-- **`analytics` RBAC module already exists** (`backend/prisma/seed.ts:37`),
-  currently granted read-only (`R`) to every seeded role, never
-  create/update/delete. Phase 3 needs write actions on it (§2.4).
+- **`analytics` RBAC module already exists** (`backend/prisma/seed.ts:37`).
+  **Correction (3.1 live check):** the CEO role already holds
+  `uniform(FULL)` — every module including `analytics` at all 6 actions
+  — so the real QA test account (`qa.ceo@factoryfoundation.test`, role
+  `CEO`, confirmed live via a direct query) already has
+  `analytics:create/update/delete`. No RBAC seed change was needed for
+  §2.4; the original claim here (based on a grep that missed CEO's
+  programmatic `uniform(FULL)` row) was wrong.
 - **React 19.2 / Vite 8** — current frontend stack, relevant to charting
   library compatibility (§1).
 
@@ -119,14 +124,14 @@ explicitly out of scope (§5).
 ### 2.4 RBAC
 
 `analytics:read` (already granted broadly) to view threshold + state.
-`analytics:create`/`analytics:update`/`analytics:delete` (currently
-granted to **no** seeded role — needs a real seed change) to set/replace/
+`analytics:create`/`analytics:update`/`analytics:delete` to set/replace/
 clear a threshold. Same shape as every other module's C/U/D gating in
-this codebase (`costEstimates.ts`, `moduleSequences.ts`, etc.). Real seed
-decision needed: which existing role(s) get analytics write access —
-recommend the same role(s) already holding `construction:create/update`
-(the admin-equivalent QA role), not a new role, unless Joshua wants
-narrower scoping.
+this codebase (`costEstimates.ts`, `moduleSequences.ts`, etc.). **No seed
+change needed** — the CEO role already holds `analytics:create/update/
+delete` via its `uniform(FULL)` grant (confirmed live against the real
+QA test account, §0). Other roles (e.g. Project Manager, currently
+`analytics: R`) stay read-only unless Joshua wants broader write access
+later — not expanded here since nothing asked for it.
 
 ## 3. Configurable multi-dashboard system
 
@@ -176,12 +181,14 @@ right.
 ### 3.2 Migration continuity — no visual regression
 
 A backfill creates exactly one real `AnalyticsDashboard` (`title:
-"Default"`, `isDefault: true`) with 13 `existing_summary` widgets in
-today's exact order (`FactoryWidget` through `QualityControlWidget`,
-matching `AnalyticsDashboard.tsx`'s current JSX order). Upgrading to
-Phase 3 must render an identical page to today until a user actually
-edits something — same "no regression, no fabrication" discipline as
-every other migration in this rollout.
+"Default"`, `isDefault: true`) with 13 real widgets in today's exact
+`AnalyticsDashboard.tsx` JSX order: 12 as `existing_summary` (every
+current widget except Events) plus `EventsWidget` itself as a real
+`events_feed` row — consistent with §5's own framing of `events_feed` as
+its own selectable type, not folded into the generic `existing_summary`
+bucket. Upgrading to Phase 3 must render an identical page to today until
+a user actually edits something — same "no regression, no fabrication"
+discipline as every other migration in this rollout.
 
 ### 3.3 RBAC and sharing model
 
@@ -260,10 +267,10 @@ DELETE /analytics/dashboards/:id/widgets/:widgetId   (analytics:update)
 
 **3.1 — Schema + RBAC (small, low-risk):** `AnalyticsThreshold`,
 `AnalyticsDashboard`, `AnalyticsDashboardWidget`, both enums; sandbox
-migration; RBAC seed update granting `analytics:create/update/delete` to
-the admin-equivalent role (§2.4); backfill script creating the one real
-default dashboard from today's exact 13-widget layout (§3.2,
-exact-count-asserted, same discipline as every prior backfill).
+migration; RBAC seed verified live (no change needed, §2.4); backfill
+script creating the one real default dashboard from today's exact
+13-widget layout (§3.2, exact-count-asserted, same discipline as every
+prior backfill).
 
 **3.2 — Backend:** metric catalog constant, `analyticsMetricsService`,
 `analyticsThresholdsService`, `analyticsDashboardsService`, all three
