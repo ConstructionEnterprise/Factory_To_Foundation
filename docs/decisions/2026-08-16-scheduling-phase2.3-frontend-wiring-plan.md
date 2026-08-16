@@ -1,8 +1,8 @@
 # Scheduling — Phase 2.3: Backend Routes + Frontend Wiring — Scoping
 
-**Status:** Scoped, not implemented. One real architectural decision
-needed before implementation starts (§3) — everything else below is
-ready to build once that's answered.
+**Status:** Fully scoped, all decisions made (§3 resolved 2026-08-16,
+same day) — **not implemented yet**, ready to build on explicit
+go-ahead.
 
 **Context:** Phase 2.1 (schema) and 2.2 (real backfill of the CE Forge
 S1–S4 data into `Schedule`/`ScheduleStage`/`CanonicalStage`) are complete
@@ -59,51 +59,44 @@ simpler than its own Phase 1 comment anticipated.
 
 ---
 
-## 3. The real architectural decision: what happens to the Function Block Canvas
+## 3. Decided (2026-08-16): the canvas becomes schedule-aware, node-to-node stays
 
-This is the one genuine open question, not a mechanical wiring task.
+**Joshua's explicit call, superseding the three options originally
+presented here:** the viewport keeps the real node-to-node visual —
+boxes connected by wires — but it needs to render *whichever real
+schedule is selected*, not the fixed 5-stage fixture. Selecting a node
+populates the Inspector with that real node's detail, same as today.
 
-**The mismatch:** `FunctionBlockCanvas` needs `ScheduleNodeData` — real
-`x`/`y`/`width`/`height` and real named ports per stage. **None of that
-exists on the new `ScheduleStage` model**, and Phase 2.2's real backfill
-correctly didn't invent any (a real "Kitting" stage has no real
-coordinates or port geometry — fabricating some would be exactly the
-kind of invented structure this whole rollout has refused everywhere
-else). Real per-schedule stages have exactly one real spatial fact:
-`position` (an integer order), the same shape Modular Sequencing's
-Timeliner already solved for real data with no spatial coordinates.
+**Why this doesn't require fabricating anything, once decomposed
+correctly:** the original concern (§3 as first drafted) was that
+`FunctionBlockCanvas` needs stored `x`/`y`/named ports and the new
+`ScheduleStage` model has neither. But node-to-node flow doesn't
+actually require *stored* geometry or *typed* ports — only real order,
+which already exists (`ScheduleStage.position`):
 
-Three real options, not decided here:
+- **Layout is computed, not stored.** X/Y per node is a deterministic
+  function of its real `position` index (the same left-to-right spacing
+  the old fixture used) — rendering real order visually, not persisting
+  or inventing coordinate data.
+- **Wires are real sequence, not fabricated ports.** A connector from
+  stage N to stage N+1 in real `position` order reflects a relationship
+  that already exists in the data. This replaces the old rich
+  typed/named BOOL-port system (which was real only for the 5 fixed
+  global stages) with one generic in/out connection point per node — a
+  rendering convenience, not a new real data concept, so nothing new is
+  asserted as real backend state.
+- **Node detail is real, already-shaped data.** Clicking a node emits
+  the exact same `SelectionContext` payload shape `ScheduleInspector.tsx`
+  already renders today (name/description/`ownedByModule`/status) —
+  sourced from the real `ScheduleStage` + its real linked `ScheduleTask`.
 
-**(a) Retire the Function Block Canvas as a per-schedule view. Replace
-it with a real, simple ordered Stage/Step list** for whichever schedule
-is selected (same non-geometric "status-over-an-axis" precedent as
-Modular Sequencing's Timeliner) — a `<ScheduleStageList>` reading real
-`position`-ordered `ScheduleStage[]` with each stage's real linked task
-status. The Function Block Canvas's 5-box/port/wire visual disappears
-from the real per-schedule flow entirely.
-
-**(b) Keep the Function Block Canvas, but repoint it at `CanonicalStage`
-only** — a fixed, schedule-independent reference diagram (real
-`x`/`y`/ports would need to be *added to* `CanonicalStage`, which
-doesn't have them today either — this option isn't free, it's real new
-schema work). Shows "the conceptual 5-stage pipeline" as a static
-reference, never bound to any specific real schedule's real stages.
-
-**(c) Hybrid** — canvas stays exactly as-is, unchanged, reading the
-frontend fixture verbatim (now understood explicitly as "the canonical
-reference diagram, not live data"); a **new**, separate
-`<ScheduleStageList>` (same as (a)) is added specifically for whichever
-real schedule is selected in Browse. Two real, honestly-different views
-for two real, different concepts — the pipeline *concept* vs. one real
-schedule's real steps — rather than forcing one visual to represent both.
-
-**Recommendation: (c).** It requires no new schema work (unlike (b)),
-doesn't delete real existing UI (unlike (a)), and is the most honest
-option — the Function Block Canvas keeps meaning exactly what it always
-meant (the conceptual pipeline), and a schedule's real steps get their
-own real, non-fabricated view. Not decided unilaterally — flagging for
-an explicit call before implementation.
+**What this replaces from §3's original three options:** none of (a)/
+(b)/(c) as drafted — this is closer to (a) in spirit (the canvas becomes
+real per-schedule data) but keeps the node-to-node visual form (a)
+would have dropped. `CanonicalStage` stays exactly as scoped (§1.3 of
+the schema plan) — real reference data, not required to have geometry
+of its own; the canvas no longer needs a schedule-independent fallback
+view since it now always renders whichever real schedule is selected.
 
 ---
 
@@ -143,28 +136,46 @@ change to an existing route** — not a new file.
 
 ## 5. Frontend design
 
-- **`scheduleApi.ts`** (new file, or added to `scheduleTasksApi.ts` —
-  recommend new file, `Schedule` is a real distinct concept from
-  `ScheduleTask`): `fetchSchedules()`, `fetchScheduleDetail(id)`,
-  `createSchedule()`, `createStage()`, `reorderStages()`,
-  `fetchCanonicalStages()`.
+- **`scheduleApi.ts`** (new file — `Schedule` is a real distinct concept
+  from `ScheduleTask`): `fetchSchedules()`, `fetchScheduleDetail(id)`
+  (returns the schedule + its real `ScheduleStage[]`, position-ordered,
+  each with its real linked task summary), `createSchedule()`,
+  `createStage()`, `reorderStages()`, `fetchCanonicalStages()` (feeds a
+  real dropdown when creating a stage, same "pick from a real fixed
+  catalog, never free-text" precedent as Analytics Phase 3's metric
+  picker).
 - **`ScheduleBrowse.tsx`**: rewired to fetch real `Schedule[]` and
   render each schedule's real `ScheduleStage[]` as children, using each
   stage's own real `id` directly (§2 — no composite-id workaround
-  needed). Real "+ New Schedule" affordance, same
+  needed). Selecting a schedule is what drives which schedule the canvas
+  (below) renders. Real "+ New Schedule" affordance, same
   create-form-in-panel pattern as `SequencingPanel`/`CostEstimatingPanel`.
-- **New `<ScheduleStageList>`** (per §3's recommended option (c)):
-  real position-ordered list of a selected schedule's real stages, each
-  showing its real linked task's status — same list-rendering precedent
-  as `FleetWorkspace`/`SequencingPanel`.
-- **`ScheduleLayout.tsx`/`FunctionBlockCanvas.tsx`**: **unchanged**
-  under option (c) — still renders the real fixture's 5-stage pipeline
-  diagram, now with an updated doc comment clarifying it's the
-  conceptual/reference view, not bound to any one real schedule.
-- **`ScheduleWorkspace.tsx`**: gains the new `<ScheduleStageList>` into
-  the existing 5-panel layout — real layout placement (which panel it
-  replaces or sits alongside) is a real UI call for whoever builds it,
-  not pre-decided here.
+- **`FunctionBlockCanvas.tsx`/`FunctionBlockNode.tsx`: made
+  schedule-aware, node-to-node visual kept** (Joshua's explicit call,
+  §3). Real changes:
+  - Input data shape changes from the old fixture's `ScheduleNodeData`
+    (stored `x`/`y`/named ports) to a real `ScheduleStage[]`
+    (`id`/`title`/`position`/its real linked task).
+  - **Layout is computed, not stored**: `x = position * GAP, y = 0`,
+    same spacing constant the old fixture used — a deterministic
+    rendering of real order, not new persisted or fabricated data.
+  - **Wires connect consecutive real stages** in `position` order (stage
+    N's output anchor → stage N+1's input anchor) — one generic in/out
+    connection point per node, replacing the old named/typed BOOL-port
+    system (which was only ever real for the 5 fixed global stages).
+    This is a rendering simplification, not a new real data concept —
+    nothing is asserted as real backend state that isn't.
+  - **Selecting a node** emits the same real `SelectionContext` payload
+    shape `ScheduleInspector.tsx` already renders (name/description/
+    `ownedByModule`/status), sourced from the real `ScheduleStage` and
+    its real linked `ScheduleTask` — `ScheduleInspector.tsx` itself
+    needs no changes.
+  - **No schedule selected**: an honest empty state ("select a schedule
+    to see its real stages"), not a fallback to the old fixture — the
+    canvas no longer has a schedule-independent default view.
+- **`ScheduleLayout.tsx`**: fetches the selected schedule's real detail
+  (via `SelectionContext`'s current schedule, from Browse) and passes
+  its real stages into the now-schedule-aware canvas.
 - **`AnalyticsDashboard.tsx`'s `SchedulingWidget`**: small follow-on,
   real counts now available (`Schedule`/`ScheduleStage` counts via the
   new `/schedules` read), currently still reading the fixture — flagged,
