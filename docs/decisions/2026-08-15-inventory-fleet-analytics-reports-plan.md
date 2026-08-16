@@ -1,9 +1,12 @@
 # Inventory / Fleet / Analytics / Reports — Validated Implementation Plan
 
-**Status:** Phase 0 decisions locked 2026-08-15 (see below). Phase 1
-execution in progress. Phase 2 (Inventory — real data migration, route
-retirement) requires an explicit go-ahead before starting; everything
-before it is additive and doesn't touch existing working routes.
+**Status:** Phase 0 locked. **Phase 1 complete** (1A Analytics truth
+cleanup, 1B Genealogy real-data path, 1C Reports search backend, 1D
+Networking → API foundation — all four built, typechecked, live-verified
+against real data, committed, pushed: `04aef52`, `cc580f3`, `4c1d295`,
+`aaa55ff`). Every Phase 1 item was additive — no existing route was
+changed or retired. **Phase 2 (Inventory — real data migration, route
+retirement) requires an explicit go-ahead before starting.**
 **Source of truth:** The evidence-based validation of the Manus AI review
 completed earlier in this session (four parallel codebase investigations —
 Inventory/Assets/Genealogy, Fleet/Autonomous Dolly, Analytics/CloudFront UX,
