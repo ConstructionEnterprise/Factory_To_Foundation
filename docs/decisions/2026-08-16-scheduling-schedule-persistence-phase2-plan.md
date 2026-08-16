@@ -1,11 +1,13 @@
 # Scheduling — Schedule/Step Real Persistence (Phase 2) — Decision & Implementation Plan
 
-**Status:** Decisions made, plan written. **Not implemented — this doc is
-the artifact required before any schema work starts**, per explicit
-instruction. Phase 1 (fixture + UI, no schema) shipped 2026-08-12,
-commit `e8083a1`. Phase 2 was deliberately deferred at that time — "prove
-the UX with the fixture first, then design real persistence based on
-what's proven." This doc is that design pass.
+**Status:** All decisions made, including the 4 open questions from §5
+(resolved 2026-08-16, later same day — see §5). **Not implemented yet —
+awaiting explicit go-ahead to start schema work**, same phase-gate
+discipline as every other phase this rollout. Phase 1 (fixture + UI, no
+schema) shipped 2026-08-12, commit `e8083a1`. Phase 2 was deliberately
+deferred at that time — "prove the UX with the fixture first, then
+design real persistence based on what's proven." This doc is that design
+pass.
 
 **Provenance:** the architectural decisions below were proposed by
 ChatGPT (relayed by Joshua, 2026-08-16) after being shown this session's
@@ -78,17 +80,17 @@ alone. A real model gives that concept a real identity, a real place to
 attach metadata, and a real thing a future UI can list/rename/delete —
 none of which a bare grouping column would support.
 
-**Genuinely still open, not decided by the relayed message either (its
-own wording was conditional — "project association if Scheduling is
-project-scoped"):** does `Schedule` get a real `constructionProjectId`?
-No evidence either way in the real S1–S4 data — the task titles read like
-manufacturing-pipeline schedules ("Material-to-Module," "Module
-Logistics"), not construction-project schedules, and nothing in
-`ScheduleTask` links to `ConstructionProject` today. **Left unresolved
-here — flagging for an explicit answer before schema work, not assumed
-either direction.**
+**Decided 2026-08-16 (§5 follow-up): yes, `Schedule` gets a real,
+nullable `constructionProjectId`.** No real evidence in the S1–S4 data
+supports project-scoping today (the task titles read like
+manufacturing-pipeline schedules, not construction-project ones), but
+the field is cheap to add now and avoids a second migration if a
+project-scoped schedule shows up later — the same additive-nullable
+reasoning already applied to `LogisticsModule.constructionProjectId` in
+Phase 2.1. Stays honestly null for all 4 real S1–S4 schedules.
 
-Fields, per the relayed decision, plus one addition explained in §3:
+Fields, per the relayed decision plus the two additions explained in §3
+and §5:
 
 ```prisma
 model Schedule {
@@ -99,8 +101,8 @@ model Schedule {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // constructionProjectId String? -- open question, see above; add only
-  // once answered, not speculatively.
+  constructionProjectId String?             @map("construction_project_id")
+  constructionProject   ConstructionProject? @relation(fields: [constructionProjectId], references: [id])
 
   stages ScheduleStage[]
   tasks  ScheduleTask[]  // see §3 -- a direct link, not solely via stage
@@ -145,14 +147,10 @@ model ScheduleStage {
 }
 ```
 
-`SchedulePort`/`ScheduleWire` are unaffected by this change structurally
-(they still hang off `ScheduleStage` by FK) — but since zero real rows
-exist for either, whether to carry them forward at all is a real
-secondary question, not addressed by the relayed decisions and not
-assumed here either. They aren't referenced by anything in Phase 2's
-real scope (no real port/wire data exists to migrate), so the
-recommendation is to leave them exactly as they are (unused, real, still
-in the schema) rather than touch them in this pass.
+**Decided 2026-08-16 (§5 follow-up): leave `SchedulePort`/`ScheduleWire`
+exactly as they are.** Zero real rows exist for either, nothing in
+Phase 2's real scope touches them, and no real port/wire data exists to
+migrate — they stay in the schema, unused, untouched by this pass.
 
 ### 1.3 Preserve the 5-stage concept as optional canonical taxonomy
 
@@ -181,6 +179,16 @@ scope decision, not free** — worth confirming rather than building by
 default, since nothing in the real S1–S4 evidence actually needed it (all
 27 real tasks organize into 4 schedules with their own step vocabularies,
 none touching the 5 canonical names).
+
+**Decided 2026-08-16 (§5 follow-up): build it now.** Seed the 5 real
+fixture names as real `CanonicalStage` rows in the same migration.
+Per §2's own backfill, none of the 27 real S1–S4 stage rows will
+actually reference a `CanonicalStage` (their real step names — Kitting,
+QC Release, Crane Setup, etc. — don't match any of the 5 canonical
+names) — that's expected and disclosed, not a bug: `CanonicalStage`
+exists as real reference data for whenever a schedule's real steps do
+line up with the 5-stage pipeline concept, not because the existing real
+data needs it today.
 
 ### 1.4 `ScheduleTask` keeps its existing status enum
 
@@ -262,16 +270,22 @@ executed in this pass):
 - Leave "Material Inbound" and "Equipment Inbound" (the 2 unprefixed
   rows) with `scheduleId = null` — no real evidence assigns them to any
   schedule, so none is invented.
-- **Not** auto-create `ScheduleStage` rows for each task's implied step
-  ("Kitting," "QC Release," etc.). That's a real, separate leap — turning
-  27 different step *names* into 27 real stage *rows* with real
-  `position` ordering is inventing structure the title-prefix convention
-  alone doesn't establish (unlike the schedule-level grouping, which the
-  prefix does establish directly). **Left as a real open question**,
-  not silently done: does Phase 2 populate real stages for the existing
-  CE Forge data, or does stage assignment stay `null` (same honest-empty
-  discipline as today) until a real user or a future CE Forge pass
-  organizes real stages deliberately?
+- **Decided 2026-08-16 (§5 follow-up): backfill real `ScheduleStage`
+  rows for the 27 CE-Forge tasks.** Each task's real title already
+  encodes both parts (`"S1 Material-to-Module — Kitting"` = schedule
+  "S1 Material-to-Module," step "Kitting") — parsing the text after the
+  real `" — "` delimiter into a `ScheduleStage.title` is reading what
+  the field already states, same discipline as the earlier
+  `LogisticsModule` backfill, not guessing. Real `position`: derived
+  from each schedule's own real `ScheduleTaskDependency` topology (a
+  real topological ordering, same computation `ScheduleCriticalPathWidget`
+  already does elsewhere in this codebase), not alphabetical or insertion
+  order. `canonicalStageId` stays null on every one of the 27 new rows —
+  none of the real step names match any of the 5 canonical names, and
+  none is forced to (§1.3). Today's real 1-task-per-stage shape means
+  each new `ScheduleStage` has exactly one real task — a real, if
+  currently trivial, relationship; nothing stops a future schedule from
+  having multiple tasks share one real stage.
 
 ---
 
@@ -316,13 +330,19 @@ changed, no migration was generated, no data was touched for anything in
 §1.1–§1.4/§2. (§1.5–§1.7 are documentation-only decisions already
 reflected in their respective docs — no code changes there either.)
 
-## 5. Genuinely open questions requiring an explicit answer before implementation
+## 5. Open questions — resolved 2026-08-16
 
-1. Does `Schedule` get a real `constructionProjectId`? (§1.1)
-2. Is `SchedulePort`/`ScheduleWire` carried forward as-is (real, unused
-   for now) or reconsidered? (§1.2)
-3. Is `CanonicalStage` built at all, given no real data currently needs
-   it? (§1.3)
-4. For the 27 existing real CE-Forge-generated tasks: does this migration
-   also populate real `ScheduleStage` rows for their implied steps, or
-   leave `stageId` null until a real future organizing pass? (§2)
+All four answered (real reasoning folded back into §1.1/§1.2/§1.3/§2
+above, not just recorded here):
+
+1. **`constructionProjectId` on `Schedule`?** Yes, nullable. (§1.1)
+2. **`SchedulePort`/`ScheduleWire`?** Left exactly as-is, untouched. (§1.2)
+3. **Build `CanonicalStage`?** Yes, seeded with the 5 real fixture
+   names in the same migration. (§1.3)
+4. **Backfill real `ScheduleStage` rows for the 27 existing CE-Forge
+   tasks?** Yes — real title-parsing (not guessing), real
+   dependency-derived ordering, `canonicalStageId` honestly null on all
+   27. (§2)
+
+**Every open question is now answered. Schema work can start on explicit
+go-ahead.**
