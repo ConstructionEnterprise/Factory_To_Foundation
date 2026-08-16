@@ -1,12 +1,16 @@
 # FF Construction Intelligence — Phase 1 Implementation Plan
 
-**Status:** Plan finalized across four rounds of review (validated against
-real code, compared against a second relayed steering doc, adjusted per
-Joshua's final call on Analytics scope, then split again after a third
-relayed proposal to transform Analytics into a CloudWatch-style
-observability surface). Requires explicit go-ahead before work starts;
-Phase 1, Phase 2, and Phase 3 are separately gated, same discipline as
-the Inventory/Fleet rollout's own phase gates.
+**Status: Phase 1 complete** (1.1 Construction Data Map, 1.2 Cost
+Estimating, 1.3 Analytics integration — all three built, typechecked,
+sandbox-verified, live-browser-verified, committed, pushed: `9c3422f`,
+`570ac7e`, `aaeb585`). Plan finalized across four rounds of review
+(validated against real code, compared against a second relayed steering
+doc, adjusted per Joshua's final call on Analytics scope, then split
+again after a third relayed proposal to transform Analytics into a
+CloudWatch-style observability surface). **Phase 2 (Modular Sequencing +
+Timeliner) and Phase 3 (CloudWatch-style observability) are separately
+scoped and require their own explicit go-ahead** — neither started, same
+discipline as the Inventory/Fleet rollout's own phase gates.
 
 **Source of truth:** validated directly against the real FF codebase
 (`C:\Dev\Factory_Foundation_design_pass`) via two parallel Explore-agent
