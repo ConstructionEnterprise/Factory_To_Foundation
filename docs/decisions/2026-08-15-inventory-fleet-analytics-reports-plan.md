@@ -4,9 +4,16 @@
 cleanup, 1B Genealogy real-data path, 1C Reports search backend, 1D
 Networking → API foundation — all four built, typechecked, live-verified
 against real data, committed, pushed: `04aef52`, `cc580f3`, `4c1d295`,
-`aaa55ff`). Every Phase 1 item was additive — no existing route was
-changed or retired. **Phase 2 (Inventory — real data migration, route
-retirement) requires an explicit go-ahead before starting.**
+`aaa55ff`). **Phase 2 complete** (2.1 `InventoryItem` shared identity
+schema, 2.2 real backfill — 30 Asset + 13 GenealogyNode rows linked, 2.3
+backend routes with per-kind RBAC-correct visibility, 2.4 real `/inventory`
+domain page, 2.5 live verification — a real id-mismatch bug was found and
+fixed during verification: `0632451`, `cd80522`, `db639b9`, `fe942f0`,
+`342d693`). `/assets` and Genealogy's own route are **completely
+untouched** and still fully live — Phase 2 was additive by design, same as
+every Phase 1 item. **Retiring the legacy `/assets`/Genealogy routes in
+favor of `/inventory` is a separate, later decision, not yet made or
+scheduled.** Phase 3 (Fleet) is next and requires its own go-ahead.
 **Source of truth:** The evidence-based validation of the Manus AI review
 completed earlier in this session (four parallel codebase investigations —
 Inventory/Assets/Genealogy, Fleet/Autonomous Dolly, Analytics/CloudFront UX,
