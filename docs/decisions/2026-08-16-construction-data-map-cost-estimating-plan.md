@@ -11,6 +11,18 @@ audits plus direct schema inspection, in response to a Manus AI-drafted
 claim below traces to a real file:line, not to the Manus document's own
 claims.
 
+**Second relayed plan, reviewed and partially adopted (2026-08-16):** a
+follow-up Manus AI document ("FF Construction + Operations Implementation
+Run") expanded scope to six capabilities (adds Modular Sequencing + a
+required Timeliner, and an Analytics integration phase) and proposed a
+resolution for the Logistics/Dispatch boundary tension this plan flagged:
+**don't extend Logistics Flow or Dispatch themselves — build Modular
+Sequencing as a new domain that consumes their real output as input.**
+That resolution is sound and is recorded in §7 for whenever Sequencing
+gets its own go-ahead. Two of that document's other claims don't hold up
+against real data and were **not** adopted — see §6 items 2-3 and §7/§8
+for what was kept, what was rejected, and why.
+
 ---
 
 ## 0. Scope decision
@@ -217,14 +229,88 @@ Not decided here — listed so they don't get silently assumed mid-build:
    project"? Not in v1's scope either way — v1 ships without it, honestly
    scoped to what's real today.
 2. **Where does Modular Sequencing actually belong**, given neither real
-   CE-side repo has a UI surface for it today? Options: (a) build it in
-   FF despite the doc's CE-ownership framing, (b) treat it as blocked
-   until CE_Forge or Construction_Enterprises grows an actual product
-   surface, (c) revisit whether "CE owns it" was ever a technically
-   meaningful statement versus a business-ownership one. This plan takes
-   no position — flagged for Joshua's call, same as the original
-   Inventory/Fleet plan's own §5.
-3. **Cost Estimating's v2 field set** (labor/equipment/subcontractor/
-   regional-factor breakdown) — deferred until real rate data exists to
-   back it; v1's flat rate-per-SF is deliberately the honest floor, not
-   the ceiling.
+   CE-side repo has a UI surface for it today? **Partially resolved:** the
+   second relayed plan drops the original "CE owns it" framing without
+   saying so and folds it straight into Construction's own Command
+   Ribbon as an FF capability — which matches reality (no CE-side surface
+   exists) better than the original claim did. Still open: whether to
+   build it now or treat it as its own separately-gated run. This plan
+   takes no position on timing — see §7.
+3. **Cost Estimating's v2 field set** — **the second relayed plan's
+   proposal was reviewed and rejected as designed.** It proposes the user
+   picks a *target* price ($145/SF) and "FF develops the corresponding
+   cost structures underneath" it — reverse-deriving a labor/material/
+   equipment/sub breakdown to justify an arbitrary target. That requires
+   real unit-cost rate data (labor rates, material rates, equipment
+   rates, regional factors) to derive from. **None of that exists
+   anywhere in FF today** — confirmed via the same audit that validated
+   this plan. Built as described, it would either need someone to source
+   real cost-rate data first (not in scope, not mentioned in that plan),
+   or it fabricates a plausible-looking breakdown to hit the target
+   number — the exact kind of fabrication this whole rollout has
+   deliberately avoided everywhere else (Dock Utilization stays "no dock
+   model yet" rather than inventing a percentage; Logistics `traffic`
+   stays a disclosed placeholder). **v1 stays the flat rate/SF model in
+   §2.2** (user enters known SF + rate, server multiplies) — this is the
+   honest floor. A target-price-to-cost-structure mode is a legitimate
+   v2 idea, but only once real unit-cost rate data actually exists to
+   derive from — not before.
+
+---
+
+## 7. Modular Sequencing + Timeliner — deferred, own run, not this one
+
+Not in scope for this plan. Recorded here so the shape that's already
+been reasoned through doesn't get re-litigated from scratch when it does
+get picked up.
+
+**The one part of the second relayed plan worth keeping verbatim:**
+*"Logistics owns the movement data. Modular Sequencing consumes that
+movement as part of the construction installation sequence."* This
+resolves the boundary tension cleanly — Logistics Flow's 7-stage
+vocabulary and Dispatch's 3-state machine both stay exactly as they are,
+untouched. A new Sequencing domain (new Prisma models, new routes, new
+feature folder) would read `LogisticsDispatch`/`Vehicle`/`FlowPoint` as
+real inputs and own everything past Transportation Handoff itself —
+staging, site arrival, site acceptance, installation, placement — without
+either domain being rewritten to accommodate the other.
+
+**Two real, non-trivial gaps neither relayed plan called out clearly
+enough, that any future Sequencing plan needs to scope explicitly, not
+discover mid-build:**
+
+1. **Scale.** This isn't one more Command Ribbon button — it's a full new
+   domain (schema + backend + frontend), materially bigger than
+   Construction Data Map and Cost Estimating combined. It deserves its
+   own validated plan doc and its own phase gate, the same way Inventory
+   and Fleet each got one this rollout, not a line item inside this one.
+2. **The Timeliner needs time-series data that doesn't exist yet.**
+   "Scrub through time, see where each module physically was" requires a
+   real position-over-time record per module. The closest real thing
+   today is `LogisticsCustodyEvent` — a status-change audit trail across
+   only the existing 3 coarse dispatch states, not a continuous location
+   timeline. Building the Timeliner as described means designing and
+   populating that time-series model *first*, as its own real subphase —
+   not treating it as a visualization layer over data that already
+   exists.
+
+**Not decided by this doc:** whether Sequencing gets built at all, and if
+so, whether as an FF-owned Construction capability (what the second
+relayed plan implies by folding it into the Command Ribbon) or held until
+CE_Forge/Construction_Enterprises has a real product surface for it (the
+original Manus doc's framing). Flagged for Joshua's call — see §6 item 2.
+
+---
+
+## 8. Analytics integration — deferred
+
+The second relayed plan adds an Analytics phase (sequencing/logistics/
+dispatch/cost metrics) after Sequencing and Cost Estimating exist. The
+sequencing logic is sound — Analytics can't honestly surface metrics for
+data that doesn't exist yet, and this rollout's own Analytics work
+(Phase 1A, earlier this rollout) already established the "real data or an
+honest disclosed placeholder, never a fake number" discipline any new
+Analytics metrics here would need to follow. Not scoped in this plan
+since it depends on §7 (Sequencing) landing first at minimum, and
+possibly on §2's Cost Estimating maturing past its v1 flat-rate model.
+Revisit once Sequencing has a real go-ahead.
