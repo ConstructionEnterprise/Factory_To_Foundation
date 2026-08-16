@@ -1,18 +1,77 @@
 # Inventory / Fleet / Analytics / Reports — Validated Implementation Plan
 
-**Status:** Planning only. No code has been changed as part of this document.
+**Status:** Phase 0 decisions locked 2026-08-15 (see below). Phase 1
+execution in progress. Phase 2 (Inventory — real data migration, route
+retirement) requires an explicit go-ahead before starting; everything
+before it is additive and doesn't touch existing working routes.
 **Source of truth:** The evidence-based validation of the Manus AI review
 completed earlier in this session (four parallel codebase investigations —
 Inventory/Assets/Genealogy, Fleet/Autonomous Dolly, Analytics/CloudFront UX,
 Reports vs. Construction documents). Every "current state" claim below
 traces to a specific file/line found during that validation, not to the
-Manus review's own claims.
+Manus review's own claims. Sections 1-6 below are that original analysis,
+kept intact as background/rationale — read "§5 Architectural Decisions
+Awaiting Approval" as historical framing of the choices; §0.1 below records
+what was actually decided.
 **Constraint that applies throughout:** the CE Forge / FF boundary settled
 in `AI_Dispatch/CLAUDE.md` (2026-08-15) — CE Forge and FF are independent
 systems with one disclosed, gated data-population integration; provenance
 (a record's origin) is never the same thing as integration dependency
 (one system needing another at request time). This constrains how
 Inventory may represent CE-Forge-sourced data — see §1.
+
+---
+
+## 0.1 Phase 0 — Locked decisions (2026-08-15, supersedes §5's open questions)
+
+- **Inventory:** build it as a first-class FF domain absorbing Assets and
+  Genealogy — option (a) from §1, via a **controlled migration**
+  (snapshot → migrate → count → compare → verify → *then* retire the old
+  routes, never delete-first). Target shape: Browse / Search / Assets /
+  Genealogy / Lifecycle / Locations / Service / Relationships.
+- **Genealogy:** becomes an Inventory capability. The orphaned real DAG
+  (13 nodes / 12 edges) becomes the authoritative source, replacing
+  `graphData.ts`'s fixture — this happens *before* the Inventory migration
+  (Phase 1), so Genealogy has one real working data path before it's ever
+  folded into anything else.
+- **Fleet — corrected framing, important:** Fleet is **not** a child route
+  nested under Logistics Flow. Fleet is a **sibling of Logistics Flow**
+  within the Logistics domain — both are peer views a user reaches from
+  Logistics' own command ribbon, the same way `Operations`/`Logistics Flow`
+  already sit as peer modes today. Concretely: **Fleet becomes its own
+  ribbon menu item on the Logistics page's `CommandRibbon`, next to
+  `Metrics` and `Filters`** — via `FeaturePage`'s existing `extraMenus`
+  prop (the same mechanism Factory's "Instructions" menu already uses,
+  `FeaturePage.tsx`'s `extraMenus: RibbonMenu[]`), not nested inside the
+  `Filters` dropdown's Operations/Logistics Flow toggle. Vehicle class
+  hierarchy: `Trucks` / `Autonomous Dollies` / `Trailers` / `Forklifts` /
+  future classes, owning identity, vehicle class, lifecycle, location,
+  status, maintenance, availability.
+- **Fleet Tasks:** generalize the existing `LogisticsDispatch` state
+  machine (add a vehicle-type discriminator) rather than building a second,
+  competing task system — reuses the already-working
+  `staged → in_transit → delivered` model and real mileage tracking.
+- **Analytics/Reports/Administration shell:** extend `SimplePage`
+  deliberately (it's shared by all three) rather than migrating Analytics
+  to `FeaturePage`. Use the existing `CommandRibbon`/`Workspace` pattern as
+  the UX *reference*, not a mechanical requirement.
+- **Reports search:** metadata/filename search only for V1 (`query` +
+  `project` + `category` + `date range`, `projectId` optional *only* on
+  this new search endpoint — Construction's existing project-scoped
+  behavior stays untouched). Full-text content indexing is explicitly V2,
+  out of scope for this rollout.
+- **Networking → API (new scope, not one of the original four validated
+  areas):** a first-class `API` capability under the existing `Networking`
+  domain — `Overview` / `Connections` / `Providers` / `Endpoints` /
+  `Health`. V1 is the architecture and an honest integration registry
+  (`Connected` / `Available` / `Planned` / `Not Configured` per real
+  provider — Revit, Navisworks, Bluebeam, ForemanAI, n8n), not five
+  working integrations.
+- **Rule throughout:** no feature is "done" because the UI renders — every
+  Phase 1+ item needs code → database → API → UI → real data → browser
+  verification, the same discipline already used for the Logistics Flow
+  work earlier this session. Sandbox-first for anything touching real
+  data; exact-count verification before/after any migration.
 
 ---
 
