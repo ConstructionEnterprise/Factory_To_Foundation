@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { usePermission } from "@/context/AuthContext";
+import { useSelection } from "@/context/SelectionContext";
 import { PanelCard } from "@/framework/ui";
 
 import {
@@ -10,7 +10,7 @@ import {
   SCHEDULE_TASKS_CHANGED_EVENT,
   type ScheduleTask,
 } from "../scheduleTasksApi";
-import { pathForModuleId } from "../moduleNavigation";
+import { taskToPayload } from "../scheduleSelection";
 import ScheduleTaskForm from "../ScheduleTaskForm";
 import "./ScheduleGantt.css";
 
@@ -51,7 +51,8 @@ export default function ScheduleGantt() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
 
-  const navigate = useNavigate();
+  const { selected, setSelected } = useSelection();
+  const activeId = selected?.feature === "scheduling" ? selected.objectId : undefined;
   const createPermission = usePermission("scheduling", "create");
   const updatePermission = usePermission("scheduling", "update");
 
@@ -184,9 +185,16 @@ export default function ScheduleGantt() {
     setDrag(next);
   }
 
-  function handleOpenOwner(task: ScheduleTask) {
-    const path = pathForModuleId(task.ownedByModuleId);
-    if (path) navigate(path);
+  /**
+   * Phase 2.3 follow-up (2026-08-16): this used to navigate straight to
+   * the task's real owning module -- Joshua's real bug report ("that
+   * schedule should appear in the selected schedule panel," not jump
+   * away). Selects the real task into Selected Schedule instead; the
+   * actual module jump is a real, explicit button in
+   * ScheduleInspector.tsx.
+   */
+  function handleSelectTask(task: ScheduleTask) {
+    setSelected({ feature: "scheduling", objectType: "Task", objectId: task.id, payload: taskToPayload(task) });
   }
 
   const ticks: { offset: number; label: string }[] = [];
@@ -285,15 +293,14 @@ export default function ScheduleGantt() {
               0.15,
               (new Date(task.plannedEnd).getTime() - new Date(task.plannedStart).getTime()) / DAY_MS
             );
-            const ownerPath = pathForModuleId(task.ownedByModuleId);
             return (
               <Fragment key={task.id}>
                 <button
                   type="button"
-                  onClick={() => handleOpenOwner(task)}
-                  disabled={!ownerPath}
+                  onClick={() => handleSelectTask(task)}
                   className="schedule-gantt-label"
-                  title={ownerPath ? `Open the real owning module (${task.ownedByModuleId})` : "No real owning module set"}
+                  style={{ outline: task.id === activeId ? "2px solid var(--ff-accent)" : undefined, outlineOffset: task.id === activeId ? "-2px" : undefined }}
+                  title={`${task.title} — select to see its real detail in Selected Schedule`}
                 >
                   {task.title}
                   <span className="schedule-gantt-label-status"> · {task.status}</span>

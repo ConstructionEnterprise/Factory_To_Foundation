@@ -73,8 +73,8 @@ export const dataProvenance: FeatureProvenance[] = [
     feature: "Scheduling",
     status: "real-static",
     summary:
-      "Real 5-stage pipeline taxonomy modeled as real IEC 61131-3-style function blocks — real named ports, real port-to-port wires. Structural only (Phase 1): no execution engine, no live values flow through the wires. “Inbound Material” still has no owning feature — an open gap, not an oversight.",
-    source: "features/scheduling/scheduleData.ts",
+      "Real, backend-persisted Schedule → Stage → Task hierarchy (Phase 2.1–2.3, 2026-08-16) — replaces the earlier fixture-only 5-stage pipeline taxonomy this entry used to describe. Selecting a real schedule renders its real stages node-to-node (layout computed from each stage's real position, not stored coordinates); the Gantt/Heat Map read the same real ScheduleTask data. Structural + scheduled, not live-streamed: no execution engine, planned/actual dates are real but nothing ticks in real time.",
+    source: "backend/src/routes/schedules.ts + features/scheduling/scheduleApi.ts",
   },
   {
     feature: "Assets",

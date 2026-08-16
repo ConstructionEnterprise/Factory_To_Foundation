@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
+import { useSelection } from "@/context/SelectionContext";
 import { PanelCard } from "@/framework/ui";
 
 import { fetchScheduleTaskDirectory, SCHEDULE_TASKS_CHANGED_EVENT, type ScheduleTask } from "../scheduleTasksApi";
 import { heatMapToneFor, HEAT_MAP_TONE_COLOR, HEAT_MAP_TONE_LABEL } from "../heatMapStatus";
-import { pathForModuleId } from "../moduleNavigation";
+import { taskToPayload } from "../scheduleSelection";
 
 /**
  * Real Schedule Heat Map (A7) — one real tile per real ScheduleTask,
@@ -13,11 +13,20 @@ import { pathForModuleId } from "../moduleNavigation";
  * derivation. Same real data source as the Gantt (fetchScheduleTaskDirectory),
  * fetched independently here rather than prop-drilled, since the two
  * panels can be resized/scrolled independently.
+ *
+ * Phase 2.3 follow-up (2026-08-16): a tile click used to navigate
+ * straight to the task's real owning module -- Joshua's real bug
+ * report ("it should not immediately take me to the parent... there
+ * should be a link available for me in the selected schedule panel").
+ * It now selects the real task into Selected Schedule instead; the
+ * actual "go to owning module" jump lives in ScheduleInspector.tsx's own
+ * real button.
  */
 export default function ScheduleHeatMap() {
   const [tasks, setTasks] = useState<ScheduleTask[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const { selected, setSelected } = useSelection();
+  const activeId = selected?.feature === "scheduling" ? selected.objectId : undefined;
 
   useEffect(() => {
     function reload() {
@@ -59,15 +68,18 @@ export default function ScheduleHeatMap() {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {tasks.map((task) => {
               const tone = heatMapToneFor(task);
-              const ownerPath = pathForModuleId(task.ownedByModuleId);
               return (
                 <button
                   key={task.id}
                   type="button"
-                  onClick={() => ownerPath && navigate(ownerPath)}
-                  disabled={!ownerPath}
+                  onClick={() => setSelected({ feature: "scheduling", objectType: "Task", objectId: task.id, payload: taskToPayload(task) })}
                   className="rounded p-2 text-left"
-                  style={{ background: HEAT_MAP_TONE_COLOR[tone], color: "white" }}
+                  style={{
+                    background: HEAT_MAP_TONE_COLOR[tone],
+                    color: "white",
+                    outline: task.id === activeId ? "2px solid var(--ff-accent)" : undefined,
+                    outlineOffset: task.id === activeId ? "1px" : undefined,
+                  }}
                   title={`${task.title} — ${HEAT_MAP_TONE_LABEL[tone]}`}
                 >
                   <p className="truncate text-xs font-semibold">{task.title}</p>

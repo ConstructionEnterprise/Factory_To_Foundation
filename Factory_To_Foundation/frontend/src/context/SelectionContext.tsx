@@ -5,8 +5,6 @@ import {
   type ReactNode,
 } from "react";
 
-import type { OwningModule } from "@/features/scheduling/scheduleData";
-
 // Each feature's payload shape. Kept minimal until the feature is
 // actually built — extend as each one ships real inspector content.
 export type GenealogyPayload = { name: string };
@@ -108,8 +106,15 @@ export type ManufacturingPayload = {
 export type SchedulePayload = {
   name: string;
   description: string;
-  /** null = genuinely no owning module yet (Inbound Material) — see scheduleData.ts's OwningModule doc comment. */
-  ownedByModule: OwningModule | null;
+  /**
+   * Real owning module id (one of the real 13 Module rows -- e.g.
+   * "manufacturing", "logistics", "scheduling"), not the old narrow
+   * 3-value fixture union. null = genuinely no real owner set yet.
+   * Phase 2.3 follow-up (2026-08-16): every real backfilled
+   * ScheduleTask actually has one of these set (confirmed live), so the
+   * old narrow union was already too narrow for real data.
+   */
+  ownedByModuleId: string | null;
   /** Real function-block ports (Phase 1 — structural only, nothing executes). Empty for a block with none on that side (e.g. Inbound Material has no inputs). */
   inputs: { label: string; type: string }[];
   outputs: { label: string; type: string }[];
