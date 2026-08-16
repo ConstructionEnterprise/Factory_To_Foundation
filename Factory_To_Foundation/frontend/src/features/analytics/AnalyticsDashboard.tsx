@@ -24,8 +24,8 @@ import { fetchScenarios, type CostEstimateScenario } from "@/features/constructi
 import { listRecentCustodyEvents } from "@/features/logistics/logisticsOperationsApi";
 import { fetchRecentScheduleEvents } from "@/features/scheduling/scheduleTasksApi";
 
-import { scheduleNodes, scheduleWires } from "@/features/scheduling/scheduleData";
 import { fetchScheduleTaskDirectory, type ScheduleTaskDirectory } from "@/features/scheduling/scheduleTasksApi";
+import { fetchSchedules, type ScheduleSummary } from "@/features/scheduling/scheduleApi";
 import { computeCriticalPath } from "./criticalPath";
 
 /**
@@ -361,27 +361,57 @@ export function CostEstimatingWidget() {
   );
 }
 
+/**
+ * Real Schedule/ScheduleStage/ScheduleTask counts (Phase 2.3, 2026-08-16
+ * rollout) -- replaces the old scheduleData.ts fixture read now that
+ * these are real, persisted backend entities (docs/decisions/
+ * 2026-08-16-scheduling-phase2.3-frontend-wiring-plan.md).
+ */
+function useScheduleSummaries(): { schedules: ScheduleSummary[] | null; error: string | null } {
+  const [schedules, setSchedules] = useState<ScheduleSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSchedules()
+      .then(setSchedules)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load real schedules"));
+  }, []);
+
+  return { schedules, error };
+}
+
 export function SchedulingWidget() {
-  const chartData: ChartDatum[] = [
-    { label: "Pipeline Stages", value: scheduleNodes.length },
-    { label: "Port-to-Port Wires", value: scheduleWires.length },
-    { label: "No Live Data Yet", value: scheduleNodes.filter((n) => n.ownedByModule === null).length },
-  ];
+  const { schedules, error } = useScheduleSummaries();
+
+  const totalStages = schedules?.reduce((sum, s) => sum + s.stageCount, 0) ?? 0;
+  const totalTasks = schedules?.reduce((sum, s) => sum + s.taskCount, 0) ?? 0;
+
+  const chartData: ChartDatum[] | null = schedules
+    ? [
+        { label: "Schedules", value: schedules.length },
+        { label: "Real Stages", value: totalStages },
+        { label: "Real Tasks", value: totalTasks },
+      ]
+    : null;
 
   return (
     <ChartableWidgetCard
       title="Scheduling"
-      toolbar={<StatusBadge label="Structural Facts — Not Live" tone="neutral" />}
+      toolbar={<StatusBadge label={schedules ? "Real Data" : error ? "Error" : "Loading…"} tone={schedules ? "positive" : "neutral"} />}
       chartData={chartData}
     >
-      <div className="space-y-1.5">
-        <Row label="Real pipeline stages" value={String(scheduleNodes.length)} />
-        <Row label="Real port-to-port wires" value={String(scheduleWires.length)} />
-        <Row
-          label="Stages with no live data yet"
-          value={String(scheduleNodes.filter((n) => n.ownedByModule === null).length)}
-        />
-      </div>
+      {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
+      {!error && !schedules && <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>Loading real schedules…</p>}
+      {!error && schedules && schedules.length === 0 && (
+        <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>No real schedules exist yet.</p>
+      )}
+      {!error && schedules && schedules.length > 0 && (
+        <div className="space-y-1.5">
+          <Row label="Real schedules" value={String(schedules.length)} />
+          <Row label="Real stages" value={String(totalStages)} />
+          <Row label="Real tasks" value={String(totalTasks)} />
+        </div>
+      )}
     </ChartableWidgetCard>
   );
 }

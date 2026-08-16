@@ -54,19 +54,3 @@
 
 .fb-node-pin--input { left: -4px; }
 .fb-node-pin--output { right: -4px; }
-
-.fb-node-pin-label {
-    position: absolute;
-    max-width: calc(50% - 0.5rem);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    font-size: 0.58rem;
-    color: var(--ff-text-muted);
-    transform: translateY(-50%);
-    pointer-events: none;
-}
-
-.fb-node-pin-label--input { left: 0.5rem; text-align: left; }
-.fb-node-pin-label--output { right: 0.5rem; text-align: right; }

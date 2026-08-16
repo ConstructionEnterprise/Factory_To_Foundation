@@ -1,60 +1,43 @@
-import { Fragment } from "react";
-
-import { getPortOffsetY, type ScheduleNodeData } from "../scheduleData";
+import type { ScheduleStageDetail } from "../scheduleApi";
 import "./FunctionBlockNode.css";
 
 type FunctionBlockNodeProps = {
-  node: ScheduleNodeData;
+  stage: ScheduleStageDetail;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Real sequence position, not stored port data -- the first real stage has no input pin, the last has no output pin. */
+  hasInput: boolean;
+  hasOutput: boolean;
   active: boolean;
-  onSelect: (node: ScheduleNodeData) => void;
+  onSelect: (stage: ScheduleStageDetail) => void;
 };
 
 /**
- * A single real function block: named, labeled pins on the left (inputs)
- * and right (outputs) edges, not just a plain box. Bespoke rather than
- * built on the generic EntityNode — same reasoning Genealogy's GraphNode
- * and Factory's FactoryNode stayed bespoke: EntityNode has no concept of
- * ports, and only Scheduling needs this shape today.
+ * Real, schedule-aware function block (Phase 2.3, docs/decisions/
+ * 2026-08-16-scheduling-phase2.3-frontend-wiring-plan.md §5). Renders one
+ * real ScheduleStage -- title + its real linked task's status. One
+ * generic in/out pin per node (not the old fixture's named/typed BOOL
+ * ports, which were only ever real for the 5 fixed global stages) --
+ * a rendering convenience reflecting real sequence order, not a new real
+ * data concept.
  */
-export default function FunctionBlockNode({ node, active, onSelect }: FunctionBlockNodeProps) {
+export default function FunctionBlockNode({ stage, x, y, width, height, hasInput, hasOutput, active, onSelect }: FunctionBlockNodeProps) {
+  const task = stage.tasks[0];
+
   return (
     <button
       type="button"
       className={`fb-node${active ? " fb-node--active" : ""}`}
-      style={{
-        left: node.x,
-        top: node.y,
-        width: node.width,
-        height: node.height,
-      }}
-      onClick={() => onSelect(node)}
+      style={{ left: x, top: y, width, height }}
+      onClick={() => onSelect(stage)}
     >
-      <span className="fb-node-title">{node.title}</span>
-      <span className="fb-node-subtitle">{node.subtitle}</span>
+      <span className="fb-node-title">{stage.title}</span>
+      <span className="fb-node-subtitle">{task ? task.status.replace(/_/g, " ") : "No real task"}</span>
 
-      {node.inputs.map((port, index) => {
-        const y = getPortOffsetY(node.height, index, node.inputs.length);
-        return (
-          <Fragment key={port.id}>
-            <span className="fb-node-pin fb-node-pin--input" style={{ top: y }} />
-            <span className="fb-node-pin-label fb-node-pin-label--input" style={{ top: y }}>
-              {port.label}
-            </span>
-          </Fragment>
-        );
-      })}
-
-      {node.outputs.map((port, index) => {
-        const y = getPortOffsetY(node.height, index, node.outputs.length);
-        return (
-          <Fragment key={port.id}>
-            <span className="fb-node-pin fb-node-pin--output" style={{ top: y }} />
-            <span className="fb-node-pin-label fb-node-pin-label--output" style={{ top: y }}>
-              {port.label}
-            </span>
-          </Fragment>
-        );
-      })}
+      {hasInput && <span className="fb-node-pin fb-node-pin--input" style={{ top: height / 2 }} />}
+      {hasOutput && <span className="fb-node-pin fb-node-pin--output" style={{ top: height / 2 }} />}
     </button>
   );
 }
