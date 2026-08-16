@@ -346,6 +346,7 @@ model ConstructionProject {
   files               ProjectFile[]
   logisticsDispatches LogisticsDispatch[]
   costEstimateScenarios CostEstimateScenario[]
+  logisticsModules    LogisticsModule[]
 
   @@map("construction_project")
 }
@@ -393,6 +394,8 @@ model ConstructionTreeNode {
   trade          String?
   inspector      String?
   punchListCount String? @map("punch_list_count")
+
+  logisticsModules LogisticsModule[]
 
   @@map("construction_tree_node")
 }
@@ -802,6 +805,27 @@ model LogisticsModule {
   /// derived-status note above for why Module itself carries no status.
   dispatchId String?            @map("dispatch_id")
   dispatch   LogisticsDispatch? @relation(fields: [dispatchId], references: [id])
+
+  /// Real link into Inventory's shared identity layer (Phase 2.1, Modular
+  /// Sequencing rollout, 2026-08-16) -- LogisticsModule is real provenance
+  /// data feeding this identity, not the identity itself; see
+  /// InventoryItem's own doc comment and
+  /// docs/decisions/2026-08-16-modular-sequencing-plan.md §0.2/§0.5.
+  inventoryItemId String?        @unique @map("inventory_item_id")
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  /// Real, additive project/building assignment (Phase 2.1, 2026-08-16) --
+  /// both nullable: a module can exist staged in the yard, unassigned,
+  /// without either. See plan doc §0.3 for why this is a real FK now
+  /// rather than derived from dispatch history.
+  constructionProjectId String?             @map("construction_project_id")
+  constructionProject   ConstructionProject? @relation(fields: [constructionProjectId], references: [id])
+
+  /// Service-layer-asserted to reference a real objectType="Building"
+  /// ConstructionTreeNode row -- not enforced by a DB constraint, same
+  /// posture as ProjectFile.treeNodeId's own real-but-unenforced link.
+  buildingTreeNodeId String?               @map("building_tree_node_id")
+  buildingTreeNode   ConstructionTreeNode? @relation(fields: [buildingTreeNodeId], references: [id])
 
   @@map("logistics_module")
 }
@@ -1272,6 +1296,11 @@ enum InventoryItemKind {
   asset
   genealogy_node
   vehicle
+  /// Phase 2.1, 2026-08-16 rollout (Modular Sequencing's real handoff
+  /// identity -- see docs/decisions/2026-08-16-modular-sequencing-plan.md
+  /// §0.2/§0.5). InventoryItem is the domain-neutral layer Sequencing
+  /// anchors on instead of LogisticsModule directly.
+  logistics_module
 }
 
 model InventoryItem {
@@ -1284,9 +1313,10 @@ model InventoryItem {
   /// no real location concept.
   location String?
 
-  asset         Asset?
-  genealogyNode GenealogyNode?
-  vehicle       Vehicle?
+  asset          Asset?
+  genealogyNode  GenealogyNode?
+  vehicle        Vehicle?
+  logisticsModule LogisticsModule?
 
   createdAt DateTime @default(now()) @map("created_at")
 
