@@ -75,6 +75,17 @@ Inventory may represent CE-Forge-sourced data — see §1.
   verification, the same discipline already used for the Logistics Flow
   work earlier this session. Sandbox-first for anything touching real
   data; exact-count verification before/after any migration.
+- **UI pattern rule (2026-08-15, mid-rollout addendum):** prefer wiring new
+  domain capabilities into a page's existing `CommandRibbon` (via
+  `FeaturePage`'s `extraMenus`, the same mechanism Factory's "Instructions"
+  menu and Fleet's own ribbon placement use) over inventing a fresh,
+  disconnected toggle each time — where the host page already supports it.
+  `SimplePage` (Analytics/Reports/Administration/Networking) doesn't
+  support `extraMenus` yet, which is why Phase 1D's Topology/API toggle
+  used plain inline buttons instead — a real, disclosed constraint, not an
+  oversight. If/when `SimplePage` gets extended (§3's open decision), its
+  new consumers should move to the ribbon pattern rather than keep
+  multiplying toggle styles.
 
 ---
 
@@ -121,6 +132,15 @@ near-term work.
 ---
 
 ## 1. Inventory
+
+**Framing for Phase 2, when it starts:** Inventory becomes the
+authoritative identity layer for Assets + Genealogy — not a UI wrapper
+around the two unchanged pages — while preserving the existing working
+`/assets` and Genealogy routes until the new model is validated. Once
+correct, Fleet, Logistics Flow, and Analytics can reference the same
+underlying identities instead of each inventing their own. This is the one
+phase in this rollout that means real data migration and route retirement;
+treat it with more care than any Phase 1 item.
 
 ### Current state
 No `/inventory` route, page, folder, or nav item exists anywhere in the
