@@ -304,17 +304,38 @@ route yet, so Vite's tree-shaking correctly excludes them. Live browser
 verification and confirming Recharts actually lands in the bundle both
 wait for 3.4, once these mount to a real page.
 
-**3.4 — Frontend dashboards:** `DashboardPicker`/`DashboardEditor`/
-`DashboardView`, rewire `AnalyticsPage`, confirm the default dashboard
-renders identically to today's hardcoded grid.
+**3.4 — Frontend dashboards (complete):** `DashboardPicker`/
+`DashboardEditor`/`DashboardView` built; the 12 pre-existing Phase 1
+widgets were exported from `AnalyticsDashboard.tsx` (its old
+hardcoded-grid default export removed as dead code) and routed through a
+new `widgetRegistry.tsx` by key. `AnalyticsPage` rewired to be
+dashboard-driven. Typecheck clean; a production build confirmed Recharts
+now genuinely lands in the bundle (+359KB, "recharts" grep went from 0 to
+15 occurrences) now that `MetricGraphWidget` is actually reachable.
+**Live-verified in the browser against the real local stack** (backend +
+frontend + Factory Runtime all up): the real default dashboard renders
+all 13 widgets in the exact original order with real data, zero visual
+regression; created a real second dashboard ("Phase 3.4 Live Test"),
+added a real `metric_graph` widget for `scheduling.statusEvents.count`,
+confirmed the Recharts graph renders real historical data at the 1w range
+(the real spike lines up with the known event history) and an honest
+empty state at 1d; opened the Thresholds panel and confirmed all 5 real
+catalog entries render with working controls; deleted the test dashboard
+and confirmed the picker correctly fell back to Default. Zero console
+errors throughout.
 
-**3.5 — Live-verify in sandbox:** confirm no visual regression on the
-default dashboard; create a second real dashboard; add a `metric_graph`
-widget for a real metric; set a real threshold and confirm the alarm
-state genuinely flips by driving real data past it (e.g. a real failed
-`InstructionExecution` row) rather than trusting the UI at rest; reorder
-and delete widgets; confirm RBAC (a read-only user can't see edit
-controls).
+**3.5 — Live-verify in sandbox (partially covered by 3.4's testing
+above; remaining items before calling Phase 3 fully done):** setting a
+real threshold *through the UI* and confirming `MetricGraphWidget`'s
+alarm badge genuinely flips (only the backend path was exercised this
+way in 3.2 via curl; the UI's `ThresholdAdminPanel` → `MetricGraphWidget`
+round trip hasn't been watched live yet); confirming RBAC in the browser
+with a non-CEO, read-only account (only tested as CEO, which has full
+access on every module -- never a real negative case for hiding edit
+controls). Reorder/widget-delete are backend-verified (3.2) and the UI
+controls are confirmed present or exercised at the dashboard level
+(3.4's dashboard-level delete), but per-widget reorder/remove haven't
+been clicked in the browser specifically.
 
 Each sub-phase gets its own commit, same discipline as Phase 2's
 2.1/2.2/2.3 split.

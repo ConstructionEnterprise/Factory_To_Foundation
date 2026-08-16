@@ -38,7 +38,7 @@ import { computeCriticalPath } from "./criticalPath";
  * real-structure-fixture-values split).
  */
 
-function FactoryWidget() {
+export function FactoryWidget() {
   const { connected: manifestConnected, manifest } = useTwinManifest();
   const { state } = useTwinState();
 
@@ -80,7 +80,7 @@ function FactoryWidget() {
   );
 }
 
-function GenealogyWidget() {
+export function GenealogyWidget() {
   const { nodes: graphNodes } = useGenealogyGraph();
 
   useEffect(() => {
@@ -129,7 +129,7 @@ function useAssets(): { assets: AssetRecord[] | null; error: string | null } {
   return { assets, error };
 }
 
-function AssetsWidget() {
+export function AssetsWidget() {
   const { assets, error } = useAssets();
 
   const byCategory = new Map<string, number>();
@@ -188,7 +188,7 @@ function ManufacturingWidgetInner() {
   );
 }
 
-function ManufacturingWidget() {
+export function ManufacturingWidget() {
   return (
     <PanelCard
       title="Manufacturing — Loaded Model"
@@ -226,7 +226,7 @@ function useConstructionRelationships(): { byProjectId: Map<string, Construction
   return { byProjectId, error };
 }
 
-function ConstructionWidget() {
+export function ConstructionWidget() {
   const { byProjectId, error } = useConstructionRelationships();
   const loaded = byProjectId.size > 0;
 
@@ -279,7 +279,7 @@ function useCostEstimateScenarios(): { byProjectId: Map<string, CostEstimateScen
   return { byProjectId, error };
 }
 
-function CostEstimatingWidget() {
+export function CostEstimatingWidget() {
   const { byProjectId, error } = useCostEstimateScenarios();
   const loaded = byProjectId.size > 0;
 
@@ -312,7 +312,7 @@ function CostEstimatingWidget() {
   );
 }
 
-function SchedulingWidget() {
+export function SchedulingWidget() {
   return (
     <PanelCard
       title="Scheduling"
@@ -335,7 +335,7 @@ function SchedulingWidget() {
  * read the exact same InstructionExecution audit-trail rows (Phase 1's gap
  * closed), fetched once here rather than twice.
  */
-function useInstructionExecutionHistory(): {
+export function useInstructionExecutionHistory(): {
   rows: InstructionExecutionHistoryEntry[] | null;
   error: string | null;
 } {
@@ -406,7 +406,7 @@ function useEvents(executionRows: InstructionExecutionHistoryEntry[] | null): { 
   return { events: merged.slice(0, 15), error };
 }
 
-function EventsWidget({ executionRows }: { executionRows: InstructionExecutionHistoryEntry[] | null }) {
+export function EventsWidget({ executionRows }: { executionRows: InstructionExecutionHistoryEntry[] | null }) {
   const { events, error } = useEvents(executionRows);
 
   return (
@@ -430,7 +430,7 @@ function EventsWidget({ executionRows }: { executionRows: InstructionExecutionHi
   );
 }
 
-function ProductionOutputWidget({
+export function ProductionOutputWidget({
   rows,
   error,
 }: {
@@ -476,7 +476,7 @@ function ProductionOutputWidget({
   );
 }
 
-function WorkCellPerformanceWidget({
+export function WorkCellPerformanceWidget({
   rows,
   error,
 }: {
@@ -540,7 +540,7 @@ function useScheduleTaskDirectory(): { directory: ScheduleTaskDirectory | null; 
   return { directory, error };
 }
 
-function ScheduleCriticalPathWidget() {
+export function ScheduleCriticalPathWidget() {
   const { directory, error } = useScheduleTaskDirectory();
 
   const critical = useMemo(() => {
@@ -596,7 +596,7 @@ function ScheduleCriticalPathWidget() {
   );
 }
 
-function DigitalTwinLifecycleWidget() {
+export function DigitalTwinLifecycleWidget() {
   const { connected, manifest } = useTwinManifest();
   const { state } = useTwinState();
 
@@ -629,7 +629,7 @@ function DigitalTwinLifecycleWidget() {
   );
 }
 
-function QualityControlWidget() {
+export function QualityControlWidget() {
   const { connected, state } = useTwinState();
   const lastVerify = state?.last_tool_verify ?? null;
 
@@ -674,34 +674,11 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function AnalyticsDashboard() {
-  const { rows: executionRows, error: executionError } = useInstructionExecutionHistory();
-
-  return (
-    <div>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-        <FactoryWidget />
-        <GenealogyWidget />
-        <ManufacturingWidget />
-        <ConstructionWidget />
-        <CostEstimatingWidget />
-        <SchedulingWidget />
-        <AssetsWidget />
-        <EventsWidget executionRows={executionRows} />
-        <ProductionOutputWidget rows={executionRows} error={executionError} />
-        <WorkCellPerformanceWidget rows={executionRows} error={executionError} />
-        <ScheduleCriticalPathWidget />
-        <DigitalTwinLifecycleWidget />
-        <QualityControlWidget />
-      </div>
-
-      <p className="mt-6 text-xs" style={{ color: "var(--ff-text-muted)" }}>
-        Logistics and Robotics aren't shown here yet — their KPI values are fixture placeholders,
-        not real, so a real-data dashboard doesn't surface them. Robotics' subsystem structure is
-        real (seeded from the twin's own object model) but its live values still are not, same
-        disclosure as Factory's page. Assets was in this same excluded list until its own domain
-        became real (30 real CE-Forge-seeded rows) — it's now a real widget above, not fixture data.
-      </p>
-    </div>
-  );
-}
+// The old hardcoded-grid default export (13 widgets in one fixed
+// <div>) is gone as of Phase 3.4 -- every widget above is now rendered
+// through DashboardView (features/analytics/dashboards/), driven by a
+// real AnalyticsDashboard row's real widget list instead of a
+// compile-time-fixed JSX layout. The real default dashboard backfilled in
+// Phase 3.1 reproduces this exact 13-widget order, so nothing visually
+// regressed -- see DashboardView.tsx for the still-accurate "Logistics
+// and Robotics aren't shown here yet" disclosure note.
