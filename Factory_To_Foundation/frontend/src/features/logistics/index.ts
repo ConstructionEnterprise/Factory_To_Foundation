@@ -9,3 +9,5 @@ export { default as LogisticsMaterialForm } from "./LogisticsMaterialForm";
 export { default as LogisticsModuleForm } from "./LogisticsModuleForm";
 export { default as MileageRateManager } from "./MileageRateManager";
 export { LogisticsFlowBrowse, LogisticsFlowMap, LogisticsFlowInspector } from "./LogisticsFlow";
+export { FleetBrowse, FleetWorkspace, FleetInspector, fetchVehicles } from "./Fleet";
+export type { VehicleRecord } from "./Fleet";

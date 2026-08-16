@@ -133,6 +133,21 @@ export type AssetsPayload = {
 };
 
 /**
+ * Real Fleet vehicle selection (Phase 3, 2026-08-15 rollout) -- Fleet is a
+ * sibling capability of Logistics Flow inside Logistics, reached via the
+ * Logistics CommandRibbon (see FleetBrowse.tsx), same pattern as
+ * AssetsPayload above.
+ */
+export type FleetPayload = {
+  name: string;
+  vehicleClass: string;
+  status: "active" | "maintenance" | "retired";
+  location: string | null;
+  /** Real identifier of the LogisticsTruck this vehicle specializes into, when one exists -- null for a vehicle class with no backing table yet (autonomous_dolly/trailer/forklift). */
+  logisticsTruckIdentifier: string | null;
+};
+
+/**
  * One global selection engine, discriminated by `feature`. Every variant
  * shares the same envelope (feature/objectType/objectId/payload) but the
  * payload type is specific to that feature, so consumers narrow on
@@ -146,7 +161,8 @@ export type Selection =
   | { feature: "construction"; objectType: string; objectId: string; payload: ConstructionPayload }
   | { feature: "manufacturing"; objectType: string; objectId: string; payload: ManufacturingPayload }
   | { feature: "scheduling"; objectType: string; objectId: string; payload: SchedulePayload }
-  | { feature: "assets"; objectType: string; objectId: string; payload: AssetsPayload };
+  | { feature: "assets"; objectType: string; objectId: string; payload: AssetsPayload }
+  | { feature: "fleet"; objectType: string; objectId: string; payload: FleetPayload };
 
 type SelectionContextType = {
   selected: Selection | null;
