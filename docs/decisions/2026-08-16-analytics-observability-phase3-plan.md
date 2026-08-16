@@ -192,14 +192,12 @@ discipline as every other migration in this rollout.
 
 ### 3.3 RBAC and sharing model
 
-Dashboards are shared, not per-user-owned — same precedent as
-`CostEstimateScenario` (a real `createdById` for authorship, but every
-user with `analytics:read` sees every dashboard; every user with
-`analytics:update` can edit any dashboard). Flagging this as the
-assumed default rather than silently deciding it: if Joshua wants
-per-user private dashboards, that's a real scope difference (ownership
-checks, a "visibility" field) worth its own explicit call before §7
-Phase 3.3 starts.
+**Decided (2026-08-16, formalized — was previously an assumed default,
+not a formal call):** dashboards are shared, not per-user-owned — same
+precedent as `CostEstimateScenario` (a real `createdById` for authorship,
+but every user with `analytics:read` sees every dashboard; every user
+with `analytics:update` can edit any dashboard). Not revisited unless a
+real private-dashboard need actually appears.
 
 ## 4. Backend
 

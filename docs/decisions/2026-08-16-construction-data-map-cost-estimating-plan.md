@@ -367,20 +367,27 @@ time-range controls, alarm states, dashboards (all Phase 3, §9).
 
 ---
 
-## 7. Architectural decisions awaiting approval
+## 7. Architectural decisions
 
-Not decided here — listed so they don't get silently assumed mid-build:
+**Updated 2026-08-16 (later same day) — all three resolved, no longer
+awaiting approval:**
 
-1. **Should `GenealogyNode` gain a real, additive `constructionProjectId`
-   FK** (same pattern as `InventoryItem`/`Vehicle`), so Construction Data
-   Map could eventually show "which real modules are destined for this
-   project"? Not in Phase 1's scope either way.
-2. **Cost Estimating's v2 field set** (labor/equipment/subcontractor/
-   regional-factor breakdown, or a target-price mode) — deferred until
-   real rate data exists to back it.
-3. **Whether a cross-project Logistics/Fleet analytics widget is wanted**
-   beyond the per-project view §3 adds — not proposed here, no real gap
-   identified that demands it yet.
+1. **`GenealogyNode.constructionProjectId`: decided and built.** A real,
+   additive, nullable FK, same pattern as `InventoryItem`/`Vehicle`'s own
+   links — added `cc9a7e8`, migrated to sandbox. No backfill (no real
+   linkage data exists to backfill from); Genealogy still has zero API
+   routes, so this field currently has no consumer, but it's schema-ready
+   for whenever that changes. Deliberately not a Genealogy redesign.
+2. **Cost Estimating's v2 field set — formally deferred**, not active
+   work: labor/equipment/subcontractor/regional-factor breakdown, or a
+   target-price mode, waits until real rate data exists to back it. Not
+   on any current phase's scope.
+3. **Cross-project Logistics/Fleet analytics widget — not building.**
+   Marked proposed/not currently justified, not a live deferred item to
+   keep re-evaluating. Revisit only if a real operational need appears.
+
+Full reasoning for all three: `docs/decisions/
+2026-08-16-scheduling-schedule-persistence-phase2-plan.md` §1.5/§1.6.
 
 ---
 
