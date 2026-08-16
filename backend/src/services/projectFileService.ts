@@ -89,6 +89,12 @@ export async function listFiles(filter: repo.ProjectFileFilter): Promise<Project
   return rows.map(toDto);
 }
 
+/** Real cross-project search (Reports) — same DTO shape as listFiles(), just not scoped to a single project. Every result stays traceable to its real project via projectId, resolved to a real title client-side (constructionData.ts's real project fixture, same source LogisticsDispatchForm already uses). */
+export async function searchFiles(filter: repo.ProjectFileSearchFilter): Promise<ProjectFileDto[]> {
+  const rows = await repo.searchLatestVersions(filter);
+  return rows.map(toDto);
+}
+
 /**
  * Real gap found building Phase 4's UI, not part of the original 6-route
  * plan: there was no way to enumerate which versions of a file exist —

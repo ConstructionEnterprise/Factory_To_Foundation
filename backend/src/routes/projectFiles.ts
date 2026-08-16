@@ -12,6 +12,14 @@ const listQuerySchema = z.object({
   category: z.string().optional(),
 });
 
+const searchQuerySchema = z.object({
+  projectId: z.string().optional(),
+  category: z.string().optional(),
+  query: z.string().trim().min(1).optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+});
+
 const uploadBodySchema = z.object({
   projectId: z.string(),
   treeNodeId: z.string(),
@@ -59,6 +67,14 @@ export async function projectFileRoutes(app: FastifyInstance) {
   app.get("/construction-files", { preHandler: readPreHandler }, async (request) => {
     const query = listQuerySchema.parse(request.query);
     return service.listFiles(query);
+  });
+
+  // Real cross-project search (Reports, 2026-08-15) — projectId optional
+  // here only; every other route above keeps requiring it. Metadata/
+  // filename match, not full-text content search (Phase 0 decision).
+  app.get("/construction-files/search", { preHandler: readPreHandler }, async (request) => {
+    const query = searchQuerySchema.parse(request.query);
+    return service.searchFiles(query);
   });
 
   app.get("/construction-files/:fileId/download", { preHandler: readPreHandler }, async (request) => {

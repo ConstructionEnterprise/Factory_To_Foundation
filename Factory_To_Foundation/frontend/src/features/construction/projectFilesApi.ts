@@ -66,6 +66,21 @@ export function listFiles(projectId: string, treeNodeId: string): Promise<Projec
   return requestJson(`/construction-files?${params}`);
 }
 
+export type SearchFilesInput = {
+  query?: string;
+  projectId?: string;
+  category?: string;
+};
+
+/** Real cross-project search (Reports) — metadata/filename match only, no full-text content search. Every result stays a real ProjectFile row, traceable back to its real project. */
+export function searchFiles(input: SearchFilesInput): Promise<ProjectFile[]> {
+  const params = new URLSearchParams();
+  if (input.query) params.set("query", input.query);
+  if (input.projectId) params.set("projectId", input.projectId);
+  if (input.category) params.set("category", input.category);
+  return requestJson(`/construction-files/search?${params}`);
+}
+
 export function getVersionHistory(fileId: string): Promise<ProjectFile[]> {
   return requestJson(`/construction-files/${fileId}/versions`);
 }

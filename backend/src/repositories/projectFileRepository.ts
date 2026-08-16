@@ -34,6 +34,43 @@ export async function findLatestVersions(filter: ProjectFileFilter): Promise<Pro
   return Array.from(latestByFileId.values());
 }
 
+export type ProjectFileSearchFilter = {
+  projectId?: string;
+  category?: string;
+  query?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+};
+
+/**
+ * Real cross-project search (Reports, 2026-08-15) — same "latest per
+ * fileId, dedupe in process" technique as findLatestVersions() above, just
+ * with projectId made optional and a real filename substring/date-range
+ * filter added. Metadata/filename match only for V1 (Phase 0 decision,
+ * see docs/decisions/2026-08-15-...) — not full-text content search, which
+ * would need a real indexing pipeline this doesn't attempt.
+ */
+export async function searchLatestVersions(filter: ProjectFileSearchFilter): Promise<ProjectFile[]> {
+  const rows = await prisma.projectFile.findMany({
+    where: {
+      projectId: filter.projectId,
+      category: filter.category,
+      deletedAt: null,
+      originalFilename: filter.query ? { contains: filter.query, mode: "insensitive" } : undefined,
+      uploadedAt:
+        filter.dateFrom || filter.dateTo
+          ? { gte: filter.dateFrom, lte: filter.dateTo }
+          : undefined,
+    },
+    orderBy: [{ fileId: "asc" }, { version: "desc" }],
+  });
+  const latestByFileId = new Map<string, ProjectFile>();
+  for (const row of rows) {
+    if (!latestByFileId.has(row.fileId)) latestByFileId.set(row.fileId, row);
+  }
+  return Array.from(latestByFileId.values());
+}
+
 /** The single highest-version, non-deleted row for a logical file — null if the file doesn't exist or every version has been deleted. */
 export function findLatestVersion(fileId: string): Promise<ProjectFile | null> {
   return prisma.projectFile.findFirst({
