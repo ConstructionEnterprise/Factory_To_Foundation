@@ -15,6 +15,35 @@ every Phase 1 item. **Retiring the legacy `/assets`/Genealogy routes in
 favor of `/inventory` is a separate, later decision, not yet made or
 scheduled.**
 
+**Phase 3 complete (Fleet, 2026-08-15):** applied the identical proven
+pattern from Phase 2's correction directly, no rework needed this time.
+3.1 `Vehicle`/`VehicleClass`/`VehicleStatus` schema, additive nullable
+links from `LogisticsTruck.vehicleId` and `InventoryItem` (kind=vehicle) —
+migration `20260815212205_add_vehicle_fleet_identity`. 3.2 real backfill —
+all 3 existing trucks (including "Flatbed 7") linked to new real Vehicle +
+InventoryItem rows, exact-count verified. 3.3 `LogisticsDispatch` gained an
+additive, nullable `vehicleId` (migration
+`20260815212431_add_dispatch_vehicle_link`), backfilled from each
+dispatch's truck — `truckId` stays required and untouched, so this is a
+real generalization (Fleet resolves any vehicle's dispatch history via one
+field) without a risky migration of the required FK. This descopes the
+original "new FleetTask model" idea from §5's open question #4 — the
+existing dispatch state machine is reused directly, exactly as §0.1
+locked. 3.4 `GET /vehicles`, `GET /vehicles/:id` (with real resolved
+dispatch history), gated on the same `logistics` RBAC module every other
+Logistics route uses. 3.5 Fleet added to the Logistics `CommandRibbon` as
+a real `onClick`/`active` capability switch, sibling to the existing
+Operations/Logistics Flow toggle — never nested under Logistics Flow,
+using the same infrastructure Inventory's Assets/Genealogy switch already
+proved. No spatial map built for Fleet's center workspace panel (no real
+vehicle position data exists, only honest free-text `location` — same
+"don't fabricate a visual that isn't real" discipline as everywhere else
+in this rollout); shows real resolved dispatch history instead. 3.6
+live-verified in the sandbox browser: Flatbed 7 → real dispatch history
+("Flatbed 7 → Skyline Towers", staged, I-635 E route) renders correctly,
+switching back to the Logistics capability leaves the existing
+Operations/Logistics Flow workspace completely intact.
+
 **UX correction, same day (`d14df96`):** the first `/inventory` build
 (2.4) presented a new, merged Browse/Inspector/Relationships view over
 `InventoryItem` — real, but the wrong shape. Corrected per live feedback:
