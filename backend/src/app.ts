@@ -37,6 +37,7 @@ import { scheduleTaskRoutes } from "./routes/scheduleTasks";
 import { networkRoutes } from "./routes/network";
 import { syntheticDataProvenanceRoutes } from "./routes/syntheticDataProvenance";
 import { assetRoutes } from "./routes/assets";
+import { genealogyRoutes } from "./routes/genealogy";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
@@ -167,6 +168,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     networkRoutes,
     syntheticDataProvenanceRoutes,
     assetRoutes,
+    genealogyRoutes,
   ];
 
   await app.register(authRoutes);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Background,
   Controls,
@@ -13,7 +13,8 @@ import "@xyflow/react/dist/style.css";
 import { useSelection } from "@/context/SelectionContext";
 import { Legend, PanelCard } from "@/framework/ui";
 
-import { graphEdges, graphNodes, NODE_HEIGHT, NODE_WIDTH, type GraphNodeData } from "../graphData";
+import { NODE_HEIGHT, NODE_WIDTH, type GraphNodeData } from "../graphData";
+import { ensureGenealogyGraphLoaded, useGenealogyGraph } from "../genealogyStore";
 import { getAncestorIds, getDescendantIds } from "../relationships";
 import GenealogyFlowNode, { type GenealogyFlowNodeData } from "./GenealogyFlowNode";
 
@@ -32,8 +33,13 @@ const nodeTypes = { genealogy: GenealogyFlowNode };
 function RelationshipGraphInner() {
   const { selected, setSelected } = useSelection();
   const { setCenter, fitView } = useReactFlow();
+  const { nodes: graphNodes, edges: graphEdges } = useGenealogyGraph();
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [isolate, setIsolate] = useState(false);
+
+  useEffect(() => {
+    ensureGenealogyGraphLoaded();
+  }, []);
 
   const selectedId = selected?.feature === "genealogy" ? selected.objectId : undefined;
 
@@ -44,23 +50,23 @@ function RelationshipGraphInner() {
       map.get(edge.from)!.push(edge.to);
     }
     return map;
-  }, []);
+  }, [graphEdges]);
 
   const hiddenByCollapse = useMemo(() => {
     const hidden = new Set<string>();
     for (const collapsedId of collapsedIds) {
-      for (const descendantId of getDescendantIds(collapsedId)) hidden.add(descendantId);
+      for (const descendantId of getDescendantIds(graphEdges, collapsedId)) hidden.add(descendantId);
     }
     return hidden;
-  }, [collapsedIds]);
+  }, [collapsedIds, graphEdges]);
 
   const lineageIds = useMemo(() => {
     if (!selectedId) return null;
     const ids = new Set<string>([selectedId]);
-    for (const id of getAncestorIds(selectedId)) ids.add(id);
-    for (const id of getDescendantIds(selectedId)) ids.add(id);
+    for (const id of getAncestorIds(graphEdges, selectedId)) ids.add(id);
+    for (const id of getDescendantIds(graphEdges, selectedId)) ids.add(id);
     return ids;
-  }, [selectedId]);
+  }, [selectedId, graphEdges]);
 
   function handleSelectNode(node: GraphNodeData) {
     setSelected({

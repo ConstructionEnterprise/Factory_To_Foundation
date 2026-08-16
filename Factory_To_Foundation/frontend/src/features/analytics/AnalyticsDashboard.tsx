@@ -7,7 +7,8 @@ import { useTwinState } from "@/features/factory/useTwinState";
 import { translateManifest } from "@/features/factory/twinTranslator";
 import { listExecutionHistory, type InstructionExecutionHistoryEntry } from "@/features/factory/instructionExecutionsApi";
 
-import { graphNodes, TIER_LABEL, TIER_ORDER } from "@/features/genealogy/graphData";
+import { TIER_LABEL, TIER_ORDER } from "@/features/genealogy/graphData";
+import { ensureGenealogyGraphLoaded, useGenealogyGraph } from "@/features/genealogy/genealogyStore";
 import { canBeFinishedProduct } from "@/features/genealogy/genealogyRegistry";
 
 import { fetchAssets, type AssetRecord } from "@/features/assets/assetsApi";
@@ -75,12 +76,18 @@ function FactoryWidget() {
 }
 
 function GenealogyWidget() {
+  const { nodes: graphNodes } = useGenealogyGraph();
+
+  useEffect(() => {
+    ensureGenealogyGraphLoaded();
+  }, []);
+
   const finishedProductCount = graphNodes.filter((n) => canBeFinishedProduct(n.tier)).length;
 
   return (
     <PanelCard
       title="Genealogy"
-      toolbar={<StatusBadge label="Real Static Data" tone="neutral" />}
+      toolbar={<StatusBadge label={graphNodes.length > 0 ? "Real Data" : "Loading…"} tone="neutral" />}
     >
       <div className="space-y-1.5">
         <Row label="Real nodes in thread" value={String(graphNodes.length)} />

@@ -1,15 +1,17 @@
+import { useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { useSelection } from "@/context/SelectionContext";
 import { DetailRow, PanelCard } from "@/framework/ui";
 
 import { canBeFinishedProduct } from "../genealogyRegistry";
-import { graphNodes, type GraphNodeData } from "../graphData";
+import type { GraphNodeData } from "../graphData";
+import { ensureGenealogyGraphLoaded, useGenealogyGraph } from "../genealogyStore";
 import { getChildren, getParents, getSiblings } from "../relationships";
 
 /** The one real project-tier node in the current thread — genuinely "Cedarwood Flats" today, derived from the real data rather than hardcoded, so a future second-project thread wouldn't silently keep showing a stale name. */
-function findRealProjectTitle(): string | undefined {
-  return graphNodes.find((n) => n.tier === "project")?.title;
+function findRealProjectTitle(nodes: GraphNodeData[]): string | undefined {
+  return nodes.find((n) => n.tier === "project")?.title;
 }
 
 function RelatedNodeList({
@@ -67,10 +69,15 @@ function RelatedNodeList({
  */
 export default function SelectedObject() {
   const { selected, setSelected } = useSelection();
+  const { nodes, edges } = useGenealogyGraph();
+
+  useEffect(() => {
+    ensureGenealogyGraphLoaded();
+  }, []);
 
   const genealogySelection = selected?.feature === "genealogy" ? selected : undefined;
 
-  const node = genealogySelection ? graphNodes.find((n) => n.id === genealogySelection.objectId) : undefined;
+  const node = genealogySelection ? nodes.find((n) => n.id === genealogySelection.objectId) : undefined;
 
   function selectNode(target: GraphNodeData) {
     setSelected({
@@ -96,7 +103,7 @@ export default function SelectedObject() {
         <DetailRow label="Object ID" value={genealogySelection?.objectId ?? "--"} />
         <DetailRow label="Name" value={genealogySelection?.payload.name ?? "--"} />
         <DetailRow label="Type" value={genealogySelection?.objectType ?? "--"} />
-        <DetailRow label="Project" value={findRealProjectTitle() ?? "--"} />
+        <DetailRow label="Project" value={findRealProjectTitle(nodes) ?? "--"} />
         <DetailRow label="Finished Product" value={node ? (canBeFinishedProduct(node.tier) ? "Yes" : "No") : "--"} />
       </div>
 
@@ -109,9 +116,9 @@ export default function SelectedObject() {
 
       {node && (
         <>
-          <RelatedNodeList title="Parents" nodes={getParents(node.id)} onSelect={selectNode} />
-          <RelatedNodeList title="Children" nodes={getChildren(node.id)} onSelect={selectNode} />
-          <RelatedNodeList title="Siblings" nodes={getSiblings(node.id)} onSelect={selectNode} />
+          <RelatedNodeList title="Parents" nodes={getParents(nodes, edges, node.id)} onSelect={selectNode} />
+          <RelatedNodeList title="Children" nodes={getChildren(nodes, edges, node.id)} onSelect={selectNode} />
+          <RelatedNodeList title="Siblings" nodes={getSiblings(nodes, edges, node.id)} onSelect={selectNode} />
         </>
       )}
 
