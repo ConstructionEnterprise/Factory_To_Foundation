@@ -50,6 +50,19 @@ export type AppRoute = {
    * route-level restriction server-side.
    */
   requiredPermission?: { module: string; action: string };
+  /**
+   * Real, deliberate hide (2026-08-15, Inventory rollout) -- Assets and
+   * Genealogy are now reachable as Inventory's own ribbon capability
+   * switches (InventoryPage.tsx), so their standalone sidebar entries are
+   * redundant. The routes/pages/components themselves stay fully live and
+   * untouched (Inventory renders the exact same AssetsBrowse/AssetsMap/
+   * AssetsInspector and GenealogyBrowser/RelationshipGraph/SelectedObject
+   * components directly) -- this only hides the nav entry, same
+   * requiredPermission-driven filter pattern in Sidebar.tsx, not a route
+   * retirement. `/` still needs its own route regardless of sidebar
+   * visibility: it's StartupRedirect's structural default landing page.
+   */
+  hideFromSidebar?: boolean;
 };
 
 /**
@@ -106,6 +119,7 @@ export const appRoutes: AppRoute[] = [
     label: "Genealogy",
     icon: Network,
     element: <Dashboard />,
+    hideFromSidebar: true,
   },
   {
     path: "/scheduling",
@@ -145,6 +159,7 @@ export const appRoutes: AppRoute[] = [
     label: "Assets",
     icon: Package,
     element: <AssetsPage />,
+    hideFromSidebar: true,
   },
   {
     path: "/inventory",
@@ -152,8 +167,11 @@ export const appRoutes: AppRoute[] = [
     icon: Boxes,
     element: <InventoryPage />,
     // Real, separate domain (Phase 2, 2026-08-15) -- the shared identity
-    // layer over Asset/GenealogyNode, NOT a replacement for /assets or
-    // Genealogy's own route, which both stay fully live. See
+    // layer over Asset/GenealogyNode. As of 2026-08-15, Inventory is the
+    // sidebar's own entry point for both (via its ribbon capability
+    // switches) -- /assets and Genealogy's "/" route stay fully live for
+    // direct links/bookmarks but are hidden from the sidebar itself
+    // (hideFromSidebar above). See
     // docs/decisions/2026-08-15-inventory-fleet-analytics-reports-plan.md.
   },
   {

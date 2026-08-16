@@ -11,9 +11,18 @@ domain page, 2.5 live verification — a real id-mismatch bug was found and
 fixed during verification: `0632451`, `cd80522`, `db639b9`, `fe942f0`,
 `342d693`). `/assets` and Genealogy's own route are **completely
 untouched** and still fully live — Phase 2 was additive by design, same as
-every Phase 1 item. **Retiring the legacy `/assets`/Genealogy routes in
-favor of `/inventory` is a separate, later decision, not yet made or
-scheduled.**
+every Phase 1 item.
+
+**Sidebar consolidation (2026-08-15, later same day):** Joshua confirmed
+Inventory as the sole sidebar entry point for Assets/Genealogy. `Assets`
+and `Genealogy` nav entries removed from the sidebar (`AppRoute.
+hideFromSidebar`, `router/routes.tsx`/`Sidebar.tsx`) — **not** a route
+retirement: `/assets` and `/` (Genealogy) stay fully live routes for
+direct links/bookmarks, and `/` still has to exist regardless of sidebar
+visibility since it's `StartupRedirect`'s structural default landing page.
+Live-verified: sidebar shows neither entry, `/assets` and `/` both still
+load directly, Inventory's `Assets`/`Genealogy` ribbon capability switches
+unaffected (they don't route through `appRoutes` at all).
 
 **Phase 3 complete (Fleet, 2026-08-15):** applied the identical proven
 pattern from Phase 2's correction directly, no rework needed this time.

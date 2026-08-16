@@ -27,8 +27,13 @@ function Sidebar() {
   // Phase 3c — a nav entry for a route the current role has no access to
   // (Administration, for a role without administration:read) is just
   // noise/false-advertising; filtered here rather than shown then blocked.
+  // hideFromSidebar (2026-08-15, Inventory rollout) is the same idea for a
+  // different reason: Assets/Genealogy are still real, live routes, just
+  // reachable through Inventory's ribbon now instead of their own nav entry.
   const visibleRoutes = appRoutes.filter(
-    (route) => !route.requiredPermission || hasPermission(route.requiredPermission.module, route.requiredPermission.action)
+    (route) =>
+      !route.hideFromSidebar &&
+      (!route.requiredPermission || hasPermission(route.requiredPermission.module, route.requiredPermission.action))
   );
 
   useEffect(() => {
