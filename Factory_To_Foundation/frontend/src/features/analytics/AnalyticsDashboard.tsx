@@ -10,6 +10,8 @@ import { listExecutionHistory, type InstructionExecutionHistoryEntry } from "@/f
 import { graphNodes, TIER_LABEL, TIER_ORDER } from "@/features/genealogy/graphData";
 import { canBeFinishedProduct } from "@/features/genealogy/genealogyRegistry";
 
+import { fetchAssets, type AssetRecord } from "@/features/assets/assetsApi";
+
 import { useManufacturingTree } from "@/features/manufacturing/manufacturingModel";
 
 import { constructionProjects } from "@/features/construction/constructionData";
@@ -91,6 +93,72 @@ function GenealogyWidget() {
           />
         ))}
       </div>
+    </PanelCard>
+  );
+}
+
+/**
+ * Real Asset Catalog data — GET /assets, the same real `assetsApi.ts` the
+ * Assets page itself uses. Added once the underlying Asset domain became
+ * real (commit 025de8b, 30 real CE-Forge-seeded rows) — previously this
+ * dashboard's own disclosure text called Assets a fixture placeholder,
+ * which had gone stale relative to that commit.
+ */
+function useAssets(): { assets: AssetRecord[] | null; error: string | null } {
+  const [assets, setAssets] = useState<AssetRecord[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAssets()
+      .then(setAssets)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load assets"));
+  }, []);
+
+  return { assets, error };
+}
+
+function AssetsWidget() {
+  const { assets, error } = useAssets();
+
+  const byCategory = new Map<string, number>();
+  const byStatus = new Map<string, number>();
+  for (const a of assets ?? []) {
+    byCategory.set(a.category, (byCategory.get(a.category) ?? 0) + 1);
+    byStatus.set(a.status, (byStatus.get(a.status) ?? 0) + 1);
+  }
+
+  return (
+    <PanelCard
+      title="Assets"
+      toolbar={<StatusBadge label={assets && assets.length > 0 ? "Real Data" : "No Assets Yet"} tone="neutral" />}
+    >
+      {error && (
+        <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>
+          {error}
+        </p>
+      )}
+      {!error && !assets && (
+        <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+          Loading real asset data…
+        </p>
+      )}
+      {!error && assets && assets.length === 0 && (
+        <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+          No real Asset rows exist yet — a real breakdown by category/status renders here the moment
+          any exist, not a fabricated placeholder count.
+        </p>
+      )}
+      {!error && assets && assets.length > 0 && (
+        <div className="space-y-1.5">
+          <Row label="Real assets" value={String(assets.length)} />
+          {Array.from(byCategory.entries()).map(([category, count]) => (
+            <Row key={category} label={`Category: ${category}`} value={String(count)} />
+          ))}
+          {Array.from(byStatus.entries()).map(([status, count]) => (
+            <Row key={status} label={`Status: ${status}`} value={String(count)} />
+          ))}
+        </div>
+      )}
     </PanelCard>
   );
 }
@@ -443,6 +511,7 @@ export default function AnalyticsDashboard() {
         <ManufacturingWidget />
         <ConstructionWidget />
         <SchedulingWidget />
+        <AssetsWidget />
         <ProductionOutputWidget rows={executionRows} error={executionError} />
         <WorkCellPerformanceWidget rows={executionRows} error={executionError} />
         <ScheduleCriticalPathWidget />
@@ -451,10 +520,11 @@ export default function AnalyticsDashboard() {
       </div>
 
       <p className="mt-6 text-xs" style={{ color: "var(--ff-text-muted)" }}>
-        Logistics, Assets, and Robotics aren't shown here yet — their KPI values are fixture
-        placeholders, not real, so a real-data dashboard doesn't surface them. Robotics' subsystem
-        structure is real (seeded from the twin's own object model) but its live values still are
-        not, same disclosure as Factory's page.
+        Logistics and Robotics aren't shown here yet — their KPI values are fixture placeholders,
+        not real, so a real-data dashboard doesn't surface them. Robotics' subsystem structure is
+        real (seeded from the twin's own object model) but its live values still are not, same
+        disclosure as Factory's page. Assets was in this same excluded list until its own domain
+        became real (30 real CE-Forge-seeded rows) — it's now a real widget above, not fixture data.
       </p>
     </div>
   );
