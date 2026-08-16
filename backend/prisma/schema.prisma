@@ -351,6 +351,7 @@ model ConstructionProject {
   costEstimateScenarios CostEstimateScenario[]
   logisticsModules    LogisticsModule[]
   moduleSequenceEntries ModuleSequenceEntry[]
+  genealogyNodes      GenealogyNode[]
 
   @@map("construction_project")
 }
@@ -755,6 +756,18 @@ model GenealogyNode {
   /// touches this row's other real data.
   inventoryItemId String?        @unique @map("inventory_item_id")
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  /// Real, additive link to the real construction project a node is
+  /// destined for (2026-08-16, small architectural correction -- see
+  /// docs/decisions/2026-08-16-construction-data-map-cost-estimating-plan.md
+  /// §7 item 1). Optional because genealogy data can real-exist before
+  /// it's assigned to a project -- never backfilled/guessed: no real
+  /// GenealogyNode<->ConstructionProject linkage data exists today (the
+  /// "Project" tier is a bare title string, not a real cross-reference),
+  /// so every existing row stays honestly null until a real assignment is
+  /// made through whatever real write path eventually sets it.
+  constructionProjectId String?             @map("construction_project_id")
+  constructionProject   ConstructionProject? @relation(fields: [constructionProjectId], references: [id])
 
   @@map("genealogy_node")
 }
