@@ -1,8 +1,13 @@
 # Scheduling — Phase 2.3: Backend Routes + Frontend Wiring — Scoping
 
-**Status:** Fully scoped, all decisions made (§3 resolved 2026-08-16,
-same day) — **not implemented yet**, ready to build on explicit
-go-ahead.
+**Status:** **Complete and live-verified**, 2026-08-16 — backend
+(`0d4e7d3`) and frontend (`22bf99d`). Backend live-smoke-tested against
+real sandbox data (real S1–S4 listing/detail, real stage create/reorder,
+validation rejects). Frontend live-verified in the browser: all 4 real
+schedules list in Browse, selecting one renders its real stages
+node-to-node with real per-stage task status, clicking a node highlights
+it and populates the Inspector, Gantt/Heat Map (already real) unaffected.
+Typecheck and production build both clean, zero runtime console errors.
 
 **Context:** Phase 2.1 (schema) and 2.2 (real backfill of the CE Forge
 S1–S4 data into `Schedule`/`ScheduleStage`/`CanonicalStage`) are complete
