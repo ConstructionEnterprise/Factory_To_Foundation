@@ -12,6 +12,7 @@ import { ZodError } from "zod";
 import { healthRoutes } from "./routes/health";
 import { systemRoutes } from "./routes/system";
 import { constructionSiteRoutes } from "./routes/constructionSites";
+import { constructionRelationshipsRoutes } from "./routes/constructionRelationships";
 import { projectFileRoutes } from "./routes/projectFiles";
 import { logisticsDocumentRoutes } from "./routes/logisticsDocuments";
 import { logisticsTruckRoutes } from "./routes/logisticsTrucks";
@@ -149,6 +150,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   const namespacedPlugins = [
     systemRoutes,
     constructionSiteRoutes,
+    constructionRelationshipsRoutes,
     projectFileRoutes,
     logisticsDocumentRoutes,
     logisticsTruckRoutes,

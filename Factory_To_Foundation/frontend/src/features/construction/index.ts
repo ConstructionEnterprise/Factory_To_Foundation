@@ -3,3 +3,5 @@ export { default as ConstructionToolbar } from "./ConstructionToolbar";
 export { default as ConstructionProjects } from "./ConstructionProjects";
 export { default as ConstructionProjectObjects } from "./ConstructionProjectObjects";
 export { default as ConstructionDocumentViewer } from "./ConstructionDocumentViewer";
+export { ConstructionDataMapBrowse, ConstructionDataMapView, ConstructionDataMapInspector } from "./DataMap";
+export type { ConstructionDispatchSummary } from "./DataMap";
