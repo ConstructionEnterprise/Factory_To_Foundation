@@ -227,6 +227,7 @@ gated on `analytics` module, same shape as every route file in this repo:
 ```
 GET    /analytics/metrics                          (analytics:read)
 GET    /analytics/metrics/:key/series               (analytics:read)  ?rangeStart&rangeEnd&bucketMinutes
+GET    /analytics/metrics/:key/current              (analytics:read)  ?windowMinutes -- real current value + live alarm state
 GET    /analytics/thresholds                        (analytics:read)
 PUT    /analytics/thresholds/:metricKey              (analytics:update)
 DELETE /analytics/thresholds/:metricKey              (analytics:delete)
@@ -235,9 +236,23 @@ POST   /analytics/dashboards                        (analytics:create)
 PATCH  /analytics/dashboards/:id                     (analytics:update)
 DELETE /analytics/dashboards/:id                     (analytics:delete)
 POST   /analytics/dashboards/:id/widgets             (analytics:update)
-PATCH  /analytics/dashboards/:id/widgets/:widgetId   (analytics:update)
+PATCH  /analytics/dashboards/:id/widgets/reorder      (analytics:update)  body: { widgetIds: string[] } -- must be exactly the dashboard's real widget ids
 DELETE /analytics/dashboards/:id/widgets/:widgetId   (analytics:update)
 ```
+
+**Refined during 3.2 build (not in the original route sketch):** the
+`current` endpoint was added because `MetricGraphWidget` (§5) needs a
+live value + alarm state, not just a series, for its badge. The
+per-widget `PATCH` was replaced with a single bulk `reorder` endpoint
+(atomic, one transaction) since the only real edit operation the
+DashboardEditor UI needs is reordering, not in-place type/key edits.
+`deleteDashboard` also gained a real guard: refuses to delete the
+`isDefault` row, so there's always a real fallback dashboard. All four
+live-verified against the real running sandbox backend (§0 discipline —
+including forcing a real alarm-state flip by setting a real threshold
+below the real current `ModuleSequenceEvent` count and confirming it
+read back `"state":"alarm"`, then confirming it reverted to
+`"no_threshold"` after clearing).
 
 ## 5. Frontend
 

@@ -15,6 +15,8 @@ import { constructionSiteRoutes } from "./routes/constructionSites";
 import { constructionRelationshipsRoutes } from "./routes/constructionRelationships";
 import { costEstimateRoutes } from "./routes/costEstimates";
 import { moduleSequenceRoutes } from "./routes/moduleSequences";
+import { analyticsMetricsRoutes } from "./routes/analyticsMetrics";
+import { analyticsDashboardRoutes } from "./routes/analyticsDashboards";
 import { projectFileRoutes } from "./routes/projectFiles";
 import { logisticsDocumentRoutes } from "./routes/logisticsDocuments";
 import { logisticsTruckRoutes } from "./routes/logisticsTrucks";
@@ -155,6 +157,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     constructionRelationshipsRoutes,
     costEstimateRoutes,
     moduleSequenceRoutes,
+    analyticsMetricsRoutes,
+    analyticsDashboardRoutes,
     projectFileRoutes,
     logisticsDocumentRoutes,
     logisticsTruckRoutes,
