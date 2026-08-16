@@ -772,6 +772,13 @@ model LogisticsTruck {
 
   dispatches LogisticsDispatch[]
 
+  /// Real link to this truck's Fleet/Vehicle identity (Phase 3, 2026-08-15
+  /// rollout) -- additive and nullable so every existing real truck row
+  /// keeps working unmodified until backfilled (Phase 3.2). Every field
+  /// and relation above this line is untouched.
+  vehicleId String?  @unique @map("vehicle_id")
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+
   @@map("logistics_truck")
 }
 
@@ -789,6 +796,18 @@ model LogisticsDispatch {
 
   truckId String         @map("truck_id")
   truck   LogisticsTruck @relation(fields: [truckId], references: [id])
+
+  /// Real generalized Fleet link (Phase 3.3, 2026-08-15 rollout) --
+  /// additive and nullable, `truckId` above is untouched and stays
+  /// required for every existing real dispatch. Populated from
+  /// `truck.vehicleId` for all current (truck-backed) dispatches; exists
+  /// so Fleet can resolve a vehicle's dispatch history via one real field
+  /// (`vehicleId`) instead of every consumer re-deriving it through
+  /// `truck.vehicle`, and so a future non-truck-backed vehicle class
+  /// (autonomous dolly, etc.) has a real place to link once one actually
+  /// exists -- not built speculatively beyond this additive column.
+  vehicleId String?  @map("vehicle_id")
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
 
   driverId String          @map("driver_id")
   driver   LogisticsDriver @relation(fields: [driverId], references: [id])
@@ -1210,6 +1229,7 @@ model Asset {
 enum InventoryItemKind {
   asset
   genealogy_node
+  vehicle
 }
 
 model InventoryItem {
@@ -1224,10 +1244,71 @@ model InventoryItem {
 
   asset         Asset?
   genealogyNode GenealogyNode?
+  vehicle       Vehicle?
 
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("inventory_item")
+}
+
+// ───────────────────── Fleet ─────────────────────
+// Real Fleet vehicle identity (Phase 3, 2026-08-15 rollout) — the parent
+// vehicle class the Manus review proposed, built the same way Assets and
+// Genealogy became Inventory capabilities: a real, additive identity
+// layer, never a rename/migration of the existing real LogisticsTruck
+// data. `LogisticsTruck` keeps every field and every real dispatch
+// relation it already has, unmoved -- it gets one new, nullable link to
+// its own real Vehicle row instead. `vehicleClass` is the discriminator
+// Fleet needs (truck / autonomous dolly / trailer / forklift) that
+// LogisticsTruck alone never had a way to express, since it only ever
+// modeled trucks.
+enum VehicleClass {
+  truck
+  autonomous_dolly
+  trailer
+  forklift
+}
+
+enum VehicleStatus {
+  active
+  maintenance
+  retired
+}
+
+model Vehicle {
+  id String @id @default(cuid())
+
+  /// Real stable identifier -- for `truck`-class vehicles this mirrors the
+  /// linked LogisticsTruck.identifier (kept in sync at creation, not a
+  /// second source of truth invented independently of it).
+  identifier   String        @unique
+  vehicleClass VehicleClass  @map("vehicle_class")
+  status       VehicleStatus @default(active)
+  /// Real, free-text current location -- same non-geocoded-metadata
+  /// posture as Asset.location/InventoryItem.location.
+  location     String?
+
+  /// Real link into Inventory's shared identity layer -- Vehicles are one
+  /// of Inventory's real object types alongside Assets and Genealogy
+  /// objects (see InventoryItem's own doc comment).
+  inventoryItemId String?        @unique @map("inventory_item_id")
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  /// Real link to the existing LogisticsTruck row, for `truck`-class
+  /// vehicles only -- null for classes (autonomous_dolly, trailer,
+  /// forklift) with no real backing table of their own yet. Preserves
+  /// every existing real LogisticsDispatch relationship untouched; Fleet
+  /// reads truck-specific detail (identifier, dispatch history) through
+  /// this link rather than duplicating it.
+  logisticsTruck LogisticsTruck?
+
+  /// Real generalized dispatch history (Phase 3.3) -- populated via
+  /// LogisticsDispatch.vehicleId, see that field's doc comment.
+  dispatches LogisticsDispatch[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("vehicle")
 }
 
 // ───────────────────── Synthetic Data Provenance ─────────────────────
