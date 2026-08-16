@@ -200,6 +200,13 @@ export function listCustodyEvents(dispatchId: string): Promise<LogisticsCustodyE
   return requestJson(`/logistics-dispatches/${dispatchId}/events`);
 }
 
+export type RecentLogisticsCustodyEvent = LogisticsCustodyEvent & { truckIdentifier: string };
+
+/** Real cross-dispatch recent activity for Analytics' Events feed (Phase 1.3, 2026-08-16 rollout). */
+export function listRecentCustodyEvents(): Promise<RecentLogisticsCustodyEvent[]> {
+  return requestJson(`/logistics-dispatches/events/recent`);
+}
+
 export type LogisticsMaterial = {
   id: string;
   name: string;

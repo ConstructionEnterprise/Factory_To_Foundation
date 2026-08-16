@@ -16,6 +16,11 @@ import { fetchAssets, type AssetRecord } from "@/features/assets/assetsApi";
 import { useManufacturingTree } from "@/features/manufacturing/manufacturingModel";
 
 import { constructionProjects } from "@/features/construction/constructionData";
+import { fetchProjectRelationships, type ConstructionProjectRelationships } from "@/features/construction/DataMap/constructionDataMapApi";
+import { fetchScenarios, type CostEstimateScenario } from "@/features/construction/CostEstimating/costEstimateApi";
+
+import { listRecentCustodyEvents } from "@/features/logistics/logisticsOperationsApi";
+import { fetchRecentScheduleEvents } from "@/features/scheduling/scheduleTasksApi";
 
 import { scheduleNodes, scheduleWires } from "@/features/scheduling/scheduleData";
 import { fetchScheduleTaskDirectory, type ScheduleTaskDirectory } from "@/features/scheduling/scheduleTasksApi";
@@ -200,24 +205,107 @@ function ManufacturingWidget() {
   );
 }
 
+/**
+ * Real per-project logistics context (Phase 1.3, 2026-08-16 rollout) --
+ * reuses Construction Data Map's own real relationship route (§1 of
+ * docs/decisions/2026-08-16-construction-data-map-cost-estimating-plan.md),
+ * one real GET per real project (4 total), same "small, real, no concern
+ * at this data scale" precedent as ConstructionProjects.tsx's own 4
+ * per-project document fetches.
+ */
+function useConstructionRelationships(): { byProjectId: Map<string, ConstructionProjectRelationships>; error: string | null } {
+  const [byProjectId, setByProjectId] = useState<Map<string, ConstructionProjectRelationships>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all(constructionProjects.map((p) => fetchProjectRelationships(p.id)))
+      .then((results) => setByProjectId(new Map(results.map((r) => [r.projectId, r]))))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load real construction relationships"));
+  }, []);
+
+  return { byProjectId, error };
+}
+
 function ConstructionWidget() {
+  const { byProjectId, error } = useConstructionRelationships();
+  const loaded = byProjectId.size > 0;
+
   return (
     <PanelCard
       title="Construction"
-      toolbar={<StatusBadge label="Real Static Data" tone="neutral" />}
+      toolbar={<StatusBadge label={loaded ? "Real Data" : error ? "Error" : "Loading…"} tone={loaded ? "positive" : "neutral"} />}
     >
+      {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
       <div className="space-y-1.5">
         <Row label="Real projects" value={String(constructionProjects.length)} />
         {constructionProjects.map((project) => {
+          const rel = byProjectId.get(project.id);
           const childLabel = project.children?.[0]?.objectType ?? "—";
           const count = project.children?.length ?? 0;
+          const dispatchCount = rel?.dispatches.length ?? 0;
           return (
             <Row
               key={project.id}
               label={project.title}
-              value={`${count} ${childLabel}${count === 1 ? "" : "s"}`}
+              value={`${count} ${childLabel}${count === 1 ? "" : "s"}${rel ? ` · ${dispatchCount} real dispatch${dispatchCount === 1 ? "" : "es"}` : ""}`}
             />
           );
+        })}
+      </div>
+    </PanelCard>
+  );
+}
+
+function formatDollars(cents: number): string {
+  return (cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+}
+
+/**
+ * Real Cost Estimating rollup (Phase 1.3, 2026-08-16 rollout) -- one real
+ * GET per project via the same `costEstimateApi.ts` the Estimating ribbon
+ * capability itself uses, no second read path. Shows nothing per project
+ * with zero real scenarios rather than a fabricated placeholder range.
+ */
+function useCostEstimateScenarios(): { byProjectId: Map<string, CostEstimateScenario[]>; error: string | null } {
+  const [byProjectId, setByProjectId] = useState<Map<string, CostEstimateScenario[]>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all(constructionProjects.map((p) => fetchScenarios(p.id).then((scenarios) => [p.id, scenarios] as const)))
+      .then((entries) => setByProjectId(new Map(entries)))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load real cost estimate scenarios"));
+  }, []);
+
+  return { byProjectId, error };
+}
+
+function CostEstimatingWidget() {
+  const { byProjectId, error } = useCostEstimateScenarios();
+  const loaded = byProjectId.size > 0;
+
+  const projectsWithScenarios = constructionProjects.filter((p) => (byProjectId.get(p.id)?.length ?? 0) > 0);
+  const totalScenarios = [...byProjectId.values()].reduce((sum, list) => sum + list.length, 0);
+
+  return (
+    <PanelCard
+      title="Cost Estimating"
+      toolbar={<StatusBadge label={loaded ? "Real Data" : error ? "Error" : "Loading…"} tone={loaded ? "positive" : "neutral"} />}
+    >
+      {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
+      {loaded && totalScenarios === 0 && (
+        <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+          No real cost estimate scenarios yet — create one from Construction's Estimating ribbon capability.
+        </p>
+      )}
+      <div className="space-y-1.5">
+        {totalScenarios > 0 && <Row label="Real scenarios" value={String(totalScenarios)} />}
+        {projectsWithScenarios.map((project) => {
+          const scenarios = byProjectId.get(project.id) ?? [];
+          const totals = scenarios.map((s) => s.totalCents);
+          const min = Math.min(...totals);
+          const max = Math.max(...totals);
+          const range = min === max ? formatDollars(min) : `${formatDollars(min)}–${formatDollars(max)}`;
+          return <Row key={project.id} label={project.title} value={`${scenarios.length} scenario${scenarios.length === 1 ? "" : "s"} · ${range}`} />;
         })}
       </div>
     </PanelCard>
@@ -261,6 +349,85 @@ function useInstructionExecutionHistory(): {
   }, []);
 
   return { rows, error };
+}
+
+type MergedEvent = { id: string; timestamp: string; label: string; detail: string };
+
+/**
+ * Real cross-domain Events feed (Phase 1.3, 2026-08-16 rollout) -- the
+ * honestly-buildable slice of the CloudWatch-style observability proposal
+ * (docs/decisions/2026-08-16-construction-data-map-cost-estimating-plan.md
+ * §9): a real, timestamp-merged list across LogisticsCustodyEvent,
+ * ScheduleTaskStatusEvent, and InstructionExecution (reused via the
+ * `rows` prop -- the same fetch ProductionOutputWidget already made, not
+ * re-fetched). A list, not a graph -- no charting library, no time-range
+ * selector, no alarm state; those need real infrastructure this rollout
+ * doesn't have yet, see §9.
+ */
+function useEvents(executionRows: InstructionExecutionHistoryEntry[] | null): { events: MergedEvent[] | null; error: string | null } {
+  const [logisticsEvents, setLogisticsEvents] = useState<Awaited<ReturnType<typeof listRecentCustodyEvents>> | null>(null);
+  const [scheduleEvents, setScheduleEvents] = useState<Awaited<ReturnType<typeof fetchRecentScheduleEvents>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listRecentCustodyEvents()
+      .then(setLogisticsEvents)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load real logistics events"));
+    fetchRecentScheduleEvents()
+      .then(setScheduleEvents)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load real schedule events"));
+  }, []);
+
+  if (logisticsEvents === null || scheduleEvents === null || executionRows === null) {
+    return { events: null, error };
+  }
+
+  const merged: MergedEvent[] = [
+    ...logisticsEvents.map((e) => ({
+      id: `logistics-${e.id}`,
+      timestamp: e.changedAt,
+      label: `Dispatch — ${e.truckIdentifier}`,
+      detail: `${e.fromStatus ?? "created"} → ${e.toStatus}`,
+    })),
+    ...scheduleEvents.map((e) => ({
+      id: `schedule-${e.id}`,
+      timestamp: e.changedAt,
+      label: `Task — ${e.taskTitle}`,
+      detail: `${e.fromStatus ?? "created"} → ${e.toStatus}`,
+    })),
+    ...executionRows.map((e) => ({
+      id: `execution-${e.id}`,
+      timestamp: e.executedAt,
+      label: `Execution — ${e.targetSubsystemId}`,
+      detail: e.ok ? "succeeded" : "failed",
+    })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return { events: merged.slice(0, 15), error };
+}
+
+function EventsWidget({ executionRows }: { executionRows: InstructionExecutionHistoryEntry[] | null }) {
+  const { events, error } = useEvents(executionRows);
+
+  return (
+    <PanelCard
+      title="Events"
+      toolbar={<StatusBadge label={events ? "Real Data" : error ? "Error" : "Loading…"} tone={events ? "positive" : "neutral"} />}
+    >
+      {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
+      {events && events.length === 0 && (
+        <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>No real events logged yet across Logistics, Scheduling, or Factory.</p>
+      )}
+      <div className="space-y-1">
+        {events?.map((e) => (
+          <div key={e.id} className="flex items-center justify-between text-xs" style={{ borderBottom: "1px solid var(--ff-content-bg)", padding: "4px 0" }}>
+            <span style={{ color: "var(--ff-text-primary)" }}>{e.label}</span>
+            <span style={{ color: "var(--ff-text-muted)" }}>{e.detail} · {new Date(e.timestamp).toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    </PanelCard>
+  );
 }
 
 function ProductionOutputWidget({
@@ -517,8 +684,10 @@ export default function AnalyticsDashboard() {
         <GenealogyWidget />
         <ManufacturingWidget />
         <ConstructionWidget />
+        <CostEstimatingWidget />
         <SchedulingWidget />
         <AssetsWidget />
+        <EventsWidget executionRows={executionRows} />
         <ProductionOutputWidget rows={executionRows} error={executionError} />
         <WorkCellPerformanceWidget rows={executionRows} error={executionError} />
         <ScheduleCriticalPathWidget />

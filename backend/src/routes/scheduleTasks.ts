@@ -46,6 +46,11 @@ export async function scheduleTaskRoutes(app: FastifyInstance) {
     return service.getScheduleTaskDirectory();
   });
 
+  /** Real cross-task recent activity for Analytics' Events feed (Phase 1.3, 2026-08-16 rollout). */
+  app.get("/schedule-tasks/events/recent", { preHandler: readPreHandler }, async () => {
+    return service.listRecentStatusEvents(10);
+  });
+
   app.post("/schedule-tasks", { preHandler: createPreHandler }, async (request) => {
     const body = createTaskSchema.parse(request.body);
     return service.createTask({ ...body, changedById: request.user!.id });

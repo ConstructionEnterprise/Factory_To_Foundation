@@ -9,6 +9,15 @@ export function listTasks() {
   });
 }
 
+/** Real cross-task recent activity for Analytics' Events feed (Phase 1.3, 2026-08-16 rollout). */
+export function findRecentStatusEvents(limit: number) {
+  return prisma.scheduleTaskStatusEvent.findMany({
+    orderBy: { changedAt: "desc" },
+    take: limit,
+    include: { task: { select: { title: true } } },
+  });
+}
+
 export function listDependencies() {
   return prisma.scheduleTaskDependency.findMany({
     select: { predecessorId: true, successorId: true },

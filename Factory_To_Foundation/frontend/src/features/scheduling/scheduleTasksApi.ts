@@ -60,6 +60,21 @@ export function fetchScheduleTaskDirectory(): Promise<ScheduleTaskDirectory> {
   return requestJson("/schedule-tasks");
 }
 
+export type RecentScheduleEvent = {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  fromStatus: string | null;
+  toStatus: string;
+  changedAt: string;
+  notes: string | null;
+};
+
+/** Real cross-task recent activity for Analytics' Events feed (Phase 1.3, 2026-08-16 rollout). */
+export function fetchRecentScheduleEvents(): Promise<RecentScheduleEvent[]> {
+  return requestJson("/schedule-tasks/events/recent");
+}
+
 export type CreateTaskInput = {
   title: string;
   stageId?: string;

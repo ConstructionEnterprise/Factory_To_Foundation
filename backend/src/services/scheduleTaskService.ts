@@ -126,6 +126,30 @@ export async function transitionStatus(
   return toDto(task);
 }
 
+export type RecentScheduleEventDto = {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  fromStatus: string | null;
+  toStatus: string;
+  changedAt: string;
+  notes: string | null;
+};
+
+/** Real cross-task recent activity for Analytics' Events feed (Phase 1.3, 2026-08-16 rollout). */
+export async function listRecentStatusEvents(limit: number): Promise<RecentScheduleEventDto[]> {
+  const rows = await repo.findRecentStatusEvents(limit);
+  return rows.map((row) => ({
+    id: row.id,
+    taskId: row.taskId,
+    taskTitle: row.task.title,
+    fromStatus: row.fromStatus,
+    toStatus: row.toStatus,
+    changedAt: row.changedAt.toISOString(),
+    notes: row.notes,
+  }));
+}
+
 export async function deleteTask(id: string): Promise<void> {
   const existing = await repo.findTaskById(id);
   if (!existing) throw new NotFoundError(`No schedule task with id "${id}"`);

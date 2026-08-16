@@ -108,6 +108,17 @@ export function findCustodyEvents(dispatchId: string): Promise<LogisticsCustodyE
   return prisma.logisticsCustodyEvent.findMany({ where: { dispatchId }, orderBy: { changedAt: "asc" } });
 }
 
+export type RecentCustodyEvent = LogisticsCustodyEvent & { dispatch: { truck: { identifier: string } } };
+
+/** Real cross-dispatch recent activity (Phase 1.3, 2026-08-16 rollout) -- for Analytics' real Events feed, not scoped to one dispatch like findCustodyEvents() above. */
+export function findRecentCustodyEvents(limit: number): Promise<RecentCustodyEvent[]> {
+  return prisma.logisticsCustodyEvent.findMany({
+    orderBy: { changedAt: "desc" },
+    take: limit,
+    include: { dispatch: { include: { truck: { select: { identifier: true } } } } },
+  });
+}
+
 export type RecordMileageData = {
   odometerStart: number | null;
   odometerEnd: number | null;

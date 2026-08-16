@@ -204,6 +204,14 @@ export async function listCustodyEvents(dispatchId: string): Promise<LogisticsCu
   return rows.map(toEventDto);
 }
 
+export type RecentCustodyEventDto = LogisticsCustodyEventDto & { truckIdentifier: string };
+
+/** Real cross-dispatch recent activity for Analytics' Events feed (Phase 1.3, 2026-08-16 rollout). */
+export async function listRecentCustodyEvents(limit: number): Promise<RecentCustodyEventDto[]> {
+  const rows = await repo.findRecentCustodyEvents(limit);
+  return rows.map((row) => ({ ...toEventDto(row), truckIdentifier: row.dispatch.truck.identifier }));
+}
+
 /**
  * Real eligibility gate (Phase 2 of the pilot mileage-tracking feature) —
  * only a real-delivered dispatch with complete odometer readings and a real

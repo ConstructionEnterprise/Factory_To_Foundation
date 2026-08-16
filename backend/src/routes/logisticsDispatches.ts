@@ -75,6 +75,13 @@ export async function logisticsDispatchRoutes(app: FastifyInstance) {
     }
   );
 
+  /** Real cross-dispatch recent activity for Analytics' Events feed (Phase 1.3, 2026-08-16 rollout). */
+  app.get(
+    "/logistics-dispatches/events/recent",
+    { preHandler: [authenticate, requirePermission("logistics", "read")] },
+    async () => service.listRecentCustodyEvents(10)
+  );
+
   /**
    * Real, separate mileage-recording endpoint — not folded into the status-
    * transition route, since setting an odometer reading isn't itself a
