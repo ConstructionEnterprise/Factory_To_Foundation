@@ -1,9 +1,11 @@
 # FF Construction Intelligence — Phase 1 Implementation Plan
 
-**Status: Phase 1 complete** (1.1 Construction Data Map, 1.2 Cost
-Estimating, 1.3 Analytics integration — all three built, typechecked,
-sandbox-verified, live-browser-verified, committed, pushed: `9c3422f`,
-`570ac7e`, `aaeb585`). Plan finalized across four rounds of review
+**Status: Phase 1 complete and deployed to real production** (1.1
+Construction Data Map, 1.2 Cost Estimating, 1.3 Analytics integration —
+all three built, typechecked, sandbox-verified, live-browser-verified,
+committed, pushed: `9c3422f`, `570ac7e`, `aaeb585`; then deployed
+full-stack to `https://dgzxyhsayte98.cloudfront.net` the same day — see
+"Production deploy" below). Plan finalized across four rounds of review
 (validated against real code, compared against a second relayed steering
 doc, adjusted per Joshua's final call on Analytics scope, then split
 again after a third relayed proposal to transform Analytics into a
@@ -11,6 +13,26 @@ CloudWatch-style observability surface). **Phase 2 (Modular Sequencing +
 Timeliner) and Phase 3 (CloudWatch-style observability) are separately
 scoped and require their own explicit go-ahead** — neither started, same
 discipline as the Inventory/Fleet rollout's own phase gates.
+
+**Production deploy (2026-08-16, same day as Phase 1 completion):**
+production's migration history was exactly where the prior (Inventory/
+Fleet) production deploy left it (18 migrations, confirmed via
+`prisma migrate status` before touching anything) — only the new
+`add_cost_estimate_scenario` migration was pending, and it's chronologically
+the newest migration so no ordering surprise this time. Same rolling
+sequence as before: backend code deployed to both real `ff-backend-asg`
+instances one at a time (each NLB-health-verified before the next),
+migration applied cleanly, frontend rebuilt with production env vars
+(bundle-verified, no `localhost` leaks), synced to S3, CloudFront
+invalidated. **End-to-end verified against the real public site**, logged
+in as the real `qa.ceo@factoryfoundation.test` account: production's
+Cost Estimating started genuinely empty (confirming no sandbox test data
+leaked across environments), created a real "Bid A" scenario
+(2,000 SF × $145/SF = $290,000, exact match), Data Map rendered real
+project relationships, and Analytics' three new/upgraded widgets all
+showed real production data — including the real Events feed correctly
+merging real Flatbed 7 dispatch status changes with real schedule task
+events, sorted by recency. Zero console errors.
 
 **Source of truth:** validated directly against the real FF codebase
 (`C:\Dev\Factory_Foundation_design_pass`) via two parallel Explore-agent
