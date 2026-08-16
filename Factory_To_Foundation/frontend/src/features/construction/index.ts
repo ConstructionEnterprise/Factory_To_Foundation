@@ -5,3 +5,5 @@ export { default as ConstructionProjectObjects } from "./ConstructionProjectObje
 export { default as ConstructionDocumentViewer } from "./ConstructionDocumentViewer";
 export { ConstructionDataMapBrowse, ConstructionDataMapView, ConstructionDataMapInspector } from "./DataMap";
 export type { ConstructionDispatchSummary } from "./DataMap";
+export { CostEstimatingPanel, CostEstimatingInspector } from "./CostEstimating";
+export type { CostEstimateScenario } from "./CostEstimating";

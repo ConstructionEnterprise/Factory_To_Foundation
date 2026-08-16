@@ -11,7 +11,10 @@ import {
   ConstructionProjectObjects,
   ConstructionProjects,
   ConstructionToolbar,
+  CostEstimatingInspector,
+  CostEstimatingPanel,
   type ConstructionDispatchSummary,
+  type CostEstimateScenario,
 } from "@/features/construction";
 import { useDocumentPreview } from "@/features/construction/constructionDocumentPreviewStore";
 
@@ -22,7 +25,7 @@ const constructionKpis: KpiDefinition[] = [
   { title: "Avg Progress", value: "54%" },
 ];
 
-type ConstructionCapability = "map" | "dataMap";
+type ConstructionCapability = "map" | "dataMap" | "estimating";
 
 /**
  * Real Construction Data Map capability (Phase 1.1, 2026-08-16 rollout) --
@@ -36,6 +39,12 @@ export default function ConstructionPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedDispatch, setSelectedDispatch] = useState<ConstructionDispatchSummary | null>(null);
 
+  const [estimatingProjectId, setEstimatingProjectId] = useState<string | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState<CostEstimateScenario | null>(null);
+  // Bumped after a real delete in the Inspector so the Panel's own list
+  // refetches without the Inspector owning that read path itself.
+  const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
+
   // Construction tab reorg — the center panel toggles between the map
   // (default) and a document viewer, driven by constructionDocumentPreviewStore.
   // Selecting a document in the left "Construction Projects" tree
@@ -47,7 +56,46 @@ export default function ConstructionPage() {
   const extraMenus = [
     { label: "Map", onClick: () => setCapability("map"), active: capability === "map" },
     { label: "Data Map", onClick: () => setCapability("dataMap"), active: capability === "dataMap" },
+    { label: "Estimating", onClick: () => setCapability("estimating"), active: capability === "estimating" },
   ];
+
+  if (capability === "estimating") {
+    return (
+      <FeaturePage
+        pageLabel="Construction"
+        pageSubtitle="Cost Estimating — Real Project Scenarios"
+        extraMenus={extraMenus}
+        kpis={<KpiList kpis={constructionKpis} />}
+        left={
+          <ConstructionDataMapBrowse
+            title="Cost Estimating"
+            selectedProjectId={estimatingProjectId}
+            onSelectProject={(id) => {
+              setEstimatingProjectId(id);
+              setSelectedScenario(null);
+            }}
+          />
+        }
+        center={
+          <CostEstimatingPanel
+            projectId={estimatingProjectId}
+            selectedScenarioId={selectedScenario?.id ?? null}
+            onSelectScenario={setSelectedScenario}
+            refreshKey={scenarioRefreshKey}
+          />
+        }
+        right={
+          <CostEstimatingInspector
+            scenario={selectedScenario}
+            onDeleted={() => {
+              setSelectedScenario(null);
+              setScenarioRefreshKey((k) => k + 1);
+            }}
+          />
+        }
+      />
+    );
+  }
 
   if (capability === "dataMap") {
     return (

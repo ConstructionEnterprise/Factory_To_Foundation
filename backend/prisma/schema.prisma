@@ -110,6 +110,7 @@ model User {
   preference                 UserPreference?
   mileageRateConfigs         MileageRateConfig[]
   taxReportedLogisticsDispatches LogisticsDispatch[]
+  costEstimateScenarios      CostEstimateScenario[]
 
   @@map("user")
 }
@@ -344,6 +345,7 @@ model ConstructionProject {
   treeNodes           ConstructionTreeNode[]
   files               ProjectFile[]
   logisticsDispatches LogisticsDispatch[]
+  costEstimateScenarios CostEstimateScenario[]
 
   @@map("construction_project")
 }
@@ -470,6 +472,46 @@ model ProjectFile {
   @@unique([fileId, version])
   @@index([projectId, treeNodeId])
   @@map("project_file")
+}
+
+// ───────────────────── Cost Estimating ─────────────────────
+// Phase 1.2, 2026-08-16 rollout (docs/decisions/
+// 2026-08-16-construction-data-map-cost-estimating-plan.md). Deliberately
+// the honest floor, not a reverse-derived target-price model -- no real
+// unit-cost rate data (labor/material/equipment/regional factors) exists
+// anywhere in FF to derive a breakdown from, so this stays a flat,
+// user-entered rate/SF scenario with a server-derived total, same
+// "never accept a derived number from the client" discipline as
+// LogisticsDispatch.miles.
+
+model CostEstimateScenario {
+  id String @id @default(cuid())
+
+  projectId String              @map("project_id")
+  project   ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name String
+
+  /// Real, entered, never guessed.
+  squareFootage Float @map("square_footage")
+  /// Real, entered (e.g. 14500 = $145.00/SF) -- integer cents, same
+  /// pattern as every other money field in this schema.
+  ratePerSquareFootCents Int @map("rate_per_square_foot_cents")
+
+  /// Honest absence, never defaulted -- null means no overhead/markup
+  /// was entered for this scenario, not zero.
+  overheadPercent Float? @map("overhead_percent")
+  markupPercent   Float? @map("markup_percent")
+
+  notes String?
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@map("cost_estimate_scenario")
 }
 
 // ───────────────────── Genealogy ─────────────────────
