@@ -114,6 +114,7 @@ model User {
   moduleSequenceEvents       ModuleSequenceEvent[]
   analyticsThresholds        AnalyticsThreshold[]
   analyticsDashboards        AnalyticsDashboard[]
+  schedules                  Schedule[]
 
   @@map("user")
 }
@@ -352,6 +353,7 @@ model ConstructionProject {
   logisticsModules    LogisticsModule[]
   moduleSequenceEntries ModuleSequenceEntry[]
   genealogyNodes      GenealogyNode[]
+  schedules           Schedule[]
 
   @@map("construction_project")
 }
@@ -804,22 +806,92 @@ enum PortDirection {
   output
 }
 
-model ScheduleStage {
-  /// Real ids: inbound-material, material-arrival, subassembly-module,
-  /// storage-logistics, construction-schedule.
-  id          String @id
+/// Phase 2 (2026-08-16, docs/decisions/
+/// 2026-08-16-scheduling-schedule-persistence-phase2-plan.md): real,
+/// first-class Schedule entity -- was previously only ever simulated by a
+/// title-prefix naming convention (CE Forge's "S1 Material-to-Module" etc,
+/// 2026-08-12 boundary experiment). No status field: only add one if a
+/// real schedule-level lifecycle (distinct from its tasks' own statuses)
+/// is ever identified -- none has been.
+model Schedule {
+  id          String   @id @default(cuid())
   title       String
-  subtitle    String
-  description String
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  /// null = genuinely no owning module yet (Inbound Material, CLAUDE.md
-  /// gap #2) — never a placeholder value standing in for a real absence.
+  /// Real, additive, nullable -- no real evidence today ties a schedule
+  /// to a construction project (real S1-S4 titles read like
+  /// manufacturing-pipeline schedules), but cheap to add now vs. a
+  /// second migration later, same reasoning as LogisticsModule's own
+  /// additive project FK.
+  constructionProjectId String?              @map("construction_project_id")
+  constructionProject   ConstructionProject? @relation(fields: [constructionProjectId], references: [id])
+
+  stages ScheduleStage[]
+  tasks  ScheduleTask[]
+
+  @@map("schedule")
+}
+
+/// Real, optional reference taxonomy preserving the original 5-stage
+/// pipeline concept (Phase 2, same plan doc, §1.3) -- built even though
+/// no real schedule's real stages reference it yet (the real CE Forge
+/// S1-S4 step names don't match any of these 5). Exists for whenever a
+/// schedule's real steps do line up with this pipeline, not because
+/// today's data needs it.
+model CanonicalStage {
+  id          String  @id @default(cuid())
+  title       String  @unique
+  subtitle    String?
+  description String?
+  order       Int
+
+  stages ScheduleStage[]
+
+  @@map("canonical_stage")
+}
+
+/// Redesigned Phase 2 (2026-08-16): real stages are now schedule-scoped,
+/// not five shared global rows -- confirmed live against sandbox that no
+/// real ScheduleStage/Port/Wire rows ever existed at all (0/0/0), so
+/// there was never a real global taxonomy to preserve structurally, only
+/// the frontend fixture's concept of one (see CanonicalStage above).
+model ScheduleStage {
+  id String @id @default(cuid())
+
+  scheduleId String   @map("schedule_id")
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  title String
+  /// Real ordering within its schedule -- didn't exist as a stored
+  /// column before (the old 5-stage fixture ordered by array position/x
+  /// coordinate, neither of which was real stored data).
+  position Int
+
+  /// Optional narrative text -- required on the old global 5-stage rows
+  /// (which had real fixture-authored copy for each); nullable here
+  /// since a real backfilled stage (e.g. "Kitting," parsed from a real
+  /// task title) has no such text and none is fabricated for it.
+  subtitle    String?
+  description String?
+
+  /// null = genuinely no owning module yet — never a placeholder value
+  /// standing in for a real absence (same discipline as before).
   ownedByModuleId String? @map("owned_by_module_id")
   ownedByModule   Module? @relation(fields: [ownedByModuleId], references: [id])
+
+  /// Optional link into the preserved 5-stage taxonomy above. Null for
+  /// any stage that isn't one of the 5 canonical pipeline steps (e.g. a
+  /// real "Kitting" or "QC Release" stage stays null here).
+  canonicalStageId String?         @map("canonical_stage_id")
+  canonicalStage   CanonicalStage? @relation(fields: [canonicalStageId], references: [id])
 
   ports SchedulePort[]
   tasks ScheduleTask[]
 
+  @@index([scheduleId])
   @@map("schedule_stage")
 }
 
@@ -859,12 +931,10 @@ model ScheduleWire {
 }
 
 // ───────────────── Scheduling — real tasks (Phase 1, Networking/Settings/Analytics build) ─────────────────
-// ScheduleStage/Port/Wire above model a static 5-stage PIPELINE TAXONOMY —
-// confirmed via direct investigation to carry no date/duration/dependency
-// concept at all. ScheduleTask is the new, additive, per-instance layer
-// underneath it: a real schedulable item with real planned/actual dates,
-// optionally filed under one of the existing 5 stages and/or owned by one
-// of the real 11 Module rows (reusing ScheduleStage.ownedByModuleId's own
+// ScheduleTask is a real schedulable item with real planned/actual dates,
+// optionally filed under a real schedule-scoped stage (Schedule/
+// ScheduleStage above, redesigned Phase 2, 2026-08-16) and/or owned by one
+// of the real 13 Module rows (reusing ScheduleStage.ownedByModuleId's own
 // "null = genuinely no owner yet" discipline, not a placeholder). This is
 // what unblocks Delay Impact Simulation, a real Interactive Gantt Timeline,
 // Schedule Heat Map, and Critical Path — none of which can honestly exist
@@ -881,9 +951,19 @@ model ScheduleTask {
   id    String @id @default(cuid())
   title String
 
-  /// Optional — a task can exist before/without being filed under one of
-  /// the 5 real pipeline stages (mirrors ScheduleStage.ownedByModuleId's own
-  /// nullable-FK convention: null is a real state, not a placeholder).
+  /// Real, direct, nullable link to Schedule -- NOT solely inferred
+  /// through stageId. The Phase 2 plan doc's own S1-S4 mapping test
+  /// found that inference-only-through-stage can't represent the real
+  /// data: all 29 real ScheduleTask rows have stageId=null, so schedule
+  /// membership needs its own real FK, mirroring stageId's own existing
+  /// optionality (a task can be "in a schedule but not yet staged," same
+  /// honest-empty shape as "not yet staged" itself).
+  scheduleId String?   @map("schedule_id")
+  schedule   Schedule? @relation(fields: [scheduleId], references: [id])
+
+  /// Optional — a task can exist before/without being filed under a real
+  /// schedule-scoped stage (mirrors ownedByModuleId's own nullable-FK
+  /// convention: null is a real state, not a placeholder).
   stageId String?       @map("stage_id")
   stage   ScheduleStage? @relation(fields: [stageId], references: [id])
 
@@ -906,6 +986,7 @@ model ScheduleTask {
   successorLinks   ScheduleTaskDependency[] @relation("DependencyPredecessor")
   statusEvents     ScheduleTaskStatusEvent[]
 
+  @@index([scheduleId])
   @@index([stageId])
   @@index([ownedByModuleId])
   @@map("schedule_task")
