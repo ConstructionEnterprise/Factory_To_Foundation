@@ -80,6 +80,9 @@ export async function createAsset(input: CreateAssetInput): Promise<AssetDto> {
     lastService: new Date(input.lastService),
     nextService: input.nextService ? new Date(input.nextService) : null,
     notes: input.notes ?? null,
+    // Real Inventory linkage (Phase 2, 2026-08-15) is set separately by
+    // the Inventory backfill/linking step, never guessed at creation time.
+    inventoryItemId: null,
   });
   return toDto(row);
 }

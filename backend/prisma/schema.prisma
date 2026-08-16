@@ -499,6 +499,12 @@ model GenealogyNode {
   outgoingEdges GenealogyEdge[] @relation("GenealogyEdgeFrom")
   incomingEdges GenealogyEdge[] @relation("GenealogyEdgeTo")
 
+  /// Real, additive link into Inventory's shared identity layer (Phase 2,
+  /// 2026-08-15) -- see InventoryItem's own doc comment. Nullable, never
+  /// touches this row's other real data.
+  inventoryItemId String?        @unique @map("inventory_item_id")
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
   @@map("genealogy_node")
 }
 
@@ -1182,7 +1188,46 @@ model Asset {
 
   notes String?
 
+  /// Real, additive link into Inventory's shared identity layer (Phase 2,
+  /// 2026-08-15) -- nullable so this migration never touches an existing
+  /// row's other data; backfilled for real rows separately, never inferred.
+  inventoryItemId String?        @unique @map("inventory_item_id")
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
   @@map("asset")
+}
+
+// ───────────────────── Inventory ─────────────────────
+// Real shared identity layer (Phase 2 of the 2026-08-15 Inventory/Fleet/
+// Analytics/Reports rollout) -- Inventory's canonical cross-domain object
+// list. Deliberately NOT a data migration: Asset and GenealogyNode keep
+// every field they already have, unmoved. Each real row gets a real,
+// additive FK link to one new InventoryItem row instead, giving Inventory
+// a single real place to list/search "every object" across both domains
+// without duplicating or relocating anything real. `kind` is a
+// discriminator so a generic InventoryItem list can resolve to the right
+// detail (Asset fields, or Genealogy tier/qr) without a second lookup.
+enum InventoryItemKind {
+  asset
+  genealogy_node
+}
+
+model InventoryItem {
+  id String @id @default(cuid())
+
+  title    String
+  kind     InventoryItemKind
+  /// Real, free-text current location -- mirrors Asset.location's own
+  /// non-geocoded-metadata posture; null for kinds (genealogy_node) with
+  /// no real location concept.
+  location String?
+
+  asset         Asset?
+  genealogyNode GenealogyNode?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("inventory_item")
 }
 
 // ───────────────────── Synthetic Data Provenance ─────────────────────
