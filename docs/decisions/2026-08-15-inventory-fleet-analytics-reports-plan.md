@@ -13,7 +13,31 @@ fixed during verification: `0632451`, `cd80522`, `db639b9`, `fe942f0`,
 untouched** and still fully live — Phase 2 was additive by design, same as
 every Phase 1 item. **Retiring the legacy `/assets`/Genealogy routes in
 favor of `/inventory` is a separate, later decision, not yet made or
-scheduled.** Phase 3 (Fleet) is next and requires its own go-ahead.
+scheduled.**
+
+**UX correction, same day (`d14df96`):** the first `/inventory` build
+(2.4) presented a new, merged Browse/Inspector/Relationships view over
+`InventoryItem` — real, but the wrong shape. Corrected per live feedback:
+Inventory's ribbon holds **Assets** and **Genealogy** as instant
+capability-switch pills (not dropdowns, not nested in Filters), and the
+workspace renders the *exact same real components* `/assets` and
+Genealogy's own page already use (`AssetsBrowse`/`AssetsMap`/
+`AssetsInspector`/`AssetsToolbar`, or `GenealogyBrowser`/
+`RelationshipGraph`/`SelectedObject`/`GenealogyToolbar`), fetched
+independently — not a second, different presentation of the same data.
+This is now a real, general capability of `framework/ui/CommandRibbon.tsx`:
+`RibbonMenu` has two real shapes — `content` (opens a dropdown panel,
+Metrics/Filters/Factory's Instructions) or `onClick`+`active` (instant
+view switch, no panel). **Fleet's own ribbon placement in Logistics
+(§0's/§2's standing decision) should use this same `onClick`/`active`
+shape** — it's already built, not something Phase 3 needs to invent. The
+now-superseded Inventory-specific Browse/Inspector/Relationships/Toolbar
+components were deleted as real dead code, not kept as backwards-compat
+cruft; the Phase 2 backend (`InventoryItem` schema/migration/backfill/
+routes) is untouched and stays real, tested infrastructure regardless of
+how the UI presents it today.
+
+Phase 3 (Fleet) is next and requires its own go-ahead.
 **Source of truth:** The evidence-based validation of the Manus AI review
 completed earlier in this session (four parallel codebase investigations —
 Inventory/Assets/Genealogy, Fleet/Autonomous Dolly, Analytics/CloudFront UX,
@@ -89,11 +113,17 @@ Inventory may represent CE-Forge-sourced data — see §1.
   area = the actual operational view**. Before adding any new button, tab,
   or navigation surface, ask: *"is this a domain, or a capability of the
   current domain?"* A capability's default home is the CommandRibbon
-  (`FeaturePage`'s `extraMenus`, the mechanism Factory's "Instructions"
-  menu and Fleet's own ribbon placement use), not a new sidebar item or a
-  bespoke toggle. Concrete example already applied: Logistics' ribbon is
-  `Metrics | Filters | Fleet`, with Fleet a sibling capability inside
-  Logistics — never a child of the Logistics Flow workspace view.
+  (`FeaturePage`'s `extraMenus`), not a new sidebar item or a bespoke
+  toggle. Two real `extraMenus` shapes exist as of `d14df96` — a dropdown
+  menu (`content`, e.g. Factory's Instructions) and an instant capability
+  switch (`onClick`+`active`, no panel — Inventory's real Assets/Genealogy
+  view switch, built and verified this session). **Fleet's own ribbon
+  placement in Logistics should use the `onClick`/`active` shape** — it's
+  already real, general infrastructure in `CommandRibbon.tsx`, not
+  something Phase 3 needs to build from scratch. Concrete example already
+  applied: Logistics' ribbon is `Metrics | Filters | Fleet`, with Fleet a
+  sibling capability inside Logistics — never a child of the Logistics
+  Flow workspace view.
   `SimplePage` (Analytics/Reports/Administration/Networking) doesn't
   support `extraMenus` yet, which is why Phase 1D's Topology/API toggle
   used plain inline buttons instead — a real, disclosed constraint, not an
