@@ -24,6 +24,7 @@ export const PAGE_OPTIONS: { path: string; label: string }[] = [
   { path: "/permissions", label: "Permissions" },
   { path: "/networking", label: "Networking" },
   { path: "/assets", label: "Assets" },
+  { path: "/inventory", label: "Inventory" },
   { path: "/analytics", label: "Analytics" },
   { path: "/reports", label: "Reports" },
   { path: "/administration", label: "Administration" },

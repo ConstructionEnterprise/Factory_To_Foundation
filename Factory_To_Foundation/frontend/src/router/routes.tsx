@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { LucideProps } from "lucide-react";
 import {
   BarChart3,
+  Boxes,
   Bot,
   Calendar,
   Factory as FactoryIcon,
@@ -24,6 +25,7 @@ import ConstructionPage from "@/pages/construction/ConstructionPage";
 import ManufacturingPage from "@/pages/manufacturing/ManufacturingPage";
 import SchedulingPage from "@/pages/scheduling/SchedulingPage";
 import AssetsPage from "@/pages/assets/AssetsPage";
+import InventoryPage from "@/pages/inventory/InventoryPage";
 import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
 import AdministrationPage from "@/pages/administration/AdministrationPage";
 import ReportsPage from "@/pages/reports/ReportsPage";
@@ -143,6 +145,16 @@ export const appRoutes: AppRoute[] = [
     label: "Assets",
     icon: Package,
     element: <AssetsPage />,
+  },
+  {
+    path: "/inventory",
+    label: "Inventory",
+    icon: Boxes,
+    element: <InventoryPage />,
+    // Real, separate domain (Phase 2, 2026-08-15) -- the shared identity
+    // layer over Asset/GenealogyNode, NOT a replacement for /assets or
+    // Genealogy's own route, which both stay fully live. See
+    // docs/decisions/2026-08-15-inventory-fleet-analytics-reports-plan.md.
   },
   {
     path: "/analytics",
