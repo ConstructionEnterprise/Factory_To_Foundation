@@ -6,6 +6,7 @@ import * as repo from "../repositories/scheduleTaskRepository";
 export type ScheduleTaskDto = {
   id: string;
   title: string;
+  scheduleId: string | null;
   stageId: string | null;
   ownedByModuleId: string | null;
   plannedStart: string;
@@ -19,6 +20,7 @@ function toDto(t: ScheduleTask): ScheduleTaskDto {
   return {
     id: t.id,
     title: t.title,
+    scheduleId: t.scheduleId,
     stageId: t.stageId,
     ownedByModuleId: t.ownedByModuleId,
     plannedStart: t.plannedStart.toISOString(),
@@ -44,6 +46,7 @@ export async function getScheduleTaskDirectory(): Promise<ScheduleTaskDirectoryD
 
 export type CreateTaskInput = {
   title: string;
+  scheduleId?: string | null;
   stageId?: string | null;
   ownedByModuleId?: string | null;
   plannedStart: string;
@@ -59,6 +62,7 @@ export async function createTask(input: CreateTaskInput): Promise<ScheduleTaskDt
   }
   const task = await repo.createTask({
     title: input.title,
+    scheduleId: input.scheduleId ?? null,
     stageId: input.stageId ?? null,
     ownedByModuleId: input.ownedByModuleId ?? null,
     plannedStart,

@@ -30,6 +30,7 @@ export function findTaskById(id: string) {
 
 export type CreateTaskInput = {
   title: string;
+  scheduleId: string | null;
   stageId: string | null;
   ownedByModuleId: string | null;
   plannedStart: Date;
@@ -43,6 +44,7 @@ export function createTask(data: CreateTaskInput) {
     const task = await tx.scheduleTask.create({
       data: {
         title: data.title,
+        scheduleId: data.scheduleId,
         stageId: data.stageId,
         ownedByModuleId: data.ownedByModuleId,
         plannedStart: data.plannedStart,

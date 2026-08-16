@@ -6,6 +6,7 @@ import * as service from "../services/scheduleTaskService";
 
 const createTaskSchema = z.object({
   title: z.string().min(1),
+  scheduleId: z.string().optional(),
   stageId: z.string().optional(),
   ownedByModuleId: z.string().optional(),
   plannedStart: z.string(),

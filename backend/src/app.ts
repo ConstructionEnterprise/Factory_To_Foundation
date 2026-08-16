@@ -39,6 +39,7 @@ import { rbacDirectoryRoutes } from "./routes/rbacDirectory";
 import { userManagementRoutes } from "./routes/users";
 import { complianceDocumentRoutes } from "./routes/complianceDocuments";
 import { scheduleTaskRoutes } from "./routes/scheduleTasks";
+import { scheduleRoutes } from "./routes/schedules";
 import { networkRoutes } from "./routes/network";
 import { syntheticDataProvenanceRoutes } from "./routes/syntheticDataProvenance";
 import { assetRoutes } from "./routes/assets";
@@ -177,6 +178,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     userManagementRoutes,
     complianceDocumentRoutes,
     scheduleTaskRoutes,
+    scheduleRoutes,
     networkRoutes,
     syntheticDataProvenanceRoutes,
     assetRoutes,
