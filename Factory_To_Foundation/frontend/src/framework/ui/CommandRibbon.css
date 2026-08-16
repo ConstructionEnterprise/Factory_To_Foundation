@@ -18,6 +18,33 @@
     gap: 0.1rem;
 }
 
+/* Capability switch (RibbonMenu's onClick shape) -- same trigger sizing as
+   dropdown-menu-trigger, but an instant toggle with no chevron/panel; the
+   accent fill on --active is the "current workspace view" indicator. */
+.command-ribbon-action {
+    border-radius: 0.2rem;
+    padding: 0.35rem 0.6rem;
+
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ff-text-primary);
+    background: none;
+    border: none;
+
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.command-ribbon-action:hover {
+    background: var(--ff-panel-border);
+}
+
+.command-ribbon-action--active,
+.command-ribbon-action--active:hover {
+    background: var(--ff-accent);
+    color: white;
+}
+
 .command-ribbon-right {
     display: flex;
     align-items: center;

@@ -133,40 +133,6 @@ export type AssetsPayload = {
 };
 
 /**
- * Real Inventory selection payload (Phase 2, 2026-08-15) — Inventory's
- * shared identity layer over Asset/GenealogyNode (see schema.prisma's
- * InventoryItem doc comment). `kind`-discriminated like LogisticsPayload,
- * since these are genuinely distinct real backing tables, not an open
- * question about whether two concepts are the same thing.
- */
-export type InventoryAssetPayload = {
-  kind: "asset";
-  title: string;
-  category: string;
-  family: string;
-  status: string;
-  location: string | null;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  assetTag: string;
-  acquisitionDate: string;
-  lastService: string;
-  nextService: string | null;
-  notes: string | null;
-};
-
-export type InventoryGenealogyPayload = {
-  kind: "genealogy_node";
-  title: string;
-  tier: string;
-  qr: string | null;
-  location: string | null;
-};
-
-export type InventoryPayload = InventoryAssetPayload | InventoryGenealogyPayload;
-
-/**
  * One global selection engine, discriminated by `feature`. Every variant
  * shares the same envelope (feature/objectType/objectId/payload) but the
  * payload type is specific to that feature, so consumers narrow on
@@ -180,8 +146,7 @@ export type Selection =
   | { feature: "construction"; objectType: string; objectId: string; payload: ConstructionPayload }
   | { feature: "manufacturing"; objectType: string; objectId: string; payload: ManufacturingPayload }
   | { feature: "scheduling"; objectType: string; objectId: string; payload: SchedulePayload }
-  | { feature: "assets"; objectType: string; objectId: string; payload: AssetsPayload }
-  | { feature: "inventory"; objectType: string; objectId: string; payload: InventoryPayload };
+  | { feature: "assets"; objectType: string; objectId: string; payload: AssetsPayload };
 
 type SelectionContextType = {
   selected: Selection | null;
