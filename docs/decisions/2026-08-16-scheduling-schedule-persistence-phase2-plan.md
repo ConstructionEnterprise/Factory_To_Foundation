@@ -1,13 +1,36 @@
 # Scheduling — Schedule/Step Real Persistence (Phase 2) — Decision & Implementation Plan
 
-**Status:** All decisions made, including the 4 open questions from §5
-(resolved 2026-08-16, later same day — see §5). **Not implemented yet —
-awaiting explicit go-ahead to start schema work**, same phase-gate
-discipline as every other phase this rollout. Phase 1 (fixture + UI, no
+**Status:** All decisions made (§5). **Phase 2.1 (schema, `5be7af4`) and
+2.2 (real backfill of the CE Forge S1–S4 data, `167e1df`) both complete
+and live-verified in sandbox**, 2026-08-16. Phase 1 (fixture + UI, no
 schema) shipped 2026-08-12, commit `e8083a1`. Phase 2 was deliberately
 deferred at that time — "prove the UX with the fixture first, then
 design real persistence based on what's proven." This doc is that design
-pass.
+pass, now built.
+
+**Phase 2.2 real evidence:** ran the backfill against sandbox — 5 real
+`CanonicalStage` rows seeded, 4 real `Schedule` rows created (S1–S4),
+27 real `ScheduleStage` rows created (one per task, title parsed from
+each task's own real `" — "` delimiter), all 27 tasks linked via a real
+`scheduleId`/`stageId`, exact-count-asserted, confirmed idempotent on a
+second run. Inspected the real per-schedule stage ordering directly:
+each schedule's real `ScheduleTaskDependency` topology produced a clean
+linear pipeline (e.g. S1: Inbound Material → Material Arrival → Material
+Inspection → Kitting → Sub-Assembly → Module Production) — not an
+arbitrary order. `canonicalStageId` correctly null on all 27 new stages
+(no real step name matches a canonical one, exactly as predicted in §1.3)
+and `constructionProjectId` correctly null on all 4 schedules (no real
+evidence ties them to a project, per §1.1). The 2 unprefixed tasks
+("Material Inbound", "Equipment Inbound") were left untouched, as
+decided.
+
+**Not yet done — the real UI contradictions flagged in §3 remain
+unresolved**, same as before: Phase 1's `ScheduleBrowse.tsx` and the
+Function Block canvas still read only the `scheduleData.ts` fixture,
+not this real backend data. A frontend phase (2.3) to wire the UI to
+the real API is a separate, not-yet-scoped follow-on — no backend
+routes exist yet either (this pass was schema + backfill only, no
+`services`/`repositories`/`routes` files were touched).
 
 **Provenance:** the architectural decisions below were proposed by
 ChatGPT (relayed by Joshua, 2026-08-16) after being shown this session's
