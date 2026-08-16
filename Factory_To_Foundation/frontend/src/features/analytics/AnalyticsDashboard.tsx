@@ -2,6 +2,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { ErrorBoundary, PanelCard, StatusBadge } from "@/framework/ui";
 
+import ChartableWidgetCard, { type ChartDatum } from "./ChartableWidgetCard";
+
 import { useTwinManifest } from "@/features/factory/useTwinManifest";
 import { useTwinState } from "@/features/factory/useTwinState";
 import { translateManifest } from "@/features/factory/twinTranslator";
@@ -52,8 +54,16 @@ export function FactoryWidget() {
   const idle = liveNodes.filter((n) => n.node.status === "idle").length;
   const unknown = liveNodes.filter((n) => n.node.status === "unknown").length;
 
+  const chartData: ChartDatum[] | null = manifestConnected
+    ? [
+        { label: "Running", value: running },
+        { label: "Idle", value: idle },
+        { label: "Unknown", value: unknown },
+      ]
+    : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Factory — Digital Twin"
       toolbar={
         <StatusBadge
@@ -61,6 +71,7 @@ export function FactoryWidget() {
           tone={manifestConnected ? "positive" : "neutral"}
         />
       }
+      chartData={chartData}
     >
       {manifestConnected ? (
         <div className="space-y-1.5">
@@ -76,7 +87,7 @@ export function FactoryWidget() {
           real subsystem counts here. No fabricated numbers shown while offline.
         </p>
       )}
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -89,10 +100,16 @@ export function GenealogyWidget() {
 
   const finishedProductCount = graphNodes.filter((n) => canBeFinishedProduct(n.tier)).length;
 
+  const chartData: ChartDatum[] | null =
+    graphNodes.length > 0
+      ? TIER_ORDER.map((tier) => ({ label: TIER_LABEL[tier], value: graphNodes.filter((n) => n.tier === tier).length }))
+      : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Genealogy"
       toolbar={<StatusBadge label={graphNodes.length > 0 ? "Real Data" : "Loading…"} tone="neutral" />}
+      chartData={chartData}
     >
       <div className="space-y-1.5">
         <Row label="Real nodes in thread" value={String(graphNodes.length)} />
@@ -105,7 +122,7 @@ export function GenealogyWidget() {
           />
         ))}
       </div>
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -139,10 +156,14 @@ export function AssetsWidget() {
     byStatus.set(a.status, (byStatus.get(a.status) ?? 0) + 1);
   }
 
+  const chartData: ChartDatum[] | null =
+    assets && assets.length > 0 ? Array.from(byCategory.entries()).map(([category, count]) => ({ label: category, value: count })) : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Assets"
       toolbar={<StatusBadge label={assets && assets.length > 0 ? "Real Data" : "No Assets Yet"} tone="neutral" />}
+      chartData={chartData}
     >
       {error && (
         <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>
@@ -171,7 +192,7 @@ export function AssetsWidget() {
           ))}
         </div>
       )}
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -180,28 +201,41 @@ function ManufacturingWidgetInner() {
   const allNodes = Array.from(tree.nodesById.values());
   const withMetadata = allNodes.filter((n) => Object.keys(n.extras).length > 0).length;
 
+  const chartData: ChartDatum[] | null =
+    allNodes.length > 0
+      ? [
+          { label: "With Metadata", value: withMetadata },
+          { label: "Without Metadata", value: allNodes.length - withMetadata },
+        ]
+      : null;
+
   return (
-    <div className="space-y-1.5">
-      <Row label="Real nodes in loaded model" value={String(allNodes.length)} />
-      <Row label="Nodes with real source metadata" value={String(withMetadata)} />
-    </div>
+    <ChartableWidgetCard
+      title="Manufacturing — Loaded Model"
+      toolbar={<StatusBadge label="Real Ingested Geometry" tone="neutral" />}
+      chartData={chartData}
+    >
+      <div className="space-y-1.5">
+        <Row label="Real nodes in loaded model" value={String(allNodes.length)} />
+        <Row label="Nodes with real source metadata" value={String(withMetadata)} />
+      </div>
+    </ChartableWidgetCard>
   );
 }
 
 export function ManufacturingWidget() {
   return (
-    <PanelCard
-      title="Manufacturing — Loaded Model"
-      toolbar={<StatusBadge label="Real Ingested Geometry" tone="neutral" />}
-    >
-      <ErrorBoundary label="Manufacturing widget">
-        <Suspense
-          fallback={<p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>Loading geometry…</p>}
-        >
-          <ManufacturingWidgetInner />
-        </Suspense>
-      </ErrorBoundary>
-    </PanelCard>
+    <ErrorBoundary label="Manufacturing widget">
+      <Suspense
+        fallback={
+          <PanelCard title="Manufacturing — Loaded Model" toolbar={<StatusBadge label="Real Ingested Geometry" tone="neutral" />}>
+            <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>Loading geometry…</p>
+          </PanelCard>
+        }
+      >
+        <ManufacturingWidgetInner />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 
@@ -230,10 +264,15 @@ export function ConstructionWidget() {
   const { byProjectId, error } = useConstructionRelationships();
   const loaded = byProjectId.size > 0;
 
+  const chartData: ChartDatum[] | null = loaded
+    ? constructionProjects.map((project) => ({ label: project.title, value: byProjectId.get(project.id)?.dispatches.length ?? 0 }))
+    : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Construction"
       toolbar={<StatusBadge label={loaded ? "Real Data" : error ? "Error" : "Loading…"} tone={loaded ? "positive" : "neutral"} />}
+      chartData={chartData}
     >
       {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
       <div className="space-y-1.5">
@@ -252,7 +291,7 @@ export function ConstructionWidget() {
           );
         })}
       </div>
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -286,10 +325,20 @@ export function CostEstimatingWidget() {
   const projectsWithScenarios = constructionProjects.filter((p) => (byProjectId.get(p.id)?.length ?? 0) > 0);
   const totalScenarios = [...byProjectId.values()].reduce((sum, list) => sum + list.length, 0);
 
+  const chartData: ChartDatum[] | null =
+    projectsWithScenarios.length > 0
+      ? projectsWithScenarios.map((project) => {
+          const scenarios = byProjectId.get(project.id) ?? [];
+          const totalDollars = scenarios.reduce((sum, s) => sum + s.totalCents, 0) / 100;
+          return { label: project.title, value: Math.round(totalDollars) };
+        })
+      : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Cost Estimating"
       toolbar={<StatusBadge label={loaded ? "Real Data" : error ? "Error" : "Loading…"} tone={loaded ? "positive" : "neutral"} />}
+      chartData={chartData}
     >
       {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
       {loaded && totalScenarios === 0 && (
@@ -308,15 +357,22 @@ export function CostEstimatingWidget() {
           return <Row key={project.id} label={project.title} value={`${scenarios.length} scenario${scenarios.length === 1 ? "" : "s"} · ${range}`} />;
         })}
       </div>
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
 export function SchedulingWidget() {
+  const chartData: ChartDatum[] = [
+    { label: "Pipeline Stages", value: scheduleNodes.length },
+    { label: "Port-to-Port Wires", value: scheduleWires.length },
+    { label: "No Live Data Yet", value: scheduleNodes.filter((n) => n.ownedByModule === null).length },
+  ];
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Scheduling"
       toolbar={<StatusBadge label="Structural Facts — Not Live" tone="neutral" />}
+      chartData={chartData}
     >
       <div className="space-y-1.5">
         <Row label="Real pipeline stages" value={String(scheduleNodes.length)} />
@@ -326,7 +382,7 @@ export function SchedulingWidget() {
           value={String(scheduleNodes.filter((n) => n.ownedByModule === null).length)}
         />
       </div>
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -409,10 +465,22 @@ function useEvents(executionRows: InstructionExecutionHistoryEntry[] | null): { 
 export function EventsWidget({ executionRows }: { executionRows: InstructionExecutionHistoryEntry[] | null }) {
   const { events, error } = useEvents(executionRows);
 
+  const chartData: ChartDatum[] | null =
+    events && events.length > 0
+      ? Array.from(
+          events.reduce((byDomain, e) => {
+            const domain = e.label.split(" — ")[0];
+            byDomain.set(domain, (byDomain.get(domain) ?? 0) + 1);
+            return byDomain;
+          }, new Map<string, number>())
+        ).map(([domain, count]) => ({ label: domain, value: count }))
+      : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Events"
       toolbar={<StatusBadge label={events ? "Real Data" : error ? "Error" : "Loading…"} tone={events ? "positive" : "neutral"} />}
+      chartData={chartData}
     >
       {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
       {events && events.length === 0 && (
@@ -426,7 +494,7 @@ export function EventsWidget({ executionRows }: { executionRows: InstructionExec
           </div>
         ))}
       </div>
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -441,10 +509,19 @@ export function ProductionOutputWidget({
   const failed = (rows?.length ?? 0) - ok;
   const mostRecent = rows && rows.length > 0 ? rows[0] : null; // already ordered executedAt desc by the backend
 
+  const chartData: ChartDatum[] | null =
+    rows && rows.length > 0
+      ? [
+          { label: "Succeeded", value: ok },
+          { label: "Failed", value: failed },
+        ]
+      : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Production Output"
       toolbar={<StatusBadge label="Real Execution Log" tone={rows && rows.length > 0 ? "positive" : "neutral"} />}
+      chartData={chartData}
     >
       {error && (
         <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>
@@ -472,7 +549,7 @@ export function ProductionOutputWidget({
           )}
         </div>
       )}
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -491,10 +568,14 @@ export function WorkCellPerformanceWidget({
     bySubsystem.set(row.targetSubsystemId, entry);
   }
 
+  const chartData: ChartDatum[] | null =
+    bySubsystem.size > 0 ? Array.from(bySubsystem.entries()).map(([subsystemId, stats]) => ({ label: subsystemId, value: stats.total })) : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Work Cell Performance — Equipment Utilization"
       toolbar={<StatusBadge label="Real Execution Log" tone={bySubsystem.size > 0 ? "positive" : "neutral"} />}
+      chartData={chartData}
     >
       {error && (
         <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>
@@ -523,7 +604,7 @@ export function WorkCellPerformanceWidget({
           ))}
         </div>
       )}
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -553,8 +634,16 @@ export function ScheduleCriticalPathWidget() {
   const lateCount =
     directory?.tasks.filter((t) => t.actualEnd && new Date(t.actualEnd) > new Date(t.plannedEnd)).length ?? 0;
 
+  const chartData: ChartDatum[] | null =
+    directory && directory.tasks.length > 0
+      ? [
+          { label: "On Time", value: onTimeCount },
+          { label: "Late", value: lateCount },
+        ]
+      : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Production Schedule Performance — Critical Path"
       toolbar={
         <StatusBadge
@@ -562,6 +651,7 @@ export function ScheduleCriticalPathWidget() {
           tone="neutral"
         />
       }
+      chartData={chartData}
     >
       {error && (
         <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>
@@ -592,7 +682,7 @@ export function ScheduleCriticalPathWidget() {
           />
         </div>
       )}
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -605,10 +695,14 @@ export function DigitalTwinLifecycleWidget() {
     byType.set(entry.type, (byType.get(entry.type) ?? 0) + 1);
   }
 
+  const chartData: ChartDatum[] | null =
+    connected && manifest ? Array.from(byType.entries()).map(([type, count]) => ({ label: type, value: count })) : null;
+
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Digital Twin Lifecycle"
       toolbar={<StatusBadge label={connected ? "Live Twin Data" : "Twin Offline"} tone={connected ? "positive" : "neutral"} />}
+      chartData={chartData}
     >
       {connected && manifest ? (
         <div className="space-y-1.5">
@@ -625,7 +719,7 @@ export function DigitalTwinLifecycleWidget() {
           real lifecycle data here.
         </p>
       )}
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 
@@ -633,10 +727,15 @@ export function QualityControlWidget() {
   const { connected, state } = useTwinState();
   const lastVerify = state?.last_tool_verify ?? null;
 
+  // No real numeric series exists for this widget -- a single live
+  // record (or none) has no honest chartable breakdown, so chartData
+  // stays null (Chart view shows the shared "nothing to chart" message
+  // rather than a fabricated single-bar chart).
   return (
-    <PanelCard
+    <ChartableWidgetCard
       title="Quality Control"
       toolbar={<StatusBadge label={connected ? "Live Twin Data" : "Twin Offline"} tone={connected ? "positive" : "neutral"} />}
+      chartData={null}
     >
       {!connected ? (
         <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
@@ -661,7 +760,7 @@ export function QualityControlWidget() {
           {lastVerify.note && <Row label="Note" value={lastVerify.note} />}
         </div>
       )}
-    </PanelCard>
+    </ChartableWidgetCard>
   );
 }
 

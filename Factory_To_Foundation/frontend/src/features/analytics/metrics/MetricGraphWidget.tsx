@@ -3,6 +3,8 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 
 import { PanelCard, StatusBadge, ToolbarSelect, type StatusTone } from "@/framework/ui";
 
+import ViewToggle, { type WidgetView } from "@/features/analytics/ViewToggle";
+
 import { fetchMetricCurrentValue, fetchMetricSeries, type MetricCatalogEntry, type MetricCurrentValue, type MetricSeriesPoint } from "./analyticsMetricsApi";
 
 type RangeOption = { label: string; rangeMs: number; bucketMinutes: number };
@@ -51,6 +53,7 @@ type MetricGraphWidgetProps = {
  * state, not "whatever the graph happens to show").
  */
 export default function MetricGraphWidget({ entry }: MetricGraphWidgetProps) {
+  const [view, setView] = useState<WidgetView>("chart");
   const [rangeKey, setRangeKey] = useState<keyof typeof RANGE_OPTIONS>("1d");
   const [series, setSeries] = useState<MetricSeriesPoint[]>([]);
   const [current, setCurrent] = useState<MetricCurrentValue | null>(null);
@@ -90,6 +93,7 @@ export default function MetricGraphWidget({ entry }: MetricGraphWidgetProps) {
               <option key={key} value={key}>{opt.label}</option>
             ))}
           </ToolbarSelect>
+          <ViewToggle view={view} onChange={setView} />
         </div>
       }
     >
@@ -97,10 +101,10 @@ export default function MetricGraphWidget({ entry }: MetricGraphWidgetProps) {
       {!error && loading && series.length === 0 && <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>Loading real metric data…</p>}
       {!error && !loading && series.every((p) => p.value === 0) && (
         <p className="mb-2 text-xs" style={{ color: "var(--ff-text-muted)" }}>
-          No real activity in this range yet -- an honest empty/flat line, not fabricated density.
+          No real activity in this range yet -- an honest empty/flat {view === "chart" ? "line" : "series"}, not fabricated density.
         </p>
       )}
-      {!error && chartData.length > 0 && (
+      {!error && view === "chart" && chartData.length > 0 && (
         <div style={{ height: 180 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -114,6 +118,16 @@ export default function MetricGraphWidget({ entry }: MetricGraphWidgetProps) {
               <Line type="monotone" dataKey="value" stroke="var(--ff-accent)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      )}
+      {!error && view === "text" && series.length > 0 && (
+        <div className="space-y-1">
+          {series.map((p) => (
+            <div key={p.bucketStart} className="flex justify-between py-1 text-xs" style={{ borderBottom: "1px solid var(--ff-content-bg)" }}>
+              <span style={{ color: "var(--ff-text-muted)" }}>{formatBucketLabel(p.bucketStart)}</span>
+              <span className="font-medium" style={{ color: "var(--ff-text-primary)" }}>{p.value}{valueSuffix}</span>
+            </div>
+          ))}
         </div>
       )}
       {current && (
