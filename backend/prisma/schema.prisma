@@ -111,6 +111,7 @@ model User {
   mileageRateConfigs         MileageRateConfig[]
   taxReportedLogisticsDispatches LogisticsDispatch[]
   costEstimateScenarios      CostEstimateScenario[]
+  moduleSequenceEvents       ModuleSequenceEvent[]
 
   @@map("user")
 }
@@ -347,6 +348,7 @@ model ConstructionProject {
   logisticsDispatches LogisticsDispatch[]
   costEstimateScenarios CostEstimateScenario[]
   logisticsModules    LogisticsModule[]
+  moduleSequenceEntries ModuleSequenceEntry[]
 
   @@map("construction_project")
 }
@@ -396,6 +398,7 @@ model ConstructionTreeNode {
   punchListCount String? @map("punch_list_count")
 
   logisticsModules LogisticsModule[]
+  moduleSequenceEntries ModuleSequenceEntry[]
 
   @@map("construction_tree_node")
 }
@@ -515,6 +518,116 @@ model CostEstimateScenario {
 
   @@index([projectId])
   @@map("cost_estimate_scenario")
+}
+
+// ───────────────────── Modular Sequencing ─────────────────────
+// Phase 2.2, 2026-08-16 rollout (docs/decisions/
+// 2026-08-16-modular-sequencing-plan.md). A real Construction domain --
+// NOT a Logistics or Inventory feature. Anchors on InventoryItem (the
+// same domain-neutral shared identity layer Vehicle/Asset/GenealogyNode
+// already use), never on LogisticsModule directly -- LogisticsModule is
+// real provenance data feeding that identity, not this domain's key.
+// The one real coupling to Logistics/Transportation is the handoff
+// contract enforced in the service layer: a ModuleSequenceEntry cannot
+// be created until its InventoryItem has a real, delivered source
+// dispatch (see moduleSequenceService.ts).
+
+enum ModuleSequenceStatus {
+  /// Real InventoryItem link exists, but no real delivered dispatch yet
+  /// -- this entry's own real state, not Logistics' concern to update.
+  pending
+  site_arrival
+  site_acceptance
+  installation
+  placement
+  complete
+}
+
+model ModuleSequenceEntry {
+  id String @id @default(cuid())
+
+  /// The real, domain-neutral identity this entry sequences -- not
+  /// LogisticsModule directly. See this section's own header comment.
+  inventoryItemId String        @unique @map("inventory_item_id")
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  /// Resolved from the linked LogisticsModule's own real
+  /// constructionProjectId/buildingTreeNodeId at entry-creation time, not
+  /// re-derived ad hoc -- a real reassignment later gets an explicit
+  /// re-sequence, never a silently stale entry.
+  constructionProjectId String              @map("construction_project_id")
+  constructionProject   ConstructionProject @relation(fields: [constructionProjectId], references: [id])
+
+  buildingTreeNodeId String               @map("building_tree_node_id")
+  buildingTreeNode   ConstructionTreeNode @relation(fields: [buildingTreeNodeId], references: [id])
+
+  status ModuleSequenceStatus @default(pending)
+
+  /// Real, user-set installation order -- scoped PER BUILDING (decided
+  /// 2026-08-16), unique within (buildingTreeNodeId), not global across
+  /// the project. Null = not yet sequenced.
+  sequencePosition Int? @map("sequence_position")
+
+  /// Real citation only (§1 of the plan doc) -- the dispatch that
+  /// produced this entry's real handoff. Never duplicates dispatch/
+  /// truck/driver data; resolved by joining LogisticsDispatch when
+  /// displaying, same pattern flowPointResolution.ts already uses.
+  sourceDispatchId String? @map("source_dispatch_id")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  blockingDependencies ModuleSequenceDependency[] @relation("ModuleSequenceDependencyBlocking")
+  blockedDependencies  ModuleSequenceDependency[] @relation("ModuleSequenceDependencyBlocked")
+  events               ModuleSequenceEvent[]
+
+  @@index([constructionProjectId])
+  @@index([buildingTreeNodeId])
+  @@map("module_sequence_entry")
+}
+
+model ModuleSequenceDependency {
+  id String @id @default(cuid())
+
+  /// Real many-to-many blocker graph, same DAG-not-tree reasoning as
+  /// GenealogyEdge -- an entry's installation can legitimately depend on
+  /// more than one predecessor.
+  blockingEntryId String              @map("blocking_entry_id")
+  blockingEntry   ModuleSequenceEntry @relation("ModuleSequenceDependencyBlocking", fields: [blockingEntryId], references: [id], onDelete: Cascade)
+
+  blockedEntryId String              @map("blocked_entry_id")
+  blockedEntry   ModuleSequenceEntry @relation("ModuleSequenceDependencyBlocked", fields: [blockedEntryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([blockingEntryId, blockedEntryId])
+  @@map("module_sequence_dependency")
+}
+
+model ModuleSequenceEvent {
+  id String @id @default(cuid())
+
+  sequenceEntryId String              @map("sequence_entry_id")
+  sequenceEntry   ModuleSequenceEntry @relation(fields: [sequenceEntryId], references: [id], onDelete: Cascade)
+
+  /// Null only for the entry's own real creation event, same convention
+  /// as LogisticsCustodyEvent.fromStatus/ScheduleTaskStatusEvent.fromStatus.
+  fromStatus ModuleSequenceStatus? @map("from_status")
+  toStatus   ModuleSequenceStatus  @map("to_status")
+
+  changedById String   @map("changed_by_id")
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now()) @map("changed_at")
+
+  notes String?
+
+  /// This table IS the Timeliner's real data source (Phase 2.3) -- zero
+  /// rows for an entry that's never transitioned is an honest empty
+  /// state, never backfilled with invented history.
+  @@index([sequenceEntryId])
+  @@map("module_sequence_event")
 }
 
 // ───────────────────── Genealogy ─────────────────────
@@ -1317,6 +1430,7 @@ model InventoryItem {
   genealogyNode  GenealogyNode?
   vehicle        Vehicle?
   logisticsModule LogisticsModule?
+  moduleSequenceEntry ModuleSequenceEntry?
 
   createdAt DateTime @default(now()) @map("created_at")
 
