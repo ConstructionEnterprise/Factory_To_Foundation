@@ -39,6 +39,7 @@ import { syntheticDataProvenanceRoutes } from "./routes/syntheticDataProvenance"
 import { assetRoutes } from "./routes/assets";
 import { genealogyRoutes } from "./routes/genealogy";
 import { inventoryItemRoutes } from "./routes/inventoryItems";
+import { vehicleRoutes } from "./routes/vehicles";
 import { authRoutes } from "./routes/auth";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "./lib/httpErrors";
 
@@ -171,6 +172,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     assetRoutes,
     genealogyRoutes,
     inventoryItemRoutes,
+    vehicleRoutes,
   ];
 
   await app.register(authRoutes);
