@@ -68,4 +68,19 @@ export async function costEstimateRoutes(app: FastifyInstance) {
       reply.code(204).send();
     }
   );
+
+  /**
+   * Real SKU-level breakdown (Phase 6, 2026-08-17) -- every real
+   * ProjectQuantityTakeoff linked to this scenario, resolved down to its
+   * assembly's real components. Read-only, same `construction` module as
+   * every other cost-estimates route.
+   */
+  app.get(
+    "/cost-estimates/:id/breakdown",
+    { preHandler: [authenticate, requirePermission("construction", "read")] },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      return service.getScenarioBreakdown(id);
+    }
+  );
 }

@@ -53,3 +53,44 @@ export async function deleteScenario(id: string): Promise<void> {
   const res = await authFetch(`${BACKEND_URL}/cost-estimates/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await describeResponseError(res));
 }
+
+/**
+ * Real SKU-level breakdown (Phase 6, 2026-08-17) -- every real
+ * ProjectQuantityTakeoff linked to this scenario, resolved down to its
+ * assembly's real components. See costEstimateService.ts's own doc
+ * comments for the full reconciliation semantics (unresolvedCents is a
+ * real dollar remainder, never a scope claim).
+ */
+export type ScenarioBreakdownLineItem = {
+  id: string;
+  itemName: string;
+  unitCostCents: number;
+  recordUnit: string;
+  quantityPerUnit: number;
+  extendedCostCents: number;
+};
+
+export type ScenarioBreakdownTakeoff = {
+  id: string;
+  assemblyId: string;
+  assemblyName: string;
+  buildingTitle: string | null;
+  quantity: number;
+  unit: string;
+  assemblyCostPerUnitCents: number | null;
+  calculatedTotalCostCents: number | null;
+  lineItems: ScenarioBreakdownLineItem[];
+};
+
+export type ScenarioBreakdown = {
+  scenarioId: string;
+  scenarioName: string;
+  scenarioTotalCents: number;
+  takeoffs: ScenarioBreakdownTakeoff[];
+  itemizedTotalCents: number | null;
+  unresolvedCents: number | null;
+};
+
+export function fetchScenarioBreakdown(id: string): Promise<ScenarioBreakdown> {
+  return requestJson(`/cost-estimates/${id}/breakdown`);
+}

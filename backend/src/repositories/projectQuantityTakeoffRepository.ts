@@ -17,6 +17,15 @@ export function findByProject(projectId: string): Promise<TakeoffWithRelations[]
   });
 }
 
+/** Real takeoffs actually linked to one scenario (Phase 6, 2026-08-17) -- the set a SKU-level breakdown is built from. */
+export function findByScenario(costEstimateScenarioId: string): Promise<TakeoffWithRelations[]> {
+  return prisma.projectQuantityTakeoff.findMany({
+    where: { costEstimateScenarioId },
+    include: withRelations,
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 export function findProjectById(id: string) {
   return prisma.constructionProject.findUnique({ where: { id } });
 }
