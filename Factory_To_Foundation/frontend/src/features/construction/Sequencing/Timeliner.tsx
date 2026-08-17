@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Legend, PanelCard } from "@/framework/ui";
+import { computeGlobalAxis, computeTimelineRow } from "@/lib/eventTimeline";
 
 import { fetchModuleSequenceEvents, type ModuleSequenceEntry, type ModuleSequenceEvent, type ModuleSequenceStatus } from "./moduleSequenceApi";
 
@@ -58,28 +59,14 @@ export default function Timeliner({ entries }: TimelinerProps) {
     );
   }
 
-  const globalMin = Math.min(...allEvents.map((e) => new Date(e.changedAt).getTime()));
-  const globalMax = Math.max(Date.now(), ...allEvents.map((e) => new Date(e.changedAt).getTime()));
-  const span = Math.max(1, globalMax - globalMin);
+  const { globalMin, globalMax, span } = computeGlobalAxis(allEvents);
 
   const rows: TimelineRow[] = entries
     .map((entry) => {
-      const events = [...(eventsByEntry[entry.id] ?? [])].sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime());
-      if (events.length === 0) return null;
-
-      const times = events.map((e) => new Date(e.changedAt).getTime());
-      const leadMs = times[0] - globalMin;
-      const segments = events.slice(0, -1).map((ev, i) => ({
-        status: ev.toStatus,
-        durationMs: Math.max(1, times[i + 1] - times[i]),
-      }));
-      const lastEvent = events[events.length - 1];
-      const lastTime = times[times.length - 1];
-      const trailEnd = entry.status === "complete" ? lastTime : globalMax;
-      segments.push({ status: lastEvent.toStatus, durationMs: Math.max(1, trailEnd - lastTime) });
-      const trailMs = globalMax - trailEnd;
-
-      return { entry, leadMs: Math.max(0, leadMs), segments, trailMs: Math.max(0, trailMs) };
+      const events = eventsByEntry[entry.id] ?? [];
+      const computed = computeTimelineRow(events, globalMin, globalMax, entry.status === "complete");
+      if (!computed) return null;
+      return { entry, ...computed };
     })
     .filter((row): row is TimelineRow => row !== null);
 

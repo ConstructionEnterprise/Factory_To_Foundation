@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 
@@ -38,8 +39,29 @@ type ConstructionCapability = "map" | "dataMap" | "estimating" | "sequencing";
  * Map stays the default, completely unchanged; Data Map is an additional
  * real capability, never a replacement.
  */
+const CONSTRUCTION_CAPABILITIES: ConstructionCapability[] = ["map", "dataMap", "estimating", "sequencing"];
+
 export default function ConstructionPage() {
-  const [capability, setCapability] = useState<ConstructionCapability>("map");
+  // Real, minimal deep-link support (Phase 2 interoperability, 2026-08-17)
+  // -- read once on mount only, same "seed initial state, don't fight the
+  // user's own subsequent ribbon clicks" posture as every other one-shot
+  // initial-value read in this codebase. Unlike Logistics/Scheduling/
+  // Factory, Construction's capability + per-capability project selection
+  // is plain local useState with no SelectionContext participation and no
+  // prior URL-param support at all -- this is the smallest real addition
+  // that lets an external projection (e.g. Scheduling's Modular Sequence
+  // timeline) land a caller on the right tab + project. It does NOT
+  // extend to pre-selecting a specific ModuleSequenceEntry within that
+  // project -- that selection lives deeper in SequencingPanel/Inspector's
+  // own local state, a real, disclosed, un-closed gap, not silently
+  // papered over.
+  const [searchParams] = useSearchParams();
+  const initialCapability = (() => {
+    const raw = searchParams.get("capability");
+    return CONSTRUCTION_CAPABILITIES.includes(raw as ConstructionCapability) ? (raw as ConstructionCapability) : "map";
+  })();
+
+  const [capability, setCapability] = useState<ConstructionCapability>(initialCapability);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedDispatch, setSelectedDispatch] = useState<ConstructionDispatchSummary | null>(null);
 
@@ -49,7 +71,7 @@ export default function ConstructionPage() {
   // refetches without the Inspector owning that read path itself.
   const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
 
-  const [sequencingProjectId, setSequencingProjectId] = useState<string | null>(null);
+  const [sequencingProjectId, setSequencingProjectId] = useState<string | null>(searchParams.get("project"));
   const [sequenceEntries, setSequenceEntries] = useState<ModuleSequenceEntry[]>([]);
   const [selectedSequenceEntry, setSelectedSequenceEntry] = useState<ModuleSequenceEntry | null>(null);
   // Bumped after a real status/position/dependency change so the Panel's

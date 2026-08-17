@@ -8,6 +8,8 @@ import ScheduleLayout from "./ScheduleLayout";
 import ScheduleInspector from "./ScheduleInspector";
 import ScheduleGantt from "./ScheduleGantt/ScheduleGantt";
 import ScheduleHeatMap from "./ScheduleHeatMap/ScheduleHeatMap";
+import DispatchTimeline from "./DispatchTimeline/DispatchTimeline";
+import ModularSequenceTimeline from "./ModularSequenceTimeline/ModularSequenceTimeline";
 import "./ScheduleWorkspace.css";
 
 /**
@@ -41,6 +43,8 @@ export default function ScheduleWorkspace() {
           <ScheduleInspector key="inspector" />,
           <ScheduleGantt key="gantt" />,
           <ScheduleHeatMap key="heatmap" />,
+          <DispatchTimeline key="dispatch-timeline" />,
+          <ModularSequenceTimeline key="modular-sequence-timeline" />,
         ]}
       />
     );
@@ -49,13 +53,13 @@ export default function ScheduleWorkspace() {
   if (mode === "tablet-portrait") {
     return (
       <Group orientation="vertical" className="schedule-workspace">
-        <Panel id="schedule-tp-browse-panel" defaultSize="24%" minSize="15%" collapsible collapsedSize={0}>
+        <Panel id="schedule-tp-browse-panel" defaultSize="20%" minSize="15%" collapsible collapsedSize={0}>
           <ScheduleBrowse />
         </Panel>
 
         <Separator id="schedule-tp-browse-divider" className="resize-handle-horizontal" />
 
-        <Panel id="schedule-tp-main-panel" defaultSize="40%" minSize="20%" collapsible collapsedSize={0}>
+        <Panel id="schedule-tp-main-panel" defaultSize="34%" minSize="20%" collapsible collapsedSize={0}>
           <Group orientation="horizontal" className="schedule-workspace">
             <Panel id="schedule-tp-layout-panel" defaultSize="60%" minSize="30%" collapsible collapsedSize={0}>
               <ScheduleLayout />
@@ -71,7 +75,7 @@ export default function ScheduleWorkspace() {
 
         <Separator id="schedule-tp-bottom-divider" className="resize-handle-horizontal" />
 
-        <Panel id="schedule-tp-bottom-row-panel" defaultSize="36%" minSize="18%" collapsible collapsedSize={0}>
+        <Panel id="schedule-tp-bottom-row-panel" defaultSize="30%" minSize="18%" collapsible collapsedSize={0}>
           <Group orientation="horizontal" className="schedule-workspace">
             <Panel id="schedule-tp-gantt-panel" defaultSize="60%" minSize="30%" collapsible collapsedSize={0}>
               <ScheduleGantt />
@@ -84,13 +88,29 @@ export default function ScheduleWorkspace() {
             </Panel>
           </Group>
         </Panel>
+
+        <Separator id="schedule-tp-dispatch-divider" className="resize-handle-horizontal" />
+
+        <Panel id="schedule-tp-dispatch-panel" defaultSize="20%" minSize="12%" collapsible collapsedSize={0}>
+          <Group orientation="horizontal" className="schedule-workspace">
+            <Panel id="schedule-tp-dispatch-timeline-panel" defaultSize="50%" minSize="25%" collapsible collapsedSize={0}>
+              <DispatchTimeline />
+            </Panel>
+
+            <Separator id="schedule-tp-projections-divider" className="resize-handle" />
+
+            <Panel id="schedule-tp-modseq-timeline-panel" defaultSize="50%" minSize="25%" collapsible collapsedSize={0}>
+              <ModularSequenceTimeline />
+            </Panel>
+          </Group>
+        </Panel>
       </Group>
     );
   }
 
   return (
     <Group orientation="vertical" className="schedule-workspace">
-      <Panel id="schedule-top-row-panel" defaultSize="60%" minSize="30%" collapsible collapsedSize={0}>
+      <Panel id="schedule-top-row-panel" defaultSize="50%" minSize="30%" collapsible collapsedSize={0}>
         <Group orientation="horizontal" className="schedule-workspace">
           <Panel id="schedule-browse-panel" defaultSize="22%" minSize="18%" collapsible collapsedSize={0}>
             <ScheduleBrowse />
@@ -116,7 +136,7 @@ export default function ScheduleWorkspace() {
 
       <Separator id="schedule-bottom-divider" className="resize-handle-horizontal" />
 
-      <Panel id="schedule-bottom-row-panel" defaultSize="40%" minSize="20%" collapsible collapsedSize={0}>
+      <Panel id="schedule-bottom-row-panel" defaultSize="32%" minSize="20%" collapsible collapsedSize={0}>
         <Group orientation="horizontal" className="schedule-workspace">
           <Panel id="schedule-gantt-panel" defaultSize="65%" minSize="35%" collapsible collapsedSize={0}>
             <ScheduleGantt />
@@ -126,6 +146,22 @@ export default function ScheduleWorkspace() {
 
           <Panel id="schedule-heatmap-panel" defaultSize="35%" minSize="20%" collapsible collapsedSize={0}>
             <ScheduleHeatMap />
+          </Panel>
+        </Group>
+      </Panel>
+
+      <Separator id="schedule-dispatch-divider" className="resize-handle-horizontal" />
+
+      <Panel id="schedule-dispatch-panel" defaultSize="18%" minSize="12%" collapsible collapsedSize={0}>
+        <Group orientation="horizontal" className="schedule-workspace">
+          <Panel id="schedule-dispatch-timeline-panel" defaultSize="50%" minSize="25%" collapsible collapsedSize={0}>
+            <DispatchTimeline />
+          </Panel>
+
+          <Separator id="schedule-projections-divider" className="resize-handle" />
+
+          <Panel id="schedule-modseq-timeline-panel" defaultSize="50%" minSize="25%" collapsible collapsedSize={0}>
+            <ModularSequenceTimeline />
           </Panel>
         </Group>
       </Panel>
