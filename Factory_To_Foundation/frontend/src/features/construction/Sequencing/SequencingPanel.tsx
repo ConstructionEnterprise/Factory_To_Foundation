@@ -23,6 +23,16 @@ export const STATUS_TONE: Record<ModuleSequenceStatus, StatusTone> = {
   complete: "positive",
 };
 
+const STATUS_ORDER: ModuleSequenceStatus[] = ["pending", "site_arrival", "site_acceptance", "installation", "placement", "complete"];
+const STATUS_LABEL: Record<ModuleSequenceStatus, string> = {
+  pending: "Pending",
+  site_arrival: "Site Arrival",
+  site_acceptance: "Site Acceptance",
+  installation: "Installation",
+  placement: "Placement",
+  complete: "Complete",
+};
+
 type SequencingPanelProps = {
   projectId: string | null;
   selectedEntryId: string | null;
@@ -145,12 +155,57 @@ export default function SequencingPanel({ projectId, selectedEntryId, onSelectEn
 
   const groups = groupByBuilding(entries);
 
+  // Real, project-scoped execution progress (Phase 7.4) -- the denominator
+  // is COUNT(real ModuleSequenceEntry for this project), never a fixed or
+  // assumed number; an empty project honestly shows 0/0, not a fabricated
+  // total. `complete` is the only status that counts toward completion --
+  // installation/site_arrival/pending/blocked never do, no matter how far
+  // along they are.
+  const totalCount = entries.length;
+  const completedCount = entries.filter((e) => e.status === "complete").length;
+  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const blockedCount = entries.filter((e) => e.effectiveState === "blocked").length;
+
   return (
     <PanelCard title="Modular Sequence" className="h-full" bodyClassName="flex-1 overflow-auto p-5">
       {!projectId && <p style={{ color: "var(--ff-text-muted)" }}>Select a project to see its real module sequence.</p>}
 
       {projectId && (
         <div className="space-y-4">
+          <div className="rounded-lg p-3" style={{ border: "1px solid var(--ff-content-bg)" }}>
+            {totalCount === 0 ? (
+              <p className="text-sm" style={{ color: "var(--ff-text-muted)" }}>No real sequence entries yet for this project -- 0 / 0.</p>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-semibold uppercase" style={{ color: "var(--ff-text-primary)" }}>
+                    {completedCount} / {totalCount} Modules Complete
+                  </span>
+                  <span className="text-sm font-bold" style={{ color: "var(--ff-status-positive)" }}>{percent}%</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded" style={{ background: "var(--ff-content-bg)" }}>
+                  <div style={{ width: `${percent}%`, height: "100%", background: "var(--ff-status-positive)" }} />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: "var(--ff-text-muted)" }}>
+                  {STATUS_ORDER.map((s) => {
+                    const count = entries.filter((e) => e.status === s).length;
+                    if (count === 0) return null;
+                    return (
+                      <span key={s}>
+                        {STATUS_LABEL[s]}: <span style={{ color: "var(--ff-text-secondary)" }}>{count}</span>
+                      </span>
+                    );
+                  })}
+                  {blockedCount > 0 && (
+                    <span style={{ color: "var(--ff-status-critical)" }}>
+                      Blocked: <span style={{ color: "var(--ff-status-critical)" }}>{blockedCount}</span>
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase" style={{ color: "var(--ff-text-muted)" }}>
               Real Entries
