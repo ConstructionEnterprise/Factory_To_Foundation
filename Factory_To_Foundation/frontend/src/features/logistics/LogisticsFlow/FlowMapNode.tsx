@@ -19,10 +19,27 @@ function accentForType(type: string): string {
   return NODE_ACCENT_PALETTE[hash % NODE_ACCENT_PALETTE.length];
 }
 
+/**
+ * Real operational-status color language (Phase 5, 2026-08-17) —
+ * green/yellow/red, per the explicit spec: normal = operating, held =
+ * constrained (with a real reason), halted = emergency stop. Only applied
+ * when this node is rendered inside a single, flow-scoped live monitor
+ * (`effectiveStatus` present) — the unscoped cross-flow view has no real
+ * per-flow blockage graph to derive it from, so it stays neutral there.
+ */
+export const STATUS_COLOR: Record<string, string> = {
+  normal: "var(--ff-status-positive)",
+  held: "var(--ff-status-warning)",
+  halted: "var(--ff-status-critical)",
+};
+
 export type FlowMapNodeData = {
   name: string;
   type: string;
   status: string | null;
+  /** Real, blockage-propagated status (Phase 5) — undefined outside a flow-scoped live monitor. */
+  effectiveStatus?: string;
+  blockedBy?: string[];
   assetRef: string | null;
   /** Real resolved display name for assetRef (see flowPointResolution.ts) — set only for load_assignment/transportation_handoff; null otherwise, falls back to assetRef. */
   resolvedAssetLabel: string | null;
@@ -37,15 +54,18 @@ export type FlowMapNodeData = {
  */
 export default function FlowMapNode({ data, selected }: NodeProps & { data: FlowMapNodeData }) {
   const accent = accentForType(data.type);
+  const statusColor = data.effectiveStatus ? STATUS_COLOR[data.effectiveStatus] : undefined;
+  const constrainedOnly = data.effectiveStatus && data.effectiveStatus !== "normal" && data.status === "normal";
   return (
     <div
       className="rounded-md border-2 px-3 py-2 shadow-sm"
       style={{
         width: 200,
         background: "var(--ff-content-bg)",
-        borderColor: selected ? "var(--ff-accent)" : "var(--ff-panel-border)",
+        borderColor: statusColor ?? (selected ? "var(--ff-accent)" : "var(--ff-panel-border)"),
         borderLeftColor: accent,
         borderLeftWidth: 5,
+        boxShadow: selected ? "0 0 0 2px var(--ff-accent)" : undefined,
       }}
     >
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
@@ -56,10 +76,21 @@ export default function FlowMapNode({ data, selected }: NodeProps & { data: Flow
         <span className="text-[0.65rem] font-medium uppercase tracking-wide" style={{ color: accent }}>
           {data.type}
         </span>
-        {data.status && (
-          <span className="rounded px-1 text-[0.6rem]" style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-secondary)" }}>
-            {data.status}
+        {data.effectiveStatus ? (
+          <span
+            className="rounded px-1 text-[0.6rem] font-semibold uppercase"
+            style={{ background: statusColor, color: "white" }}
+            title={constrainedOnly ? "Constrained by a downstream hold/halt" : undefined}
+          >
+            {data.status === data.effectiveStatus ? data.effectiveStatus : `${data.effectiveStatus} (backed up)`}
           </span>
+        ) : (
+          data.status &&
+          data.status !== "normal" && (
+            <span className="rounded px-1 text-[0.6rem]" style={{ background: "var(--ff-chrome-bg)", color: "var(--ff-text-secondary)" }}>
+              {data.status}
+            </span>
+          )
         )}
       </div>
       {data.assetRef && (

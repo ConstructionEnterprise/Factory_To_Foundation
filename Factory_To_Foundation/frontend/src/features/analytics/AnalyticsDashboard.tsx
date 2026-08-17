@@ -20,9 +20,21 @@ import { useManufacturingTree } from "@/features/manufacturing/manufacturingMode
 import { constructionProjects } from "@/features/construction/constructionData";
 import { fetchProjectRelationships, type ConstructionProjectRelationships } from "@/features/construction/DataMap/constructionDataMapApi";
 import { fetchScenarios, type CostEstimateScenario } from "@/features/construction/CostEstimating/costEstimateApi";
+import {
+  fetchMarketCostRecords,
+  fetchProductivityRecords,
+  fetchCostAssemblies,
+  fetchProjectQuantityTakeoffs,
+  type MarketCostRecord,
+  type ProductivityRecord,
+  type CostAssembly,
+  type ProjectQuantityTakeoff,
+} from "@/features/construction/CostIntelligence/costIntelligenceApi";
 
-import { listRecentCustodyEvents } from "@/features/logistics/logisticsOperationsApi";
+import { listRecentCustodyEvents, listDispatches, type LogisticsDispatch } from "@/features/logistics/logisticsOperationsApi";
+import { listLogisticsFlows, type LogisticsFlow } from "@/features/logistics/LogisticsFlow/logisticsFlowApi";
 import { fetchRecentScheduleEvents } from "@/features/scheduling/scheduleTasksApi";
+import { fetchModuleSequences, type ModuleSequenceEntry } from "@/features/construction/Sequencing/moduleSequenceApi";
 
 import { fetchScheduleTaskDirectory, type ScheduleTaskDirectory } from "@/features/scheduling/scheduleTasksApi";
 import { fetchSchedules, type ScheduleSummary } from "@/features/scheduling/scheduleApi";
@@ -299,6 +311,11 @@ function formatDollars(cents: number): string {
   return (cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
+/** Real per-unit $/SF-scale figures (cents in the single digits to low hundreds) need cents precision -- formatDollars' whole-dollar rounding silently turns $0.25 and $0.34 into "$0", misrepresenting real sourced data. */
+function formatDollarsPrecise(cents: number): string {
+  return (cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /**
  * Real Cost Estimating rollup (Phase 1.3, 2026-08-16 rollout) -- one real
  * GET per project via the same `costEstimateApi.ts` the Estimating ribbon
@@ -357,6 +374,247 @@ export function CostEstimatingWidget() {
           return <Row key={project.id} label={project.title} value={`${scenarios.length} scenario${scenarios.length === 1 ? "" : "s"} · ${range}`} />;
         })}
       </div>
+    </ChartableWidgetCard>
+  );
+}
+
+/**
+ * Real cost-data-acquisition intelligence (2026-08-17, cost-data
+ * acquisition iteration 5) -- reads the same real MarketCostRecord/
+ * ProductivityRecord/CostAssembly/ProjectQuantityTakeoff routes
+ * Construction's own future Cost Intelligence UI will use, via
+ * costIntelligenceApi.ts. Analytics is a second CONSUMER of this real
+ * data, never a second source of truth for it -- no numbers here are
+ * computed anywhere but the backend service layer that already owns them
+ * (costAssemblyService's derived estimatedCostPerUnitCents,
+ * projectQuantityTakeoffService's derived calculatedTotalCostCents).
+ */
+function useCostIntelligence() {
+  const [marketCostRecords, setMarketCostRecords] = useState<MarketCostRecord[] | null>(null);
+  const [productivityRecords, setProductivityRecords] = useState<ProductivityRecord[] | null>(null);
+  const [assemblies, setAssemblies] = useState<CostAssembly[] | null>(null);
+  const [takeoffsByProjectId, setTakeoffsByProjectId] = useState<Map<string, ProjectQuantityTakeoff[]>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetchMarketCostRecords(),
+      fetchProductivityRecords(),
+      fetchCostAssemblies(),
+      Promise.all(constructionProjects.map((p) => fetchProjectQuantityTakeoffs(p.id).then((t) => [p.id, t] as const))),
+    ])
+      .then(([records, productivity, assemblyRows, takeoffEntries]) => {
+        setMarketCostRecords(records);
+        setProductivityRecords(productivity);
+        setAssemblies(assemblyRows);
+        setTakeoffsByProjectId(new Map(takeoffEntries));
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load real cost intelligence data"));
+  }, []);
+
+  return { marketCostRecords, productivityRecords, assemblies, takeoffsByProjectId, error };
+}
+
+export function CostIntelligenceWidget() {
+  const { marketCostRecords, productivityRecords, assemblies, takeoffsByProjectId, error } = useCostIntelligence();
+  const loaded = marketCostRecords !== null && productivityRecords !== null && assemblies !== null;
+
+  const allTakeoffs = [...takeoffsByProjectId.values()].flat();
+  const projectsWithTakeoffs = constructionProjects.filter((p) => (takeoffsByProjectId.get(p.id)?.length ?? 0) > 0);
+
+  // Real component-level breakdown for the chart -- every assembly's every
+  // component, one bar per component, never a fabricated aggregate.
+  const chartData: ChartDatum[] | null =
+    assemblies && assemblies.length > 0
+      ? assemblies.flatMap((a) => a.components.map((c) => ({ label: c.itemName.split(",")[0]!, value: c.componentCostCents / 100 })))
+      : null;
+
+  return (
+    <ChartableWidgetCard
+      title="Cost Intelligence"
+      toolbar={<StatusBadge label={loaded ? "Real Data" : error ? "Error" : "Loading…"} tone={loaded ? "positive" : "neutral"} />}
+      chartData={chartData}
+    >
+      {error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{error}</p>}
+      {loaded && (marketCostRecords?.length ?? 0) === 0 && (
+        <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+          No real market cost observations yet.
+        </p>
+      )}
+      <div className="space-y-1.5">
+        {loaded && (
+          <>
+            <Row label="Real market cost observations" value={String(marketCostRecords!.length)} />
+            <Row label="Real productivity observations" value={String(productivityRecords!.length)} />
+            <Row label="Real cost assemblies" value={String(assemblies!.length)} />
+          </>
+        )}
+        {assemblies?.map((a) => (
+          <div key={a.id} className="pt-1">
+            <Row
+              label={a.name.length > 40 ? `${a.name.slice(0, 40)}…` : a.name}
+              value={a.estimatedCostPerUnitCents === null ? "no components" : `${formatDollarsPrecise(a.estimatedCostPerUnitCents)}/${a.unit}`}
+            />
+            {a.components.map((c) => (
+              <Row
+                key={c.id}
+                label={`  ${c.itemName.split(",")[0]}${c.productivityRecordTask ? " (labor)" : ""}`}
+                value={`${formatDollarsPrecise(c.componentCostCents)}/${a.unit} — ${c.quantitySourceName}`}
+              />
+            ))}
+          </div>
+        ))}
+        <div className="pt-1">
+          <Row label="Real project quantity takeoffs" value={String(allTakeoffs.length)} />
+          {projectsWithTakeoffs.length > 0 ? (
+            projectsWithTakeoffs.map((project) => {
+              const takeoffs = takeoffsByProjectId.get(project.id) ?? [];
+              const total = takeoffs.reduce((sum, t) => sum + (t.calculatedTotalCostCents ?? 0), 0);
+              return <Row key={project.id} label={project.title} value={formatDollars(total)} />;
+            })
+          ) : (
+            <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
+              No real project has a quantity takeoff yet — every real project shown elsewhere in Construction has $/unit
+              assembly costs but no project-level total, honestly, not $0.
+            </p>
+          )}
+        </div>
+      </div>
+    </ChartableWidgetCard>
+  );
+}
+
+/**
+ * Real project-scoped cross-domain operational picture (2026-08-17, Phase
+ * 4.2). Read-time projection only -- every fetch here is the exact same
+ * real, already-existing per-domain API (Construction's cost-estimates/
+ * quantity-takeoffs/module-sequences routes, Logistics Flow's real
+ * `?projectId=` filter from Phase 4.1, Scheduling/Dispatch's own list
+ * routes filtered client-side since neither currently accepts a project
+ * query param). Zero new backend routes, zero persisted Analytics-owned
+ * rows -- selecting a different project just re-runs the same real reads
+ * with a different id.
+ *
+ * Deliberately does NOT zero-pad domains with no real data for the
+ * selected project -- each section states plainly when nothing real
+ * exists yet, matching this project's "explicit missing-data disclosure
+ * over a manufactured zero" discipline (see CostIntelligenceWidget's own
+ * "not $0" precedent).
+ */
+function useProjectOperationsPicture(projectId: string | null) {
+  const [scenarios, setScenarios] = useState<CostEstimateScenario[] | null>(null);
+  const [takeoffs, setTakeoffs] = useState<ProjectQuantityTakeoff[] | null>(null);
+  const [moduleSequences, setModuleSequences] = useState<ModuleSequenceEntry[] | null>(null);
+  const [logisticsFlows, setLogisticsFlows] = useState<LogisticsFlow[] | null>(null);
+  const [dispatches, setDispatches] = useState<LogisticsDispatch[] | null>(null);
+  const [schedules, setSchedules] = useState<ScheduleSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId) return;
+    setScenarios(null);
+    setTakeoffs(null);
+    setModuleSequences(null);
+    setLogisticsFlows(null);
+    setDispatches(null);
+    setSchedules(null);
+    setError(null);
+
+    Promise.all([
+      fetchScenarios(projectId),
+      fetchProjectQuantityTakeoffs(projectId),
+      fetchModuleSequences(projectId),
+      listLogisticsFlows(projectId),
+      listDispatches(),
+      fetchSchedules(),
+    ])
+      .then(([scenarioRows, takeoffRows, sequenceRows, flowRows, allDispatches, allSchedules]) => {
+        setScenarios(scenarioRows);
+        setTakeoffs(takeoffRows);
+        setModuleSequences(sequenceRows);
+        setLogisticsFlows(flowRows);
+        setDispatches(allDispatches.filter((d) => d.destinationProjectId === projectId));
+        setSchedules(allSchedules.filter((s) => s.constructionProjectId === projectId));
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load real project operational data"));
+  }, [projectId]);
+
+  return { scenarios, takeoffs, moduleSequences, logisticsFlows, dispatches, schedules, error };
+}
+
+export function ProjectOperationsWidget() {
+  const [projectId, setProjectId] = useState<string>(constructionProjects[0]?.id ?? "");
+  const picture = useProjectOperationsPicture(projectId || null);
+
+  const loaded =
+    picture.scenarios !== null &&
+    picture.takeoffs !== null &&
+    picture.moduleSequences !== null &&
+    picture.logisticsFlows !== null &&
+    picture.dispatches !== null &&
+    picture.schedules !== null;
+
+  const chartData: ChartDatum[] | null = loaded
+    ? [
+        { label: "Cost Scenarios", value: picture.scenarios!.length },
+        { label: "Quantity Takeoffs", value: picture.takeoffs!.length },
+        { label: "Module Sequences", value: picture.moduleSequences!.length },
+        { label: "Logistics Flows", value: picture.logisticsFlows!.length },
+        { label: "Dispatches", value: picture.dispatches!.length },
+        { label: "Schedules", value: picture.schedules!.length },
+      ]
+    : null;
+
+  return (
+    <ChartableWidgetCard
+      title="Project Operations"
+      toolbar={
+        <div className="flex items-center gap-2">
+          <select
+            className="rounded border px-1.5 py-0.5 text-[0.65rem]"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+          >
+            {constructionProjects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+          <StatusBadge label={loaded ? "Real Data" : picture.error ? "Error" : "Loading…"} tone={loaded ? "positive" : "neutral"} />
+        </div>
+      }
+      chartData={chartData}
+    >
+      {picture.error && <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>{picture.error}</p>}
+      {loaded && (
+        <div className="space-y-1.5">
+          <Row
+            label="Cost Estimating"
+            value={picture.scenarios!.length > 0 ? `${picture.scenarios!.length} real scenario(s)` : "no real scenario yet"}
+          />
+          <Row
+            label="Project Quantity Takeoffs"
+            value={picture.takeoffs!.length > 0 ? `${picture.takeoffs!.length} real takeoff(s)` : "no real takeoff yet"}
+          />
+          <Row
+            label="Modular Sequencing"
+            value={picture.moduleSequences!.length > 0 ? `${picture.moduleSequences!.length} real entr(y/ies)` : "no real sequence entries yet"}
+          />
+          <Row
+            label="Logistics Flow"
+            value={picture.logisticsFlows!.length > 0 ? `${picture.logisticsFlows!.length} real flow(s)` : "no real Logistics Flow yet"}
+          />
+          <Row
+            label="Dispatches"
+            value={picture.dispatches!.length > 0 ? `${picture.dispatches!.length} real dispatch(es)` : "no real dispatch yet"}
+          />
+          <Row
+            label="Scheduling"
+            value={picture.schedules!.length > 0 ? `${picture.schedules!.length} real schedule(s)` : "no real schedule yet"}
+          />
+        </div>
+      )}
     </ChartableWidgetCard>
   );
 }

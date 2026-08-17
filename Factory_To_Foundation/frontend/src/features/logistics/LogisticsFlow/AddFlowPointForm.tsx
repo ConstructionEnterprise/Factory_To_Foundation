@@ -1,11 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import { usePermission } from "@/context/AuthContext";
+import { constructionProjects } from "@/features/construction/constructionData";
 
 import { listDispatches, listTrucks, type LogisticsDispatch, type LogisticsTruck } from "../logisticsOperationsApi";
 import { resolveFlowPointAsset } from "./flowPointResolution";
 import { createFlowPoint, SUGGESTED_FLOW_POINT_TYPES } from "./logisticsFlowApi";
-import { loadLogisticsFlow } from "./logisticsFlowStore";
+import { loadLogisticsFlow, useLogisticsFlowState } from "./logisticsFlowStore";
+
+function projectTitle(id: string): string {
+  return constructionProjects.find((p) => p.id === id)?.title ?? id;
+}
 
 const CUSTOM_TYPE_OPTION = "__custom__";
 
@@ -27,12 +32,13 @@ type AddFlowPointFormProps = { onClose: () => void };
  */
 export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
   const createPermission = usePermission("logistics", "create");
+  const { flows } = useLogisticsFlowState();
 
+  const [flowId, setFlowId] = useState<string>(flows[0]?.id ?? "");
   const [typeChoice, setTypeChoice] = useState<string>(SUGGESTED_FLOW_POINT_TYPES[0]);
   const [customType, setCustomType] = useState("");
   const [name, setName] = useState("");
   const [assetRef, setAssetRef] = useState("");
-  const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +62,10 @@ export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!flowId) {
+      setError("Select a real Logistics Flow.");
+      return;
+    }
     if (!name.trim()) {
       setError("Enter a point name.");
       return;
@@ -68,6 +78,7 @@ export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
     setError(null);
     try {
       await createFlowPoint({
+        flowId,
         type: resolvedType,
         name: name.trim(),
         // A new point starts near the map's origin, spread slightly so
@@ -76,7 +87,6 @@ export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
         positionX: Math.round(Math.random() * 300),
         positionY: Math.round(Math.random() * 200),
         assetRef: assetRef.trim() || undefined,
-        status: status.trim() || undefined,
       });
       await loadLogisticsFlow();
       onClose();
@@ -107,6 +117,25 @@ export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
+              Logistics Flow <span style={{ color: "var(--ff-text-muted)" }}>(the real project this point belongs to)</span>
+            </label>
+            {flows.length === 0 ? (
+              <p className="text-xs" style={{ color: "var(--ff-status-critical)" }}>
+                No real Logistics Flow exists yet — create one before adding points.
+              </p>
+            ) : (
+              <select className="w-full rounded border px-2 py-1.5 text-sm" value={flowId} onChange={(e) => setFlowId(e.target.value)}>
+                {flows.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {projectTitle(f.constructionProjectId)} — {f.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
           <div>
             <label className="mb-1 block text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
               Name
@@ -194,18 +223,6 @@ export default function AddFlowPointForm({ onClose }: AddFlowPointFormProps) {
                 onChange={(e) => setAssetRef(e.target.value)}
               />
             )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium" style={{ color: "var(--ff-text-secondary)" }}>
-              Status <span style={{ color: "var(--ff-text-muted)" }}>(optional)</span>
-            </label>
-            <input
-              type="text"
-              className="w-full rounded border px-2 py-1.5 text-sm"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            />
           </div>
 
           {error && (

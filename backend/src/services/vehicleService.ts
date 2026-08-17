@@ -1,6 +1,6 @@
-import type { LogisticsDispatch } from "@prisma/client";
+import type { LogisticsDispatch, VehicleClass, VehicleStatus } from "@prisma/client";
 
-import { NotFoundError } from "../lib/httpErrors";
+import { NotFoundError, ValidationError } from "../lib/httpErrors";
 import * as repo from "../repositories/vehicleRepository";
 import type { VehicleWithTruck } from "../repositories/vehicleRepository";
 
@@ -65,4 +65,37 @@ export async function getVehicle(id: string): Promise<VehicleDetailDto> {
 
   const dispatches = await repo.findDispatchesByVehicleId(id);
   return { ...toDto(row), dispatches: dispatches.map(toDispatchSummaryDto) };
+}
+
+export type CreateVehicleInput = {
+  identifier: string;
+  vehicleClass: VehicleClass;
+  status?: VehicleStatus;
+  location?: string;
+};
+
+/**
+ * Real create — closes the gap where truck-class vehicles get a Vehicle
+ * row via the LogisticsTruck backfill path but the other 3 real
+ * VehicleClass values (autonomous_dolly, trailer, forklift) had no path
+ * to exist at all. Deliberately rejects vehicleClass="truck" here: a
+ * truck-class Vehicle is only ever meant to specialize a real
+ * LogisticsTruck (see Vehicle.logisticsTruck's schema doc comment), and
+ * that link is established exclusively via POST /logistics-trucks + the
+ * vehicle-fleet backfill, never invented standalone.
+ */
+export async function createVehicle(input: CreateVehicleInput): Promise<VehicleDto> {
+  if (input.vehicleClass === "truck") {
+    throw new ValidationError(
+      'vehicleClass "truck" cannot be created directly -- create the LogisticsTruck via POST /logistics-trucks instead, which links to a Vehicle automatically.'
+    );
+  }
+
+  const row = await repo.createVehicleWithInventoryItem({
+    identifier: input.identifier.trim(),
+    vehicleClass: input.vehicleClass,
+    status: input.status ?? "active",
+    location: input.location?.trim() || null,
+  });
+  return toDto(row);
 }

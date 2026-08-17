@@ -1,22 +1,24 @@
-import type { FlowPoint } from "@prisma/client";
+import type { FlowPoint, FlowPointStatus } from "@prisma/client";
 
 import { NotFoundError } from "../lib/httpErrors";
 import * as repo from "../repositories/flowPointRepository";
 
 export type FlowPointDto = {
   id: string;
+  flowId: string;
   type: string;
   name: string;
   positionX: number;
   positionY: number;
   assetRef: string | null;
-  status: string | null;
+  status: FlowPointStatus;
   notes: string | null;
 };
 
-function toDto(row: FlowPoint): FlowPointDto {
+export function toDto(row: FlowPoint): FlowPointDto {
   return {
     id: row.id,
+    flowId: row.flowId,
     type: row.type,
     name: row.name,
     positionX: row.positionX,
@@ -27,18 +29,19 @@ function toDto(row: FlowPoint): FlowPointDto {
   };
 }
 
-export async function listPoints(): Promise<FlowPointDto[]> {
-  const rows = await repo.findAllPoints();
+/** `flowId` is an optional real filter -- omitted, this lists every real point across all flows (the existing cross-flow Browse behavior, unchanged). */
+export async function listPoints(flowId?: string): Promise<FlowPointDto[]> {
+  const rows = await repo.findAllPoints(flowId);
   return rows.map(toDto);
 }
 
 export type CreatePointInput = {
+  flowId: string;
   type: string;
   name: string;
   positionX: number;
   positionY: number;
   assetRef?: string;
-  status?: string;
   notes?: string;
 };
 
@@ -47,16 +50,20 @@ export type CreatePointInput = {
  * with zero seeded rows (matching this schema's own "empty is honest"
  * convention, same as every other Logistics table at its own equivalent
  * phase — this table is itself part of Logistics, not just following the
- * pattern from outside it).
+ * pattern from outside it). Requires a real, existing LogisticsFlow —
+ * asserted, not trusted, same discipline as every other cross-domain FK.
  */
 export async function createPoint(input: CreatePointInput): Promise<FlowPointDto> {
+  const flow = await repo.findFlowById(input.flowId);
+  if (!flow) throw new NotFoundError(`No logistics flow with id "${input.flowId}"`);
+
   const row = await repo.createPoint({
+    flowId: input.flowId,
     type: input.type.trim(),
     name: input.name.trim(),
     positionX: input.positionX,
     positionY: input.positionY,
     assetRef: input.assetRef?.trim() || null,
-    status: input.status?.trim() || null,
     notes: input.notes?.trim() || null,
   });
   return toDto(row);
@@ -68,11 +75,15 @@ export type UpdatePointInput = {
   positionX?: number;
   positionY?: number;
   assetRef?: string | null;
-  status?: string | null;
   notes?: string | null;
 };
 
-/** Covers both metadata edits and drag-to-move position persistence — one route, same as every field on this small a resource. */
+/**
+ * Covers metadata edits and drag-to-move position persistence — deliberately
+ * cannot touch `status` (Phase 5, 2026-08-17): every real status change must
+ * go through flowPointStatusService so a FlowPointStatusEvent is always
+ * written, never silently skipped via this generic PATCH.
+ */
 export async function updatePoint(id: string, input: UpdatePointInput): Promise<FlowPointDto> {
   const existing = await repo.findPointById(id);
   if (!existing) throw new NotFoundError(`No flow point with id "${id}"`);
@@ -83,7 +94,6 @@ export async function updatePoint(id: string, input: UpdatePointInput): Promise<
     ...(input.positionX !== undefined ? { positionX: input.positionX } : {}),
     ...(input.positionY !== undefined ? { positionY: input.positionY } : {}),
     ...(input.assetRef !== undefined ? { assetRef: input.assetRef?.trim() || null } : {}),
-    ...(input.status !== undefined ? { status: input.status?.trim() || null } : {}),
     ...(input.notes !== undefined ? { notes: input.notes?.trim() || null } : {}),
   });
   return toDto(row);

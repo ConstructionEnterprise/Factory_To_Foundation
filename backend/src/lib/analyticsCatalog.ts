@@ -45,7 +45,10 @@ export function getMetricCatalogEntry(key: MetricKey): MetricCatalogEntry {
 
 /**
  * The 12 pre-existing real Phase 1 Analytics widgets (AnalyticsDashboard.tsx),
- * referenced by key rather than rebuilt. EventsWidget is deliberately
+ * referenced by key rather than rebuilt, plus "costIntelligence" (added
+ * 2026-08-17, cost-data acquisition iteration 5 -- the first widget added
+ * through this exact mechanism since Phase 3, confirming it's real and
+ * systematic, not a one-time Phase 1 artifact). EventsWidget is deliberately
  * excluded -- it's its own AnalyticsWidgetType ("events_feed"), not an
  * existing_summary entry, per §3.2/§5 of the plan doc.
  */
@@ -55,6 +58,8 @@ export const EXISTING_SUMMARY_WIDGET_KEYS = [
   "manufacturing",
   "construction",
   "costEstimating",
+  "costIntelligence",
+  "projectOperations",
   "scheduling",
   "assets",
   "productionOutput",

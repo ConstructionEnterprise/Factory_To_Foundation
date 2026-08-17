@@ -14,6 +14,10 @@ import { systemRoutes } from "./routes/system";
 import { constructionSiteRoutes } from "./routes/constructionSites";
 import { constructionRelationshipsRoutes } from "./routes/constructionRelationships";
 import { costEstimateRoutes } from "./routes/costEstimates";
+import { marketCostRecordRoutes } from "./routes/marketCostRecords";
+import { costAssemblyRoutes } from "./routes/costAssemblies";
+import { productivityRecordRoutes } from "./routes/productivityRecords";
+import { projectQuantityTakeoffRoutes } from "./routes/projectQuantityTakeoffs";
 import { moduleSequenceRoutes } from "./routes/moduleSequences";
 import { analyticsMetricsRoutes } from "./routes/analyticsMetrics";
 import { analyticsDashboardRoutes } from "./routes/analyticsDashboards";
@@ -32,6 +36,7 @@ import { logisticsKpiRoutes } from "./routes/logisticsKpis";
 // the underlying model was confirmed domain-neutral).
 import { flowPointRoutes } from "./routes/flowPoints";
 import { flowConnectionRoutes } from "./routes/flowConnections";
+import { logisticsFlowRoutes } from "./routes/logisticsFlows";
 import { manufacturingModelRoutes } from "./routes/manufacturingModel";
 import { instructionExecutionRoutes } from "./routes/instructionExecutions";
 import { userPreferenceRoutes } from "./routes/userPreferences";
@@ -157,6 +162,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     constructionSiteRoutes,
     constructionRelationshipsRoutes,
     costEstimateRoutes,
+    marketCostRecordRoutes,
+    costAssemblyRoutes,
+    productivityRecordRoutes,
+    projectQuantityTakeoffRoutes,
     moduleSequenceRoutes,
     analyticsMetricsRoutes,
     analyticsDashboardRoutes,
@@ -169,6 +178,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     logisticsModuleRoutes,
     mileageRateRoutes,
     logisticsKpiRoutes,
+    logisticsFlowRoutes,
     flowPointRoutes,
     flowConnectionRoutes,
     manufacturingModelRoutes,

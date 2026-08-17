@@ -2,13 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 
 import { usePermission } from "@/context/AuthContext";
 import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
+import { constructionProjects } from "@/features/construction/constructionData";
 
 import AddFlowPointForm from "./AddFlowPointForm";
-import { ensureLogisticsFlowLoaded, selectFlowPoint, useLogisticsFlowState } from "./logisticsFlowStore";
+import { ensureLogisticsFlowLoaded, selectFlow, selectFlowPoint, useLogisticsFlowState } from "./logisticsFlowStore";
 
-/** Real FlowPoint list, grouped by each point's own real `type` value — not a fixed taxonomy, since type is intentionally open-ended (see logisticsFlowApi.ts). Mirrors ManufacturingBrowse.tsx's real-tree-shape-not-invented-hierarchy discipline. */
+const FLOW_GROUP_PREFIX = "flow:";
+
+function projectTitle(id: string): string {
+  return constructionProjects.find((p) => p.id === id)?.title ?? id;
+}
+
+/**
+ * Real FlowPoint list, grouped first by each point's real, authoritative
+ * `LogisticsFlow` (shown by its real project title, Phase 4.1, 2026-08-17
+ * — a flow is a project-scoped instance, not shared reference data), then
+ * by each point's own real `type` value within that flow — type stays an
+ * open-ended taxonomy, not a fixed enum (see logisticsFlowApi.ts).
+ */
 export default function LogisticsFlowBrowse() {
-  const { points, selection } = useLogisticsFlowState();
+  const { flows, points, selection, selectedFlowId } = useLogisticsFlowState();
   const createPermission = usePermission("logistics", "create");
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -17,24 +30,39 @@ export default function LogisticsFlowBrowse() {
   }, []);
 
   const items: BrowseListItem[] = useMemo(() => {
-    const byType = new Map<string, typeof points>();
+    const byFlow = new Map<string, typeof points>();
     for (const p of points) {
-      if (!byType.has(p.type)) byType.set(p.type, []);
-      byType.get(p.type)!.push(p);
+      if (!byFlow.has(p.flowId)) byFlow.set(p.flowId, []);
+      byFlow.get(p.flowId)!.push(p);
     }
-    return Array.from(byType.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([type, typePoints]) => ({
-        id: `type:${type}`,
-        title: `${type} (${typePoints.length})`,
-        children: typePoints
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((p) => ({ id: p.id, title: p.name })),
-      }));
-  }, [points]);
+    return flows
+      .slice()
+      .sort((a, b) => projectTitle(a.constructionProjectId).localeCompare(projectTitle(b.constructionProjectId)))
+      .map((flow) => {
+        const flowPoints = byFlow.get(flow.id) ?? [];
+        const byType = new Map<string, typeof points>();
+        for (const p of flowPoints) {
+          if (!byType.has(p.type)) byType.set(p.type, []);
+          byType.get(p.type)!.push(p);
+        }
+        return {
+          id: `${FLOW_GROUP_PREFIX}${flow.id}`,
+          title: `${projectTitle(flow.constructionProjectId)} (${flowPoints.length})`,
+          children: Array.from(byType.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([type, typePoints]) => ({
+              id: `type:${flow.id}:${type}`,
+              title: `${type} (${typePoints.length})`,
+              children: typePoints
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p) => ({ id: p.id, title: p.name })),
+            })),
+        };
+      });
+  }, [flows, points]);
 
-  const activeId = selection?.kind === "point" ? selection.id : undefined;
+  const activeId = selection?.kind === "point" ? selection.id : selectedFlowId ? `${FLOW_GROUP_PREFIX}${selectedFlowId}` : undefined;
 
   return (
     <PanelCard title="Browse Logistics Flow" className="h-full" bodyClassName="flex flex-col flex-1">
@@ -49,6 +77,16 @@ export default function LogisticsFlowBrowse() {
         >
           + Add Point
         </button>
+        {selectedFlowId && (
+          <button
+            type="button"
+            onClick={() => selectFlow(null)}
+            className="mt-2 w-full rounded px-3 py-1 text-[0.7rem]"
+            style={{ color: "var(--ff-text-muted)" }}
+          >
+            ← Back to all flows
+          </button>
+        )}
       </div>
 
       {points.length === 0 ? (
@@ -56,7 +94,17 @@ export default function LogisticsFlowBrowse() {
           No flow points yet.
         </p>
       ) : (
-        <BrowseList items={items} activeId={activeId} onSelect={(id) => (points.some((p) => p.id === id) ? selectFlowPoint(id) : undefined)} />
+        <BrowseList
+          items={items}
+          activeId={activeId}
+          onSelect={(id) => {
+            if (id.startsWith(FLOW_GROUP_PREFIX)) {
+              selectFlow(id.slice(FLOW_GROUP_PREFIX.length));
+            } else if (points.some((p) => p.id === id)) {
+              selectFlowPoint(id);
+            }
+          }}
+        />
       )}
 
       {showAddForm && <AddFlowPointForm onClose={() => setShowAddForm(false)} />}

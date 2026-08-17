@@ -10,13 +10,25 @@
  * never guessed).
  *
  * Parsing rule: LogisticsModule.name matching `"... (ProjectFragment,
- * BuildingTitle)"` is resolved by finding a real ConstructionProject
- * whose title starts with ProjectFragment (case-insensitive) and a real
- * ConstructionTreeNode (objectType="Building", same project) whose title
- * exactly matches BuildingTitle. This is reading what the real field
- * already says, not inventing a new cross-reference -- unlike the
- * CWF-B-089/M24-089 case (two independently-named entities with no
- * shared field to read), this is one real field's own stated content.
+ * NodeTitle)"` is resolved by finding a real ConstructionProject whose
+ * title starts with ProjectFragment (case-insensitive) and a real
+ * ConstructionTreeNode (same project) whose title exactly matches
+ * NodeTitle. This is reading what the real field already says, not
+ * inventing a new cross-reference -- unlike the CWF-B-089/M24-089 case
+ * (two independently-named entities with no shared field to read), this
+ * is one real field's own stated content.
+ *
+ * Broadened 2026-08-17 (Phase 4.3 finding, Phase 4.5 generator work):
+ * `moduleSequenceService.createEntry()` has zero real `objectType`
+ * validation -- "Building" was never an architectural requirement, only
+ * this script's own original matching convention. The real Construction
+ * hierarchy legitimately varies by project typology (confirmed live:
+ * Cedarwood has real `Building` nodes, Garden Lofts/Skyline have real
+ * `Floor` nodes directly under the project, Stonepine has neither, only
+ * an itemized-later placeholder). This script now tries `objectType:
+ * "Building"` first, then falls back to `objectType: "Floor"` -- still
+ * reading the module's own real name, never guessing which tier a
+ * project uses.
  *
  *   npx tsx --env-file=.env scripts/backfill-logistics-module-identity.ts
  */
@@ -67,10 +79,15 @@ async function main() {
         constructionProjectId = project.id;
         resolvedProjectCount += 1;
 
-        const buildingNode = await prisma.constructionTreeNode.findFirst({
-          where: { projectId: project.id, objectType: "Building", title: buildingTitle },
-          select: { id: true },
-        });
+        const buildingNode =
+          (await prisma.constructionTreeNode.findFirst({
+            where: { projectId: project.id, objectType: "Building", title: buildingTitle },
+            select: { id: true },
+          })) ??
+          (await prisma.constructionTreeNode.findFirst({
+            where: { projectId: project.id, objectType: "Floor", title: buildingTitle },
+            select: { id: true },
+          }));
         if (buildingNode) {
           buildingTreeNodeId = buildingNode.id;
           resolvedBuildingCount += 1;
