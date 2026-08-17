@@ -138,6 +138,22 @@ export type AssetsPayload = {
 };
 
 /**
+ * Real Materials selection (Phase 3, 2026-08-17 Inventory Command Ribbon
+ * rollout) -- Materials is now its own first-class Inventory capability,
+ * sibling to Assets/Genealogy, same `feature` pattern as AssetsPayload
+ * above. Deliberately a distinct `feature` from `logistics`'s own
+ * `LogisticsMaterialPayload` (used by LogisticsBrowse's read-only Storage
+ * zone projection of the same underlying rows) rather than reusing it --
+ * two different real UI contexts selecting the same authoritative data,
+ * kept separate so neither's selection state leaks into the other.
+ */
+export type MaterialsPayload = {
+  name: string;
+  quantity: number | null;
+  location: string | null;
+};
+
+/**
  * Real Fleet vehicle selection (Phase 3, 2026-08-15 rollout) -- Fleet is a
  * sibling capability of Logistics Flow inside Logistics, reached via the
  * Logistics CommandRibbon (see FleetBrowse.tsx), same pattern as
@@ -167,6 +183,7 @@ export type Selection =
   | { feature: "manufacturing"; objectType: string; objectId: string; payload: ManufacturingPayload }
   | { feature: "scheduling"; objectType: string; objectId: string; payload: SchedulePayload }
   | { feature: "assets"; objectType: string; objectId: string; payload: AssetsPayload }
+  | { feature: "materials"; objectType: string; objectId: string; payload: MaterialsPayload }
   | { feature: "fleet"; objectType: string; objectId: string; payload: FleetPayload };
 
 type SelectionContextType = {

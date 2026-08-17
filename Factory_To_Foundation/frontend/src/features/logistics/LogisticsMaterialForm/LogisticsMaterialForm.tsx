@@ -16,9 +16,17 @@ type LogisticsMaterialFormProps = {
  * provisional-modal posture as LogisticsDispatchForm/Tracker — a minimal
  * entry point, superseded once the real Browse Logistics panel's own
  * create affordance (if any) lands as part of a later, more complete pass.
+ *
+ * Stays here rather than moving into Inventory's new Materials capability
+ * (Phase 3, 2026-08-17): this is where the real physical intake event
+ * happens (the Storage zone of Logistics' own Receiving→Storage→Yard→
+ * Transportation flow) — Inventory's Materials tab is a read projection
+ * of the same authoritative rows, same as Assets/Genealogy have no create
+ * entry point there either. Permission check repointed from `logistics`
+ * to the new `materials` module, matching the backend route's own gate.
  */
 export default function LogisticsMaterialForm({ onClose, onCreated }: LogisticsMaterialFormProps) {
-  const createPermission = usePermission("logistics", "create");
+  const createPermission = usePermission("materials", "create");
 
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");

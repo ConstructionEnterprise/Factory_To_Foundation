@@ -29,10 +29,12 @@ export type CreateMaterialInput = {
  * Phase 4 shipped this model as schema-only (zero seeded rows, zero
  * routes); Phase 8's real Storage Browse zone needs a real way to put
  * something in it, the same gap Truck/Driver had before the Dispatch form
- * existed.
+ * existed. Phase 3 (2026-08-17) additionally joins it to Inventory's real
+ * shared identity layer at create time, same as every other Inventory
+ * capability's own create path.
  */
 export async function createMaterial(input: CreateMaterialInput): Promise<LogisticsMaterialDto> {
-  const row = await repo.createMaterial({
+  const row = await repo.createMaterialWithInventoryItem({
     name: input.name.trim(),
     quantity: input.quantity ?? null,
     location: input.location?.trim() || null,

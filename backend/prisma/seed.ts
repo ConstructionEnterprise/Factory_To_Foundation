@@ -61,6 +61,13 @@ const MODULES = [
   // visualization only. See prisma/schema.prisma's own Networking section
   // header comment for the full real source/scope disclosure.
   { id: "networking", name: "Networking" },
+  // Real 14th module (Phase 3, Inventory Command Ribbon rollout,
+  // 2026-08-17) — Materials promoted to a first-class Inventory capability
+  // alongside Assets/Genealogy, each with its own dedicated module despite
+  // sharing one ribbon UI. Every role below gets a `materials` grant that
+  // MIRRORS its existing `logistics` grant exactly (not invented) — that's
+  // the real access Materials already rode on before this module existed.
+  { id: "materials", name: "Materials" },
 ] as const;
 
 type ModuleId = (typeof MODULES)[number]["id"];
@@ -133,6 +140,9 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       // have factory-floor visibility (factory: R here) — the factory's
       // IT/OT network is part of what they already operationally see.
       networking: R,
+      // Materials grant mirrors this role's own `logistics` value above
+      // (NONE) -- Phase 3, real access preserved, nothing invented.
+      materials: NONE,
     },
   },
   {
@@ -166,6 +176,8 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       permissions: NONE,
       // Judgment call, same reasoning as Manufacturing Engineer above.
       networking: R,
+      // Mirrors this role's own `logistics` value above (NONE) -- Phase 3.
+      materials: NONE,
     },
   },
   {
@@ -185,6 +197,8 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       permissions: NONE,
       // Judgment call, same reasoning as Manufacturing Engineer above.
       networking: R,
+      // Mirrors this role's own `logistics` value above (R) -- Phase 3.
+      materials: R,
     },
   },
   {
@@ -203,6 +217,12 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       administration: NONE,
       permissions: NONE,
       networking: NONE,
+      // Mirrors this role's own `logistics` value above (RCUDE) -- Phase 3.
+      // Dispatcher is the real real-world owner of Materials creation
+      // today (LogisticsMaterialForm's usePermission("logistics","create")
+      // gate) -- this grant is what keeps that working once the route
+      // moves to requirePermission("materials", ...).
+      materials: RCUDE,
     },
   },
   {
@@ -221,6 +241,8 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       administration: NONE,
       permissions: NONE,
       networking: NONE,
+      // Mirrors this role's own `logistics` value above (R) -- Phase 3.
+      materials: R,
     },
   },
   {
@@ -242,6 +264,8 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       administration: NONE,
       permissions: NONE,
       networking: NONE,
+      // Mirrors this role's own `logistics` value above (NONE) -- Phase 3.
+      materials: NONE,
     },
   },
   {
@@ -260,6 +284,8 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       administration: NONE,
       permissions: NONE,
       networking: NONE,
+      // Mirrors this role's own `logistics` value above (R) -- Phase 3.
+      materials: R,
     },
   },
   {
@@ -284,6 +310,8 @@ const ROLES: { name: string; permissions: Record<ModuleId, PermissionId[]> }[] =
       administration: NONE,
       permissions: NONE,
       networking: NONE,
+      // Mirrors this role's own `logistics` value above (R) -- Phase 3.
+      materials: R,
     },
   },
 ];

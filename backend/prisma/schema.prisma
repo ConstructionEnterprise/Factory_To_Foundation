@@ -111,7 +111,13 @@ model User {
   mileageRateConfigs         MileageRateConfig[]
   taxReportedLogisticsDispatches LogisticsDispatch[]
   costEstimateScenarios      CostEstimateScenario[]
+  marketCostRecords          MarketCostRecord[]
+  productivityRecords        ProductivityRecord[]
+  costAssemblies             CostAssembly[]
+  projectQuantityTakeoffs    ProjectQuantityTakeoff[]
+  logisticsFlows             LogisticsFlow[]
   moduleSequenceEvents       ModuleSequenceEvent[]
+  flowPointStatusEvents      FlowPointStatusEvent[]
   analyticsThresholds        AnalyticsThreshold[]
   analyticsDashboards        AnalyticsDashboard[]
   schedules                  Schedule[]
@@ -354,6 +360,8 @@ model ConstructionProject {
   moduleSequenceEntries ModuleSequenceEntry[]
   genealogyNodes      GenealogyNode[]
   schedules           Schedule[]
+  quantityTakeoffs    ProjectQuantityTakeoff[]
+  logisticsFlows      LogisticsFlow[]
 
   @@map("construction_project")
 }
@@ -404,6 +412,7 @@ model ConstructionTreeNode {
 
   logisticsModules LogisticsModule[]
   moduleSequenceEntries ModuleSequenceEntry[]
+  quantityTakeoffs ProjectQuantityTakeoff[]
 
   @@map("construction_tree_node")
 }
@@ -521,8 +530,255 @@ model CostEstimateScenario {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  /// Real, optional bottom-up components (2026-08-17, Phase 4.4 audit
+  /// finding) -- CostEstimateScenario and ProjectQuantityTakeoff were two
+  /// real, working, completely disconnected "project cost" concepts
+  /// until this link: this scenario's own flat squareFootage/rate stays
+  /// the required, always-present real entry; real linked takeoffs are
+  /// an optional, additive bottom-up composition when they exist. A
+  /// scenario with zero linked takeoffs (e.g. the existing "Bid A") is
+  /// still a fully real, valid, blended-rate scenario -- linking is never
+  /// retroactively required, and the total is never silently recomputed
+  /// from components here; reconciling/displaying the two remains a
+  /// service-layer/UI concern (see docs/decisions/
+  /// 2026-08-17-cross-domain-projection-pattern.md and Phase 6).
+  quantityTakeoffs ProjectQuantityTakeoff[]
+
   @@index([projectId])
   @@map("cost_estimate_scenario")
+}
+
+// Real market cost reference data (2026-08-17) -- closes the gap the
+// comment above this model used to describe ("no real unit-cost rate data
+// ... exists anywhere in FF"). One real, dated, sourced price observation
+// per row -- never a fabricated number. Deliberately NOT yet consumed by
+// CostEstimateScenario's calculation (that's the next real finding to
+// chase once enough real records exist to compose an assembly) -- this
+// iteration is just "can FF hold one real sourced unit cost at all,"
+// which it could not before this model existed.
+enum CostCategory {
+  material
+  labor
+  equipment
+}
+
+model MarketCostRecord {
+  id String @id @default(cuid())
+
+  category CostCategory
+  itemName String @map("item_name")
+  /// Real manufacturer/publisher product code, when the source states one
+  /// -- null when the observation is a blended/labor rate with no SKU.
+  sku String?
+
+  /// Free text -- the real unit this price is quoted in varies genuinely
+  /// by category (linear_foot, SF, hour, day, EA), same "real variety, no
+  /// forced enum" posture as FlowPoint.type.
+  unit String
+  /// Real, entered, never derived -- integer cents, same convention as
+  /// every other money field in this schema.
+  unitCostCents Int @map("unit_cost_cents")
+
+  /// Real geographic market the price applies to, e.g. "US" or "North
+  /// Texas" -- exactly as stated by the source, never inferred.
+  region String?
+
+  /// Real provenance -- required, not optional, since a MarketCostRecord
+  /// with no real source is exactly the fabrication this model exists to
+  /// prevent.
+  sourceName String   @map("source_name")
+  sourceUrl  String?  @map("source_url")
+  observedAt DateTime @map("observed_at")
+
+  notes String?
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  assemblyComponents CostAssemblyComponent[]
+
+  @@index([category])
+  @@map("market_cost_record")
+}
+
+// Real assembly recipes (2026-08-17, cost-data acquisition iteration 2) --
+// the break iteration 1 predicted: a real sourced unit price alone can't
+// answer "what does a SF of real wall cost," because that needs a real
+// QUANTITY relationship (how many LF of stud per SF of wall) as well as a
+// real PRICE. Quantity relationships are sourced facts too, not invented
+// -- e.g. 16in on-center stud spacing is IBC 2308.5.1, not a guess -- so
+// each component carries its own real citation, same discipline as
+// MarketCostRecord's own provenance fields. estimatedCostPerUnitCents is
+// ALWAYS derived from the linked real MarketCostRecord.unitCostCents x
+// quantityPerUnit, never stored -- same "never trust/store a derived
+// number" discipline as CostEstimateScenario.totalCents.
+model CostAssembly {
+  id String @id @default(cuid())
+
+  name String
+  /// The real unit this assembly's derived cost is expressed per, e.g.
+  /// "SF" for a wall assembly -- free text, mirrors MarketCostRecord.unit.
+  unit String
+
+  description String?
+  /// Real, disclosed assumptions this assembly's quantities depend on
+  /// (e.g. an assumed wall height) when no real per-project takeoff
+  /// exists yet to supply one -- an honest placeholder, never silently
+  /// baked into a component's quantity with no trace.
+  assumptionNotes String? @map("assumption_notes")
+
+  components CostAssemblyComponent[]
+  quantityTakeoffs ProjectQuantityTakeoff[]
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("cost_assembly")
+}
+
+model CostAssemblyComponent {
+  id String @id @default(cuid())
+
+  assemblyId String       @map("assembly_id")
+  assembly   CostAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+
+  marketCostRecordId String           @map("market_cost_record_id")
+  marketCostRecord   MarketCostRecord @relation(fields: [marketCostRecordId], references: [id])
+
+  /// Real, entered, never guessed -- how many of MarketCostRecord.unit
+  /// this component needs per one CostAssembly.unit (e.g. 0.75 LF of stud
+  /// per SF of wall).
+  quantityPerUnit Float @map("quantity_per_unit")
+
+  /// Real citation for the QUANTITY specifically (distinct from the
+  /// linked MarketCostRecord's own citation for the PRICE) -- e.g. "IBC
+  /// 2308.5.1, 16in o.c. max spacing" or "standard practice, assumes 10ft
+  /// wall height (see assembly.assumptionNotes)".
+  quantitySourceName String  @map("quantity_source_name")
+  quantityNotes      String? @map("quantity_notes")
+
+  /// Real, optional traceability link (2026-08-17, iteration 3) -- set
+  /// when this component's quantityPerUnit was DERIVED from a real
+  /// ProductivityRecord (e.g. a labor component's hours-per-SF, worked
+  /// out from a crew's LF-per-day rate) rather than read directly off a
+  /// citation like a building code section. Null for components like the
+  /// stud/track/sheathing ones, whose quantity IS the citation itself.
+  productivityRecordId String?              @map("productivity_record_id")
+  productivityRecord   ProductivityRecord? @relation(fields: [productivityRecordId], references: [id])
+
+  @@unique([assemblyId, marketCostRecordId])
+  @@map("cost_assembly_component")
+}
+
+// Real labor/crew PRODUCTIVITY observations (2026-08-17, iteration 3) --
+// deliberately a separate model from MarketCostRecord, not an overloaded
+// reuse of it: a productivity rate (how much gets done per hour/day) is a
+// genuinely different kind of real-world fact from a price (what a unit
+// costs), and conflating them into one "unitCostCents" field would be
+// dishonest modeling, not a genuine simplification. `value` is stored
+// EXACTLY as the source states it (e.g. 67, in linear_foot_per_crew_day)
+// -- any unit conversion (to hours-per-SF, etc.) happens as a documented
+// derivation in the CostAssemblyComponent that references this record,
+// never pre-baked into this row.
+model ProductivityRecord {
+  id String @id @default(cuid())
+
+  task String
+  /// Real, entered exactly as observed -- never pre-converted.
+  value Float
+  /// Free text, e.g. "linear_foot_per_crew_day" -- mirrors
+  /// MarketCostRecord.unit's "real variety, no forced enum" posture.
+  unit String
+  /// Real crew size the rate was observed for, when the source states
+  /// one -- null when not stated.
+  crewSize Int? @map("crew_size")
+
+  /// Real, disclosed limitations on using this observation elsewhere
+  /// (e.g. a wall-height mismatch against the assembly that consumes it)
+  /// -- the honest alternative to silently forcing an exact match.
+  applicabilityNotes String? @map("applicability_notes")
+
+  region String?
+
+  sourceName String   @map("source_name")
+  sourceUrl  String?  @map("source_url")
+  observedAt DateTime @map("observed_at")
+
+  notes String?
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  assemblyComponents CostAssemblyComponent[]
+
+  @@map("productivity_record")
+}
+
+// Real project quantity takeoffs (2026-08-17, cost-data acquisition
+// iteration 4) -- the break iteration 3 flagged and deliberately did NOT
+// solve: a real $/unit assembly cost still can't become a real project
+// dollar figure without a real QUANTITY of that assembly a given project
+// actually needs, and confirmed live that FF had genuinely nowhere to
+// hold one -- zero dimension/geometry/area fields exist anywhere in this
+// schema outside CostEstimateScenario's own whole-building squareFootage
+// (itself illustrative, not a takeoff), and Manufacturing's real geometry
+// ingestion (blender-bridge) is a single global, non-project-scoped S3
+// key with no schema link to any ConstructionProject at all -- so even
+// real uploaded geometry can't be structurally attributed to "this is
+// Cedarwood's model." This model is the minimal fix: a place for a REAL,
+// human-entered, provenance-disclosed quantity (same "real, entered,
+// never guessed" posture CostEstimateScenario.squareFootage already
+// uses) -- explicitly NOT a derived/calculated number, and NOT
+// pre-populated with an invented Cedarwood figure just to complete a
+// demo. `methodology` is required specifically so a takeoff always
+// discloses HOW the number was obtained (field measurement, drawing
+// takeoff, rough order-of-magnitude, etc.) -- an undisclosed methodology
+// is exactly the kind of unsourced number this whole cost-data effort
+// exists to prevent.
+model ProjectQuantityTakeoff {
+  id String @id @default(cuid())
+
+  constructionProjectId String              @map("construction_project_id")
+  constructionProject   ConstructionProject @relation(fields: [constructionProjectId], references: [id], onDelete: Cascade)
+
+  /// Real, optional building-level scoping -- null means project-wide.
+  buildingTreeNodeId String?               @map("building_tree_node_id")
+  buildingTreeNode   ConstructionTreeNode? @relation(fields: [buildingTreeNodeId], references: [id])
+
+  assemblyId String       @map("assembly_id")
+  assembly   CostAssembly @relation(fields: [assemblyId], references: [id])
+
+  /// Real, optional -- which real CostEstimateScenario (if any) this
+  /// takeoff's real bottom-up cost contributes to. Null means this is a
+  /// real, standalone project-level quantity not yet tied to a specific
+  /// scenario -- a legitimate real state, not an error.
+  costEstimateScenarioId String?               @map("cost_estimate_scenario_id")
+  costEstimateScenario   CostEstimateScenario? @relation(fields: [costEstimateScenarioId], references: [id])
+
+  /// Real, entered, never derived -- the actual quantity of
+  /// assembly.unit this project/building needs.
+  quantity Float
+  unit     String
+
+  /// Required real disclosure of how this number was obtained -- e.g.
+  /// "field_measurement", "drawing_takeoff", "rough_order_of_magnitude".
+  /// Free text, not an enum -- real methodologies vary and a forced enum
+  /// would just invite picking the closest-sounding option dishonestly.
+  methodology String
+  sourceNotes String? @map("source_notes")
+
+  enteredById String   @map("entered_by_id")
+  enteredBy   User     @relation(fields: [enteredById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("project_quantity_takeoff")
 }
 
 // ───────────────────── Modular Sequencing ─────────────────────
@@ -1091,6 +1347,15 @@ model LogisticsMaterial {
   /// ConstructionSite.address; no coordinate promotion implied.
   location String?
 
+  /// Real link into Inventory's shared identity layer (Phase 3, 2026-08-17
+  /// rollout) -- required as of the follow-up migration; every real
+  /// existing row confirmed linked by backfill-material-inventory-items.ts
+  /// first (exact-count-asserted), same 2-step discipline as every other
+  /// InventoryItem-linkage rollout (Vehicle, LogisticsModule) and as
+  /// FlowPoint.flowId (Phase 5).
+  inventoryItemId String        @unique @map("inventory_item_id")
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
   @@map("logistics_material")
 }
 
@@ -1601,6 +1866,13 @@ enum InventoryItemKind {
   /// §0.2/§0.5). InventoryItem is the domain-neutral layer Sequencing
   /// anchors on instead of LogisticsModule directly.
   logistics_module
+  /// Phase 3, 2026-08-17 (Inventory Command Ribbon rollout). Real gap
+  /// found by audit: LogisticsMaterial was the one real Inventory-adjacent
+  /// object type NOT wired into this shared identity layer -- every other
+  /// kind here already was. Added so Materials can become a genuine peer
+  /// Inventory capability to Asset/Genealogy, not just a Logistics-owned
+  /// list surfaced elsewhere.
+  material
 }
 
 model InventoryItem {
@@ -1618,6 +1890,7 @@ model InventoryItem {
   vehicle        Vehicle?
   logisticsModule LogisticsModule?
   moduleSequenceEntry ModuleSequenceEntry?
+  material       LogisticsMaterial?
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1778,8 +2051,48 @@ model SyntheticDataProvenance {
 /// it by id via assetRef (an Engineering Asset Catalog id, a Manufacturing
 /// model node id, a dolly, a yard/staging capability, etc., owned and
 /// defined elsewhere).
+// Real project scoping for Logistics Flow (2026-08-17, Phase 4.1) -- the
+// Phase 4 project-population audit found FlowPoint/FlowConnection had no
+// real FK to ConstructionProject at all, so "which project does this flow
+// serve" was structurally unanswerable, only inferable from node-name
+// text. A LogisticsFlow is a real, project-scoped operational flow
+// INSTANCE (an occurrence of "material moving through Receiving ->
+// Storage -> Shop -> Yard -> Transportation Handoff for project X");
+// FlowPoint/FlowConnection remain the reusable topology beneath it, now
+// grouped under one. Explicitly NOT the same design choice as
+// CostAssembly (Phase 4 decision, 2026-08-17): a CostAssembly is reusable
+// reference intelligence with no project of its own, while a Logistics
+// Flow genuinely is a project-specific operational instance, not shared
+// reference data -- these are different real relationships, not the same
+// pattern applied twice.
+model LogisticsFlow {
+  id String @id @default(cuid())
+
+  name String
+
+  constructionProjectId String              @map("construction_project_id")
+  constructionProject   ConstructionProject @relation(fields: [constructionProjectId], references: [id])
+
+  points FlowPoint[]
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("logistics_flow")
+}
+
 model FlowPoint {
   id String @id @default(cuid())
+
+  /// Required as of the follow-up migration (2026-08-17) -- every real
+  /// existing row confirmed linked by backfill-logistics-flow.ts first
+  /// (exact-count-asserted), so this is safely tightened from the initial
+  /// nullable add, same two-step discipline as every other real backfill
+  /// this project has done.
+  flowId String        @map("flow_id")
+  flow   LogisticsFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
 
   /// Free-text, not a Postgres enum -- deliberately extensible taxonomy.
   /// Suggested vocabulary (documented/offered in the frontend form, not
@@ -1801,16 +2114,69 @@ model FlowPoint {
   /// geometry/engineering/behavior data.
   assetRef String? @map("asset_ref")
 
-  status String?
+  /// Real operational status (Phase 5, 2026-08-17) -- was free-text and
+  /// unused (confirmed live: 0 of 21 real rows had a non-null value before
+  /// this migration, so no data-preserving backfill was needed, only a
+  /// straight type change). Current status is a real, derived-or-recorded
+  /// fact, not a UI label: for `load_assignment`/`transportation_handoff`
+  /// points (which already carry a real `assetRef` into Vehicle/
+  /// LogisticsDispatch), it's synced from that linked row's own real
+  /// status; for every other point type, it only changes via an explicit
+  /// human PATCH with a required reason. Every real transition is logged
+  /// in FlowPointStatusEvent below -- this column is always the *current*
+  /// value, the event table is the history, same split as
+  /// LogisticsDispatch.status/LogisticsCustodyEvent and
+  /// ModuleSequenceEntry.status/ModuleSequenceEvent.
+  status FlowPointStatus @default(normal)
   notes  String?
 
   outgoingConnections FlowConnection[] @relation("FlowConnectionSource")
   incomingConnections FlowConnection[] @relation("FlowConnectionTarget")
 
+  statusEvents FlowPointStatusEvent[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("flow_point")
+}
+
+enum FlowPointStatus {
+  normal
+  held
+  halted
+}
+
+/// Real, immutable operational-status history for one FlowPoint (Phase 5,
+/// 2026-08-17) -- same shape as LogisticsCustodyEvent/ModuleSequenceEvent,
+/// now the fourth real consumer of that "{fromStatus,toStatus,changedAt}"
+/// pattern (also read by frontend/src/lib/eventTimeline.ts). Never
+/// deleted or edited once written, even by a "Reset" action in the UI --
+/// Reset only clears transient client-side view state, never this table.
+/// `changedById` is a real user for a manual hold/halt/release; the one
+/// real system-attributed case (derived-status sync off a linked
+/// Vehicle/LogisticsDispatch) still requires a real actor id -- see
+/// flowPointStatusService.ts for which real account is used and why.
+model FlowPointStatusEvent {
+  id String @id @default(cuid())
+
+  flowPointId String    @map("flow_point_id")
+  flowPoint   FlowPoint @relation(fields: [flowPointId], references: [id], onDelete: Cascade)
+
+  /// Null only for the one real creation event.
+  fromStatus FlowPointStatus? @map("from_status")
+  toStatus   FlowPointStatus  @map("to_status")
+
+  /// Required for held/halted (the operational reason a person or the
+  /// derived-status sync recorded); optional when returning to normal.
+  reason String?
+
+  changedById String   @map("changed_by_id")
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now()) @map("changed_at")
+
+  @@index([flowPointId])
+  @@map("flow_point_status_event")
 }
 
 /// A real, directed relationship between two FlowPoints -- direction is
