@@ -1,6 +1,6 @@
 import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
 
-import { FactoryInstructions, FactoryToolbar, FactoryWorkspace } from "@/features/factory";
+import { FactoryInstructions, FactoryProduction, FactoryToolbar, FactoryWorkspace } from "@/features/factory";
 import { RobotLibraryRibbonMenu } from "@/features/engineering-assets";
 
 const factoryKpis: KpiDefinition[] = [
@@ -21,6 +21,11 @@ export default function FactoryPage() {
       toolbar={<FactoryToolbar />}
       extraMenus={[
         { label: "Instructions", content: <FactoryInstructions /> },
+        // Real Phase 9 physical-result state (ProductionRun/Output) --
+        // Manufacturing prepares (Instructions, above); Factory executes
+        // and this is that execution's real output, not a second
+        // Manufacturing surface.
+        { label: "Production", content: <FactoryProduction /> },
         { label: "Robot Library", content: <RobotLibraryRibbonMenu /> },
       ]}
       workspace={<FactoryWorkspace />}
