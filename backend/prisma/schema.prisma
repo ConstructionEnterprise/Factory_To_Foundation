@@ -124,6 +124,8 @@ model User {
   analyticsThresholds            AnalyticsThreshold[]
   analyticsDashboards            AnalyticsDashboard[]
   schedules                      Schedule[]
+  materialCatalogItems           MaterialCatalogItem[]
+  materialInventoryEvents        MaterialInventoryEvent[]
 
   @@map("user")
 }
@@ -597,6 +599,20 @@ model MarketCostRecord {
 
   notes String?
 
+  /// Real, optional link to the stable material-type identity this priced
+  /// OBSERVATION was taken for (Phase 8, 2026-08-17) -- nullable because
+  /// (a) a blended/labor rate record has no real physical material at all,
+  /// and (b) this is the first rollout of MaterialCatalogItem, same
+  /// additive-nullable discipline as every other first-rollout link in
+  /// this schema. Deliberately NOT the identity MaterialCatalogItem or
+  /// physical inventory link on -- MarketCostRecord's own real identity
+  /// axis is "one row per price observation" (it has no uniqueness on
+  /// itemName/sku, by design), so several real MarketCostRecord rows can
+  /// legitimately point at the same MaterialCatalogItem over time as
+  /// prices get re-observed.
+  materialCatalogItemId String?              @map("material_catalog_item_id")
+  materialCatalogItem   MaterialCatalogItem? @relation(fields: [materialCatalogItemId], references: [id])
+
   createdById String   @map("created_by_id")
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now()) @map("created_at")
@@ -838,7 +854,30 @@ model ProductionRun {
   startedAt   DateTime  @map("started_at")
   completedAt DateTime? @map("completed_at")
 
-  outputs ProductionOutput[]
+  /// Real, optional execution-time SNAPSHOT of the Manufacturing model's
+  /// own authoritative geometry facts (Phase 8, 2026-08-17) -- the Model
+  /// remains the authority for "what does this physical thing require";
+  /// this is provenance capture, not a second authority. Captured at the
+  /// one moment these real facts are both available and meaningful: when
+  /// a run is created from a specific selected Manufacturing node. All
+  /// three null together when a run wasn't created from a measured node
+  /// -- an honest absence, never backfilled with a guess.
+  /// `capturedAt` is deliberately just this row's own real `createdAt`
+  /// below, not a separate field -- the run IS the capture event.
+  sourceModelNodeId String? @map("source_model_node_id")
+  /// Real, structured {x,y,z} bounding-box measurement in meters (matches
+  /// ManufacturingInspector.tsx's own measureNode() output before its
+  /// metersLabel() display formatting) -- e.g. {"x": 6.09, "y": 2.44,
+  /// "z": 0.14}.
+  sourceDimensions  Json?   @map("source_dimensions")
+  /// Real, verbatim GLTF extras payload for the source node (e.g.
+  /// {"stud_count": 11, "stud_spacing": "24in OC"}) -- whatever real keys
+  /// that specific source file populated, same "no assumed schema"
+  /// posture as ManufacturingInspector.tsx's own ExtrasList.
+  sourceExtras      Json?   @map("source_extras")
+
+  outputs                 ProductionOutput[]
+  materialInventoryEvents MaterialInventoryEvent[]
 
   createdById String   @map("created_by_id")
   createdBy   User     @relation(fields: [createdById], references: [id])
@@ -1511,11 +1550,33 @@ model LogisticsMaterial {
   id String @id @default(cuid())
 
   name     String
-  quantity Int?
   /// Real, free-text current location within Storage (e.g. "Bay A") —
   /// metadata only, same non-geocoded-metadata posture as
   /// ConstructionSite.address; no coordinate promotion implied.
   location String?
+
+  /// Real, optional link to the stable material-type identity (Phase 8,
+  /// 2026-08-17) -- nullable on this first rollout, same discipline as
+  /// every other additive first-link in this schema. Many real
+  /// LogisticsMaterial rows (e.g. the same catalog item stored in two
+  /// different bays) can legitimately share one MaterialCatalogItem.
+  materialCatalogItemId String?              @map("material_catalog_item_id")
+  materialCatalogItem   MaterialCatalogItem? @relation(fields: [materialCatalogItemId], references: [id])
+
+  /// Real on-hand/reserved/consumed inventory ledger (Phase 8, 2026-08-17)
+  /// -- replaces the old flat, purely-descriptive `quantity Int?` (never
+  /// read or decremented by any real code, confirmed by the Phase 8
+  /// audit). `available` is intentionally NOT its own stored field --
+  /// it's always `quantityOnHand - quantityReserved`, computed at read
+  /// time, matching this schema's own explicit "never trust/store a
+  /// derived number" discipline (see CostAssembly's doc comment).
+  /// Every real change to these three fields happens exclusively through
+  /// materialInventoryService.ts's transactional reserve/release/consume/
+  /// receive functions, each of which writes a real MaterialInventoryEvent
+  /// -- there is no other real path that touches them.
+  quantityOnHand   Int @default(0) @map("quantity_on_hand")
+  quantityReserved Int @default(0) @map("quantity_reserved")
+  quantityConsumed Int @default(0) @map("quantity_consumed")
 
   /// Real link into Inventory's shared identity layer (Phase 3, 2026-08-17
   /// rollout) -- required as of the follow-up migration; every real
@@ -1526,7 +1587,81 @@ model LogisticsMaterial {
   inventoryItemId String        @unique @map("inventory_item_id")
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
 
+  inventoryEvents MaterialInventoryEvent[]
+
   @@map("logistics_material")
+}
+
+/// Real stable material-TYPE identity (Phase 8, 2026-08-17) -- the missing
+/// bridge identified by an explicit audit: MarketCostRecord cannot serve
+/// this role itself (it has no uniqueness on itemName/sku -- its real
+/// identity axis is "one row per price OBSERVATION," so the same physical
+/// material legitimately gets several MarketCostRecord rows over time as
+/// prices are re-observed). MaterialCatalogItem is the one stable thing
+/// both LogisticsMaterial (physical inventory) and MarketCostRecord
+/// (price history) can point at, instead of physical inventory pointing
+/// at one arbitrary priced observation. Deliberately NOT an InventoryItem
+/// kind -- it's a real material TYPE/definition, never a tracked physical
+/// unit itself.
+model MaterialCatalogItem {
+  id String @id @default(cuid())
+
+  name String
+  /// Real manufacturer/publisher product code, when known -- mirrors
+  /// MarketCostRecord.sku's own nullable, never-guessed posture.
+  sku  String?
+  /// Real unit this material is tracked in (e.g. "linear_foot", "EA") --
+  /// free text, same "real variety, no forced enum" posture as
+  /// MarketCostRecord.unit/FlowPoint.type.
+  unit String
+
+  marketCostRecords MarketCostRecord[]
+  materials         LogisticsMaterial[]
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("material_catalog_item")
+}
+
+enum MaterialInventoryEventType {
+  receive
+  reserve
+  release
+  consume
+}
+
+/// Real, immutable inventory transaction history (Phase 8, 2026-08-17) --
+/// same {fromX->toX-ish, reason, changedById, changedAt} discipline as
+/// every other real event table in this schema (LogisticsCustodyEvent,
+/// ModuleSequenceEvent, FlowPointStatusEvent, ProductionOutputStatusEvent).
+/// `quantity` is the real delta this one event applied, not a running
+/// total -- the running totals live on LogisticsMaterial itself and are
+/// only ever moved by the transactional service function that also writes
+/// this row, in the same DB transaction.
+model MaterialInventoryEvent {
+  id String @id @default(cuid())
+
+  materialId String            @map("material_id")
+  material   LogisticsMaterial @relation(fields: [materialId], references: [id])
+
+  eventType MaterialInventoryEventType @map("event_type")
+  quantity  Int
+
+  /// Real, optional link to the ProductionRun this reservation/consumption
+  /// was for -- null for a plain stock receipt/adjustment event with no
+  /// real production tie.
+  productionRunId String?        @map("production_run_id")
+  productionRun   ProductionRun? @relation(fields: [productionRunId], references: [id])
+
+  reason String?
+
+  changedById String   @map("changed_by_id")
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now()) @map("changed_at")
+
+  @@map("material_inventory_event")
 }
 
 model LogisticsModule {

@@ -126,7 +126,14 @@ export default function LogisticsBrowse() {
         feature: "logistics",
         objectType: "Material",
         objectId: id,
-        payload: { kind: "material", name: material.name, quantity: material.quantity, location: material.location },
+        payload: {
+          kind: "material",
+          name: material.name,
+          quantityOnHand: material.quantityOnHand,
+          quantityReserved: material.quantityReserved,
+          quantityAvailable: material.quantityAvailable,
+          location: material.location,
+        },
       });
       return;
     }

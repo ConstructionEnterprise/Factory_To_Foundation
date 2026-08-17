@@ -19,6 +19,33 @@ export type ProductionRun = {
   completedAt: string | null;
 };
 
+/** Real Manufacturing-model provenance, captured at run creation (Phase 8, 2026-08-17) -- see ProductionRun's own schema doc comment. */
+export type ProductionRunWithSource = ProductionRun & {
+  sourceModelNodeId: string | null;
+  sourceDimensions: unknown;
+  sourceExtras: unknown;
+};
+
+/** Real, read-only WHAT-IF resource-availability check (Phase 8, 2026-08-17) -- see materialRequirementService.ts. Never mutates anything. */
+export type MaterialRequirementLine = {
+  costAssemblyComponentId: string;
+  materialCatalogItemId: string | null;
+  materialCatalogItemName: string | null;
+  materialIds: string[];
+  requiredQuantity: number | null;
+  unresolvedReason: string | null;
+  availableQuantity: number | null;
+  sufficient: boolean | null;
+};
+
+export type MaterialRequirementReport = {
+  productionRunId: string;
+  sourceModelNodeId: string | null;
+  lines: MaterialRequirementLine[];
+  allResolved: boolean;
+  allSufficient: boolean;
+};
+
 export type ProductionOutput = {
   id: string;
   productionRunId: string;
@@ -52,4 +79,8 @@ export function listProductionRuns(): Promise<ProductionRun[]> {
 /** `productionRunId` is an optional real filter -- omitted, lists every real output across every run. */
 export function listProductionOutputs(productionRunId?: string): Promise<ProductionOutput[]> {
   return requestJson(`/production-outputs${productionRunId ? `?productionRunId=${encodeURIComponent(productionRunId)}` : ""}`);
+}
+
+export function fetchMaterialRequirements(productionRunId: string): Promise<MaterialRequirementReport> {
+  return requestJson(`/production-runs/${productionRunId}/material-requirements`);
 }

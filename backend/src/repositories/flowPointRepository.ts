@@ -32,6 +32,14 @@ export function findDispatchById(id: string) {
   return prisma.logisticsDispatch.findUnique({ where: { id } });
 }
 
+/** Every other real, currently in-transit dispatch for a given real vehicle (Phase 8, 2026-08-17) -- the real double-booking check. `excludeDispatchId` omits the dispatch this check is being run for, so a point checking its own dispatch's vehicle doesn't flag itself. */
+export function findOtherInTransitDispatches(vehicleId: string, excludeDispatchId: string) {
+  return prisma.logisticsDispatch.findMany({
+    where: { vehicleId, status: "in_transit", id: { not: excludeDispatchId } },
+    select: { id: true },
+  });
+}
+
 export type CreatePointInput = {
   flowId: string;
   type: string;

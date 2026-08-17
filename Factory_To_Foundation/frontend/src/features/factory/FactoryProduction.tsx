@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 
-import { listProductionOutputs, listProductionRuns, type ProductionOutput, type ProductionRun } from "./productionApi";
+import {
+  fetchMaterialRequirements,
+  listProductionOutputs,
+  listProductionRuns,
+  type MaterialRequirementReport,
+  type ProductionOutput,
+  type ProductionRun,
+} from "./productionApi";
 
 const STATUS_COLOR: Record<string, string> = {
   in_progress: "var(--ff-status-neutral)",
@@ -35,6 +42,7 @@ function Badge({ label }: { label: string }) {
 export default function FactoryProduction() {
   const [runs, setRuns] = useState<ProductionRun[] | null>(null);
   const [outputs, setOutputs] = useState<ProductionOutput[] | null>(null);
+  const [requirements, setRequirements] = useState<Record<string, MaterialRequirementReport>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,6 +50,19 @@ export default function FactoryProduction() {
       .then(([r, o]) => {
         setRuns(r);
         setOutputs(o);
+        // Real, read-only WHAT-IF resource check per run (Phase 8, 2026-08-17)
+        // -- best-effort: a run whose fetch fails just shows no Resource
+        // Check section rather than blocking the whole panel.
+        Promise.all(
+          r.map((run) =>
+            fetchMaterialRequirements(run.id)
+              .then((report) => [run.id, report] as const)
+              .catch(() => null)
+          )
+        ).then((pairs) => {
+          const entries = pairs.filter((p): p is readonly [string, MaterialRequirementReport] => p !== null);
+          setRequirements(Object.fromEntries(entries));
+        });
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
@@ -100,6 +121,32 @@ export default function FactoryProduction() {
                 </span>
                 <span>Started: {new Date(run.startedAt).toLocaleString()}</span>
               </div>
+
+              {requirements[run.id] && (
+                <div className="mt-2 rounded-[0.2rem] p-1.5" style={{ background: "var(--ff-chrome-bg)" }}>
+                  <div className="text-[0.65rem] font-semibold uppercase" style={{ color: "var(--ff-text-muted)" }}>
+                    Resource Check
+                  </div>
+                  <ul className="mt-1 space-y-1">
+                    {requirements[run.id].lines.map((line) => (
+                      <li key={line.costAssemblyComponentId} className="flex items-center justify-between text-[0.65rem]">
+                        <span style={{ color: "var(--ff-text-secondary)" }}>
+                          {line.materialCatalogItemName ?? "Unresolved BOM line"}
+                        </span>
+                        {line.requiredQuantity !== null ? (
+                          <span style={{ color: line.sufficient ? "var(--ff-status-positive)" : "var(--ff-status-critical)" }}>
+                            {line.sufficient ? "✓" : "✕"} {line.requiredQuantity} req / {line.availableQuantity} avail
+                          </span>
+                        ) : (
+                          <span title={line.unresolvedReason ?? undefined} style={{ color: "var(--ff-text-muted)" }}>
+                            unresolved
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {runOutputs.length > 0 && (
                 <ol className="mt-2 space-y-1.5">

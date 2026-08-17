@@ -110,7 +110,9 @@ export default function LogisticsInspector() {
 
       {sel?.payload.kind === "material" && (
         <div className="mt-5 space-y-0.5">
-          <DetailRow label="Quantity" value={sel.payload.quantity !== null ? String(sel.payload.quantity) : "--"} />
+          <DetailRow label="On Hand" value={String(sel.payload.quantityOnHand)} />
+          <DetailRow label="Reserved" value={String(sel.payload.quantityReserved)} />
+          <DetailRow label="Available" value={String(sel.payload.quantityAvailable)} />
           <DetailRow label="Location" value={sel.payload.location ?? "--"} />
         </div>
       )}

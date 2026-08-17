@@ -23,3 +23,12 @@ export type CreateRecordData = {
 export function createRecord(data: CreateRecordData): Promise<MarketCostRecord> {
   return prisma.marketCostRecord.create({ data });
 }
+
+export function findRecordById(id: string): Promise<MarketCostRecord | null> {
+  return prisma.marketCostRecord.findUnique({ where: { id } });
+}
+
+/** Real bridge to a stable MaterialCatalogItem (Phase 8, 2026-08-17) -- see MaterialCatalogItem's own schema doc comment for why this exists. */
+export function linkCatalogItem(id: string, materialCatalogItemId: string): Promise<MarketCostRecord> {
+  return prisma.marketCostRecord.update({ where: { id }, data: { materialCatalogItemId } });
+}

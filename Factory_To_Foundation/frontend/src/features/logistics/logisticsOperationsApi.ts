@@ -210,7 +210,11 @@ export function listRecentCustodyEvents(): Promise<RecentLogisticsCustodyEvent[]
 export type LogisticsMaterial = {
   id: string;
   name: string;
-  quantity: number | null;
+  /** Real on-hand/reserved/consumed ledger (Phase 8, 2026-08-17); quantityAvailable is always onHand - reserved, computed by the backend. */
+  quantityOnHand: number;
+  quantityReserved: number;
+  quantityConsumed: number;
+  quantityAvailable: number;
   location: string | null;
 };
 

@@ -86,7 +86,7 @@ export default function InventoryPage() {
   ];
 
   if (mode === "materials") {
-    const totalQuantity = materials.reduce((sum, m) => sum + (m.quantity ?? 0), 0);
+    const totalQuantity = materials.reduce((sum, m) => sum + m.quantityOnHand, 0);
     const locations = new Set(materials.map((m) => m.location ?? "Location not recorded"));
     const materialsKpis: KpiDefinition[] = [
       { title: "Total Materials", value: String(materials.length) },

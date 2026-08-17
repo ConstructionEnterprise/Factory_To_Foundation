@@ -18,7 +18,9 @@ export default function MaterialsInspector() {
       </div>
 
       <div className="mt-5 space-y-0.5">
-        <DetailRow label="Quantity" value={sel?.payload.quantity != null ? String(sel.payload.quantity) : "--"} />
+        <DetailRow label="On Hand" value={sel ? String(sel.payload.quantityOnHand) : "--"} />
+        <DetailRow label="Reserved" value={sel ? String(sel.payload.quantityReserved) : "--"} />
+        <DetailRow label="Available" value={sel ? String(sel.payload.quantityAvailable) : "--"} />
         <DetailRow label="Location" value={sel?.payload.location ?? "--"} />
       </div>
     </PanelCard>

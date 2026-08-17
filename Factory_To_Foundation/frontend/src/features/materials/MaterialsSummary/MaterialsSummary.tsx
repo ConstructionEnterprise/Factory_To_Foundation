@@ -16,17 +16,12 @@ export default function MaterialsSummary({ materials }: { materials: MaterialRec
 
   const byLocation = new Map<string, { count: number; quantity: number }>();
   let totalQuantity = 0;
-  let unspecifiedQuantity = 0;
   for (const m of materials) {
     const key = m.location ?? "Location not recorded";
     const entry = byLocation.get(key) ?? { count: 0, quantity: 0 };
     entry.count += 1;
-    if (m.quantity != null) {
-      entry.quantity += m.quantity;
-      totalQuantity += m.quantity;
-    } else {
-      unspecifiedQuantity += 1;
-    }
+    entry.quantity += m.quantityOnHand;
+    totalQuantity += m.quantityOnHand;
     byLocation.set(key, entry);
   }
   const rows = Array.from(byLocation.entries()).sort(([a], [b]) => a.localeCompare(b));
@@ -47,7 +42,7 @@ export default function MaterialsSummary({ materials }: { materials: MaterialRec
             {totalQuantity.toLocaleString()}
           </div>
           <div className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
-            Total quantity{unspecifiedQuantity > 0 ? ` (${unspecifiedQuantity} unspecified)` : ""}
+            Total on hand
           </div>
         </div>
         <div>
@@ -86,7 +81,13 @@ export default function MaterialsSummary({ materials }: { materials: MaterialRec
                     feature: "materials",
                     objectType: "Material",
                     objectId: first.id,
-                    payload: { name: first.name, quantity: first.quantity, location: first.location },
+                    payload: {
+                      name: first.name,
+                      quantityOnHand: first.quantityOnHand,
+                      quantityReserved: first.quantityReserved,
+                      quantityAvailable: first.quantityAvailable,
+                      location: first.location,
+                    },
                   });
                 }}
               >

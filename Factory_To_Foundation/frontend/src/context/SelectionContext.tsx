@@ -44,7 +44,9 @@ export type RoboticsPayload = {
 export type LogisticsMaterialPayload = {
   kind: "material";
   name: string;
-  quantity: number | null;
+  quantityOnHand: number;
+  quantityReserved: number;
+  quantityAvailable: number;
   location: string | null;
 };
 
@@ -149,7 +151,9 @@ export type AssetsPayload = {
  */
 export type MaterialsPayload = {
   name: string;
-  quantity: number | null;
+  quantityOnHand: number;
+  quantityReserved: number;
+  quantityAvailable: number;
   location: string | null;
 };
 

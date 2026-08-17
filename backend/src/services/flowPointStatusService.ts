@@ -79,6 +79,20 @@ export async function recordManualTransition(
   return toEventDto(event);
 }
 
+/**
+ * Real vehicle double-booking guard (Phase 8, 2026-08-17) -- checks
+ * whether the given real vehicle has another real LogisticsDispatch
+ * simultaneously `in_transit`. `excludeDispatchId` is the dispatch this
+ * specific FlowPoint already represents (transportation_handoff), or
+ * empty string for load_assignment, which names a vehicle directly with
+ * no dispatch of its own yet -- any real in-transit dispatch on that
+ * vehicle is a genuine conflict for a new assignment.
+ */
+async function findVehicleConflict(vehicleId: string, excludeDispatchId: string): Promise<string | null> {
+  const others = await repo.findOtherInTransitDispatches(vehicleId, excludeDispatchId);
+  return others.length > 0 ? others[0].id : null;
+}
+
 /** Real mapping from a linked Vehicle's own real status to this point's operational status. */
 function statusFromVehicle(vehicle: { status: string; identifier: string }): { status: FlowPointStatus; reason: string } {
   if (vehicle.status === "maintenance") {
@@ -118,10 +132,32 @@ export async function syncDerivedStatus(point: FlowPoint, triggeredById: string)
   let derived: { status: FlowPointStatus; reason: string } | null = null;
   if (point.type === "load_assignment") {
     const vehicle = await repo.findVehicleById(point.assetRef);
-    if (vehicle) derived = statusFromVehicle(vehicle);
+    if (vehicle) {
+      derived = statusFromVehicle(vehicle);
+      if (derived.status === "normal") {
+        const conflictId = await findVehicleConflict(vehicle.id, "");
+        if (conflictId) {
+          derived = {
+            status: "held",
+            reason: `Vehicle "${vehicle.identifier}" already has another real dispatch (${conflictId}) in transit.`,
+          };
+        }
+      }
+    }
   } else if (point.type === "transportation_handoff") {
     const dispatch = await repo.findDispatchById(point.assetRef);
-    if (dispatch) derived = statusFromDispatch(dispatch);
+    if (dispatch) {
+      derived = statusFromDispatch(dispatch);
+      if (derived.status === "normal" && dispatch.vehicleId) {
+        const conflictId = await findVehicleConflict(dispatch.vehicleId, dispatch.id);
+        if (conflictId) {
+          derived = {
+            status: "held",
+            reason: `This dispatch's vehicle is already committed to another real in-transit dispatch (${conflictId}).`,
+          };
+        }
+      }
+    }
   }
 
   if (!derived || derived.status === point.status) return point;

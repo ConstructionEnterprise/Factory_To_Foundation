@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { authenticate, requirePermission } from "../middleware/auth";
+import * as materialRequirementService from "../services/materialRequirementService";
 import * as service from "../services/productionRunService";
 
 const createRunBodySchema = z.object({
@@ -9,6 +10,10 @@ const createRunBodySchema = z.object({
   cellRef: z.string().trim().min(1).optional(),
   plannedQuantity: z.number().int().positive().optional(),
   startedAt: z.string().optional(),
+  /** Real, optional Manufacturing-model provenance (Phase 8, 2026-08-17) -- see ProductionRun's own schema doc comment. */
+  sourceModelNodeId: z.string().trim().min(1).optional(),
+  sourceDimensions: z.unknown().optional(),
+  sourceExtras: z.unknown().optional(),
 });
 
 /**
@@ -41,5 +46,11 @@ export async function productionRunRoutes(app: FastifyInstance) {
   app.patch("/production-runs/:id/complete", { preHandler: updatePreHandler }, async (request) => {
     const { id } = request.params as { id: string };
     return service.completeRun(id);
+  });
+
+  /** Real, read-only WHAT-IF resource-availability check (Phase 8, 2026-08-17) -- see materialRequirementService.ts. */
+  app.get("/production-runs/:id/material-requirements", { preHandler: readPreHandler }, async (request) => {
+    const { id } = request.params as { id: string };
+    return materialRequirementService.computeMaterialRequirements(id);
   });
 }

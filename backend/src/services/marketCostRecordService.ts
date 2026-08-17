@@ -1,6 +1,6 @@
 import type { MarketCostRecord, CostCategory } from "@prisma/client";
 
-import { ValidationError } from "../lib/httpErrors";
+import { NotFoundError, ValidationError } from "../lib/httpErrors";
 import * as repo from "../repositories/marketCostRecordRepository";
 
 export type MarketCostRecordDto = {
@@ -85,5 +85,13 @@ export async function createRecord(input: CreateRecordInput): Promise<MarketCost
     notes: input.notes?.trim() || null,
     createdById: input.createdById,
   });
+  return toDto(row);
+}
+
+/** Real bridge to a stable MaterialCatalogItem (Phase 8, 2026-08-17) -- the missing link the audit found: MarketCostRecord itself has no stable itemName/sku identity (several real rows can represent one re-observed material), so it points at the real catalog item rather than physical inventory pointing at one arbitrary priced observation. */
+export async function linkCatalogItem(id: string, materialCatalogItemId: string): Promise<MarketCostRecordDto> {
+  const existing = await repo.findRecordById(id);
+  if (!existing) throw new NotFoundError(`No market cost record with id "${id}"`);
+  const row = await repo.linkCatalogItem(id, materialCatalogItemId);
   return toDto(row);
 }

@@ -46,7 +46,13 @@ export default function MaterialsBrowse({ materials }: { materials: MaterialReco
               feature: "materials",
               objectType: "Material",
               objectId: material.id,
-              payload: { name: material.name, quantity: material.quantity, location: material.location },
+              payload: {
+                name: material.name,
+                quantityOnHand: material.quantityOnHand,
+                quantityReserved: material.quantityReserved,
+                quantityAvailable: material.quantityAvailable,
+                location: material.location,
+              },
             });
           }}
         />

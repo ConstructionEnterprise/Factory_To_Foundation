@@ -1,4 +1,4 @@
-import type { ProductionRun } from "@prisma/client";
+import type { Prisma, ProductionRun } from "@prisma/client";
 
 import { NotFoundError, ValidationError } from "../lib/httpErrors";
 import * as repo from "../repositories/productionRunRepository";
@@ -19,6 +19,10 @@ export type ProductionRunDto = {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  /** Real Manufacturing-model provenance snapshot (Phase 8, 2026-08-17) -- see materialRequirementService.ts. */
+  sourceModelNodeId: string | null;
+  sourceDimensions: unknown;
+  sourceExtras: unknown;
 };
 
 async function toDto(row: ProductionRun): Promise<ProductionRunDto> {
@@ -42,6 +46,9 @@ async function toDto(row: ProductionRun): Promise<ProductionRunDto> {
     createdById: row.createdById,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    sourceModelNodeId: row.sourceModelNodeId,
+    sourceDimensions: row.sourceDimensions,
+    sourceExtras: row.sourceExtras,
   };
 }
 
@@ -62,6 +69,10 @@ export type CreateRunInput = {
   plannedQuantity?: number;
   startedAt?: string;
   createdById: string;
+  /** Real, optional Manufacturing-model provenance (Phase 8, 2026-08-17) -- present only when this run was created from a specific selected/measured Manufacturing node. */
+  sourceModelNodeId?: string;
+  sourceDimensions?: unknown;
+  sourceExtras?: unknown;
 };
 
 /**
@@ -85,6 +96,9 @@ export async function createRun(input: CreateRunInput): Promise<ProductionRunDto
     plannedQuantity: input.plannedQuantity ?? null,
     startedAt: input.startedAt ? new Date(input.startedAt) : new Date(),
     createdById: input.createdById,
+    sourceModelNodeId: input.sourceModelNodeId ?? null,
+    sourceDimensions: input.sourceDimensions as Prisma.InputJsonValue | undefined,
+    sourceExtras: input.sourceExtras as Prisma.InputJsonValue | undefined,
   });
   return toDto(row);
 }

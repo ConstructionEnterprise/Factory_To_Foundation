@@ -27,6 +27,7 @@ import { logisticsTruckRoutes } from "./routes/logisticsTrucks";
 import { logisticsDriverRoutes } from "./routes/logisticsDrivers";
 import { logisticsDispatchRoutes } from "./routes/logisticsDispatches";
 import { logisticsMaterialRoutes } from "./routes/logisticsMaterials";
+import { materialInventoryRoutes } from "./routes/materialInventory";
 import { logisticsModuleRoutes } from "./routes/logisticsModules";
 import { mileageRateRoutes } from "./routes/mileageRates";
 import { logisticsKpiRoutes } from "./routes/logisticsKpis";
@@ -177,6 +178,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     logisticsDriverRoutes,
     logisticsDispatchRoutes,
     logisticsMaterialRoutes,
+    materialInventoryRoutes,
     logisticsModuleRoutes,
     mileageRateRoutes,
     logisticsKpiRoutes,
