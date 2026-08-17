@@ -38,6 +38,8 @@ import { flowPointRoutes } from "./routes/flowPoints";
 import { flowConnectionRoutes } from "./routes/flowConnections";
 import { logisticsFlowRoutes } from "./routes/logisticsFlows";
 import { manufacturingModelRoutes } from "./routes/manufacturingModel";
+import { productionRunRoutes } from "./routes/productionRuns";
+import { productionOutputRoutes } from "./routes/productionOutputs";
 import { instructionExecutionRoutes } from "./routes/instructionExecutions";
 import { userPreferenceRoutes } from "./routes/userPreferences";
 import { rbacDirectoryRoutes } from "./routes/rbacDirectory";
@@ -182,6 +184,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     flowPointRoutes,
     flowConnectionRoutes,
     manufacturingModelRoutes,
+    productionRunRoutes,
+    productionOutputRoutes,
     instructionExecutionRoutes,
     userPreferenceRoutes,
     rbacDirectoryRoutes,

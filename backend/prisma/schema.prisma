@@ -97,30 +97,33 @@ model User {
   /// must never carry even a hashed real credential.
   passwordHash String @map("password_hash")
 
-  instructionExecutions      InstructionExecution[]
-  refreshTokens              RefreshToken[]
-  uploadedFiles              ProjectFile[]           @relation("ProjectFileUploadedBy")
-  deletedFiles               ProjectFile[]           @relation("ProjectFileDeletedBy")
-  uploadedLogisticsDocuments LogisticsDocument[]     @relation("LogisticsDocumentUploadedBy")
-  deletedLogisticsDocuments  LogisticsDocument[]     @relation("LogisticsDocumentDeletedBy")
-  logisticsCustodyEvents     LogisticsCustodyEvent[]
-  uploadedComplianceDocuments ComplianceDocument[]   @relation("ComplianceDocumentUploadedBy")
-  deletedComplianceDocuments  ComplianceDocument[]   @relation("ComplianceDocumentDeletedBy")
-  scheduleTaskStatusEvents   ScheduleTaskStatusEvent[]
-  preference                 UserPreference?
-  mileageRateConfigs         MileageRateConfig[]
+  instructionExecutions          InstructionExecution[]
+  refreshTokens                  RefreshToken[]
+  uploadedFiles                  ProjectFile[]                 @relation("ProjectFileUploadedBy")
+  deletedFiles                   ProjectFile[]                 @relation("ProjectFileDeletedBy")
+  uploadedLogisticsDocuments     LogisticsDocument[]           @relation("LogisticsDocumentUploadedBy")
+  deletedLogisticsDocuments      LogisticsDocument[]           @relation("LogisticsDocumentDeletedBy")
+  logisticsCustodyEvents         LogisticsCustodyEvent[]
+  uploadedComplianceDocuments    ComplianceDocument[]          @relation("ComplianceDocumentUploadedBy")
+  deletedComplianceDocuments     ComplianceDocument[]          @relation("ComplianceDocumentDeletedBy")
+  scheduleTaskStatusEvents       ScheduleTaskStatusEvent[]
+  preference                     UserPreference?
+  mileageRateConfigs             MileageRateConfig[]
   taxReportedLogisticsDispatches LogisticsDispatch[]
-  costEstimateScenarios      CostEstimateScenario[]
-  marketCostRecords          MarketCostRecord[]
-  productivityRecords        ProductivityRecord[]
-  costAssemblies             CostAssembly[]
-  projectQuantityTakeoffs    ProjectQuantityTakeoff[]
-  logisticsFlows             LogisticsFlow[]
-  moduleSequenceEvents       ModuleSequenceEvent[]
-  flowPointStatusEvents      FlowPointStatusEvent[]
-  analyticsThresholds        AnalyticsThreshold[]
-  analyticsDashboards        AnalyticsDashboard[]
-  schedules                  Schedule[]
+  costEstimateScenarios          CostEstimateScenario[]
+  marketCostRecords              MarketCostRecord[]
+  productivityRecords            ProductivityRecord[]
+  costAssemblies                 CostAssembly[]
+  projectQuantityTakeoffs        ProjectQuantityTakeoff[]
+  logisticsFlows                 LogisticsFlow[]
+  moduleSequenceEvents           ModuleSequenceEvent[]
+  flowPointStatusEvents          FlowPointStatusEvent[]
+  productionRuns                 ProductionRun[]
+  productionOutputs              ProductionOutput[]
+  productionOutputStatusEvents   ProductionOutputStatusEvent[]
+  analyticsThresholds            AnalyticsThreshold[]
+  analyticsDashboards            AnalyticsDashboard[]
+  schedules                      Schedule[]
 
   @@map("user")
 }
@@ -351,17 +354,18 @@ model ConstructionProject {
   /// projects with no real location source anywhere (honest, not guessed).
   realLocationSource String? @map("real_location_source")
 
-  site                ConstructionSite?
-  treeNodes           ConstructionTreeNode[]
-  files               ProjectFile[]
-  logisticsDispatches LogisticsDispatch[]
+  site                  ConstructionSite?
+  treeNodes             ConstructionTreeNode[]
+  files                 ProjectFile[]
+  logisticsDispatches   LogisticsDispatch[]
   costEstimateScenarios CostEstimateScenario[]
-  logisticsModules    LogisticsModule[]
+  logisticsModules      LogisticsModule[]
   moduleSequenceEntries ModuleSequenceEntry[]
-  genealogyNodes      GenealogyNode[]
-  schedules           Schedule[]
-  quantityTakeoffs    ProjectQuantityTakeoff[]
-  logisticsFlows      LogisticsFlow[]
+  genealogyNodes        GenealogyNode[]
+  schedules             Schedule[]
+  quantityTakeoffs      ProjectQuantityTakeoff[]
+  logisticsFlows        LogisticsFlow[]
+  productionOutputs     ProductionOutput[]
 
   @@map("construction_project")
 }
@@ -410,9 +414,10 @@ model ConstructionTreeNode {
   inspector      String?
   punchListCount String? @map("punch_list_count")
 
-  logisticsModules LogisticsModule[]
+  logisticsModules      LogisticsModule[]
   moduleSequenceEntries ModuleSequenceEntry[]
-  quantityTakeoffs ProjectQuantityTakeoff[]
+  quantityTakeoffs      ProjectQuantityTakeoff[]
+  productionOutputs     ProductionOutput[]
 
   @@map("construction_tree_node")
 }
@@ -513,10 +518,10 @@ model CostEstimateScenario {
   name String
 
   /// Real, entered, never guessed.
-  squareFootage Float @map("square_footage")
+  squareFootage          Float @map("square_footage")
   /// Real, entered (e.g. 14500 = $145.00/SF) -- integer cents, same
   /// pattern as every other money field in this schema.
-  ratePerSquareFootCents Int @map("rate_per_square_foot_cents")
+  ratePerSquareFootCents Int   @map("rate_per_square_foot_cents")
 
   /// Honest absence, never defaulted -- null means no overhead/markup
   /// was entered for this scenario, not zero.
@@ -566,18 +571,18 @@ model MarketCostRecord {
   id String @id @default(cuid())
 
   category CostCategory
-  itemName String @map("item_name")
+  itemName String       @map("item_name")
   /// Real manufacturer/publisher product code, when the source states one
   /// -- null when the observation is a blended/labor rate with no SKU.
-  sku String?
+  sku      String?
 
   /// Free text -- the real unit this price is quoted in varies genuinely
   /// by category (linear_foot, SF, hour, day, EA), same "real variety, no
   /// forced enum" posture as FlowPoint.type.
-  unit String
+  unit          String
   /// Real, entered, never derived -- integer cents, same convention as
   /// every other money field in this schema.
-  unitCostCents Int @map("unit_cost_cents")
+  unitCostCents Int    @map("unit_cost_cents")
 
   /// Real geographic market the price applies to, e.g. "US" or "North
   /// Texas" -- exactly as stated by the source, never inferred.
@@ -622,15 +627,17 @@ model CostAssembly {
   /// "SF" for a wall assembly -- free text, mirrors MarketCostRecord.unit.
   unit String
 
-  description String?
+  description     String?
   /// Real, disclosed assumptions this assembly's quantities depend on
   /// (e.g. an assumed wall height) when no real per-project takeoff
   /// exists yet to supply one -- an honest placeholder, never silently
   /// baked into a component's quantity with no trace.
   assumptionNotes String? @map("assumption_notes")
 
-  components CostAssemblyComponent[]
-  quantityTakeoffs ProjectQuantityTakeoff[]
+  components        CostAssemblyComponent[]
+  quantityTakeoffs  ProjectQuantityTakeoff[]
+  productionRuns    ProductionRun[]
+  productionOutputs ProductionOutput[]
 
   createdById String   @map("created_by_id")
   createdBy   User     @relation(fields: [createdById], references: [id])
@@ -667,7 +674,7 @@ model CostAssemblyComponent {
   /// out from a crew's LF-per-day rate) rather than read directly off a
   /// citation like a building code section. Null for components like the
   /// stud/track/sheathing ones, whose quantity IS the citation itself.
-  productivityRecordId String?              @map("productivity_record_id")
+  productivityRecordId String?             @map("productivity_record_id")
   productivityRecord   ProductivityRecord? @relation(fields: [productivityRecordId], references: [id])
 
   @@unique([assemblyId, marketCostRecordId])
@@ -687,15 +694,15 @@ model CostAssemblyComponent {
 model ProductivityRecord {
   id String @id @default(cuid())
 
-  task String
+  task     String
   /// Real, entered exactly as observed -- never pre-converted.
-  value Float
+  value    Float
   /// Free text, e.g. "linear_foot_per_crew_day" -- mirrors
   /// MarketCostRecord.unit's "real variety, no forced enum" posture.
-  unit String
+  unit     String
   /// Real crew size the rate was observed for, when the source states
   /// one -- null when not stated.
-  crewSize Int? @map("crew_size")
+  crewSize Int?   @map("crew_size")
 
   /// Real, disclosed limitations on using this observation elsewhere
   /// (e.g. a wall-height mismatch against the assembly that consumes it)
@@ -779,6 +786,169 @@ model ProjectQuantityTakeoff {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("project_quantity_takeoff")
+}
+
+// ───────────────────── Manufacturing / Production Output ─────────────────────
+// Phase 9, 2026-08-17 -- the object FF's Manufacturing/Factory/Inventory/
+// Logistics chain was genuinely missing (real audit, not assumed): a
+// canonical representation of "a physical thing Factory has actually
+// produced." Deliberately reuses two things that already exist rather than
+// inventing parallel ones: CostAssembly IS this schema's real SKU/assembly
+// definition (built in Phase 4.4 for cost estimating -- Production Output
+// is simply its second real projection, not a new catalog), and
+// InventoryItem remains the one real shared physical-identity layer every
+// other domain (Asset/GenealogyNode/Vehicle/LogisticsModule/
+// ModuleSequenceEntry/LogisticsMaterial) already anchors on -- a
+// ProductionOutput does NOT become a second inventory identity.
+//
+// Two real objects, not one: a ProductionRun is a real batch/execution
+// event (cell, time window, planned quantity); a ProductionOutput is one
+// real physical serialized unit that run produced. Collapsing these would
+// either lose per-unit serial/QC granularity or force run-level facts
+// (cell, timing) to duplicate across every unit -- same reasoning
+// CostAssembly/CostAssemblyComponent already established for this schema.
+// ProductionOutput deliberately carries NO quantity field of its own --
+// each row IS one physical unit; COUNT(ProductionOutput) against one real
+// ProductionRun is the real actual-produced count, checked against that
+// run's own real plannedQuantity, never a second competing number.
+
+enum ProductionRunStatus {
+  in_progress
+  complete
+}
+
+model ProductionRun {
+  id String @id @default(cuid())
+
+  assemblyId String       @map("assembly_id")
+  assembly   CostAssembly @relation(fields: [assemblyId], references: [id])
+
+  /// Real, free-text -- no real Manufacturing cell/machine model exists
+  /// anywhere in this schema (confirmed by the Phase 9 audit), so this is
+  /// honest metadata (e.g. "Panel Assembly Cell 02"), never a fabricated
+  /// FK to a table that doesn't exist.
+  cellRef String? @map("cell_ref")
+
+  status ProductionRunStatus @default(in_progress)
+
+  /// Real, entered -- what this run was planned to produce. Compared
+  /// against the real COUNT of its own outputs, never assumed equal to it.
+  plannedQuantity Int? @map("planned_quantity")
+
+  startedAt   DateTime  @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  outputs ProductionOutput[]
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("production_run")
+}
+
+enum ProductionOutputStatus {
+  in_production
+  complete
+}
+
+enum QcStatus {
+  pending
+  passed
+  failed
+}
+
+model ProductionOutput {
+  id String @id @default(cuid())
+
+  productionRunId String        @map("production_run_id")
+  productionRun   ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: Cascade)
+
+  /// Denormalized from the real parent run's own assemblyId at create time
+  /// -- kept as its own real FK (not just read through
+  /// productionRun.assembly) so one real output's identity stays resolvable
+  /// on its own, without assuming a run can never span more than one real
+  /// assembly.
+  assemblyId String       @map("assembly_id")
+  assembly   CostAssembly @relation(fields: [assemblyId], references: [id])
+
+  /// Real, caller-supplied, never auto-generated in a way that hides
+  /// meaning (e.g. "CW-WP-001-0024") -- the real physical panel identity.
+  serialNumber String @unique @map("serial_number")
+
+  /// Real link into Inventory's shared identity layer -- the one thing
+  /// this whole phase exists to establish correctly. Required: a real
+  /// ProductionOutput row never exists without a real InventoryItem behind
+  /// it (unlike LogisticsModule/GenealogyNode, which predate this pattern
+  /// and stayed nullable for backward compatibility).
+  inventoryItemId String        @unique @map("inventory_item_id")
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  /// Real, optional, independently set per real output -- a batch run's
+  /// individual units are not assumed to share one destination.
+  destinationProjectId  String?               @map("destination_project_id")
+  destinationProject    ConstructionProject?  @relation(fields: [destinationProjectId], references: [id])
+  destinationTreeNodeId String?               @map("destination_tree_node_id")
+  destinationTreeNode   ConstructionTreeNode? @relation(fields: [destinationTreeNodeId], references: [id])
+
+  /// Real production lifecycle -- kept deliberately separate from
+  /// qcStatus below (not one combined enum): a completed unit can be
+  /// qc-pending, -passed, or -failed independently of its own production
+  /// stage; combining them would force an awkward joint state.
+  status   ProductionOutputStatus @default(in_production)
+  qcStatus QcStatus               @default(pending) @map("qc_status")
+
+  /// Real, set only once production genuinely completes -- null while
+  /// still in_production, never a fabricated "now" at creation time.
+  producedAt DateTime? @map("produced_at")
+
+  statusEvents ProductionOutputStatusEvent[]
+
+  /// Reverse side of LogisticsModule.productionOutputId -- present once a
+  /// real LogisticsModule has taken custody, null while "produced but not
+  /// yet received by Logistics" (a real, honest, disclosed state, not an
+  /// error).
+  logisticsModule LogisticsModule?
+
+  createdById String   @map("created_by_id")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("production_output")
+}
+
+/// Real, immutable status history -- same {fromStatus,toStatus,changedAt}
+/// shape as LogisticsCustodyEvent/ModuleSequenceEvent/FlowPointStatusEvent,
+/// a 5th real candidate consumer of frontend/src/lib/eventTimeline.ts if
+/// ever projected. toQcStatus/fromQcStatus ride along on the same real row
+/// (a QC verdict is a real fact worth timestamping) without changing the
+/// {changedAt,toStatus} shape eventTimeline.ts actually consumes.
+model ProductionOutputStatusEvent {
+  id String @id @default(cuid())
+
+  productionOutputId String           @map("production_output_id")
+  productionOutput   ProductionOutput @relation(fields: [productionOutputId], references: [id], onDelete: Cascade)
+
+  /// Null only for the one real creation event.
+  fromStatus ProductionOutputStatus? @map("from_status")
+  toStatus   ProductionOutputStatus  @map("to_status")
+
+  /// Real, optional -- set when this same real event also recorded a QC
+  /// verdict change; both null when the event is a pure production-status
+  /// transition with no QC change.
+  fromQcStatus QcStatus? @map("from_qc_status")
+  toQcStatus   QcStatus? @map("to_qc_status")
+
+  reason String?
+
+  changedById String   @map("changed_by_id")
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now()) @map("changed_at")
+
+  @@index([productionOutputId])
+  @@map("production_output_status_event")
 }
 
 // ───────────────────── Modular Sequencing ─────────────────────
@@ -971,7 +1141,7 @@ model AnalyticsDashboardWidget {
 
   /// Required (validated at the service layer) when widgetType =
   /// metric_graph, null otherwise.
-  metricKey String? @map("metric_key")
+  metricKey        String? @map("metric_key")
   /// Required (validated at the service layer) when widgetType =
   /// existing_summary -- one of the 13 real Phase 1 widget keys.
   summaryWidgetKey String? @map("summary_widget_key")
@@ -1024,7 +1194,7 @@ model GenealogyNode {
   /// "Project" tier is a bare title string, not a real cross-reference),
   /// so every existing row stays honestly null until a real assignment is
   /// made through whatever real write path eventually sets it.
-  constructionProjectId String?             @map("construction_project_id")
+  constructionProjectId String?              @map("construction_project_id")
   constructionProject   ConstructionProject? @relation(fields: [constructionProjectId], references: [id])
 
   @@map("genealogy_node")
@@ -1120,7 +1290,7 @@ model ScheduleStage {
   scheduleId String   @map("schedule_id")
   schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
-  title String
+  title    String
   /// Real ordering within its schedule -- didn't exist as a stored
   /// column before (the old 5-stage fixture ordered by array position/x
   /// coordinate, neither of which was real stored data).
@@ -1220,7 +1390,7 @@ model ScheduleTask {
   /// Optional — a task can exist before/without being filed under a real
   /// schedule-scoped stage (mirrors ownedByModuleId's own nullable-FK
   /// convention: null is a real state, not a placeholder).
-  stageId String?       @map("stage_id")
+  stageId String?        @map("stage_id")
   stage   ScheduleStage? @relation(fields: [stageId], references: [id])
 
   /// Reuses the real Module table — same join key `scheduleData.ts`'s
@@ -1238,8 +1408,8 @@ model ScheduleTask {
 
   status ScheduleTaskStatus @default(planned)
 
-  predecessorLinks ScheduleTaskDependency[] @relation("DependencySuccessor")
-  successorLinks   ScheduleTaskDependency[] @relation("DependencyPredecessor")
+  predecessorLinks ScheduleTaskDependency[]  @relation("DependencySuccessor")
+  successorLinks   ScheduleTaskDependency[]  @relation("DependencyPredecessor")
   statusEvents     ScheduleTaskStatusEvent[]
 
   @@index([scheduleId])
@@ -1383,7 +1553,7 @@ model LogisticsModule {
   /// both nullable: a module can exist staged in the yard, unassigned,
   /// without either. See plan doc §0.3 for why this is a real FK now
   /// rather than derived from dispatch history.
-  constructionProjectId String?             @map("construction_project_id")
+  constructionProjectId String?              @map("construction_project_id")
   constructionProject   ConstructionProject? @relation(fields: [constructionProjectId], references: [id])
 
   /// Service-layer-asserted to reference a real objectType="Building"
@@ -1391,6 +1561,16 @@ model LogisticsModule {
   /// posture as ProjectFile.treeNodeId's own real-but-unenforced link.
   buildingTreeNodeId String?               @map("building_tree_node_id")
   buildingTreeNode   ConstructionTreeNode? @relation(fields: [buildingTreeNodeId], references: [id])
+
+  /// Real, optional, additive (Phase 9, 2026-08-17) -- when a module's
+  /// real physical origin is a real ProductionOutput, this points at it,
+  /// and this module's own inventoryItemId is required to equal that
+  /// output's inventoryItemId (asserted in the service layer, not just by
+  /// convention) -- the same shared identity, never a second one. Null
+  /// for every module with no known/modeled production origin -- the
+  /// existing real create path stays completely unchanged.
+  productionOutputId String?           @unique @map("production_output_id")
+  productionOutput   ProductionOutput? @relation(fields: [productionOutputId], references: [id])
 
   @@map("logistics_module")
 }
@@ -1479,10 +1659,10 @@ model LogisticsDispatch {
   /// route-geometry-based *estimation* (explicitly disclosed as an
   /// estimate, never conflated with an odometer-derived real figure) is a
   /// disclosed future addition, not built this phase.
-  odometerStart Float? @map("odometer_start")
-  odometerEnd   Float? @map("odometer_end")
+  odometerStart   Float?  @map("odometer_start")
+  odometerEnd     Float?  @map("odometer_end")
   /// Derived, never independently entered — see the note above.
-  miles Float?
+  miles           Float?
   /// Required by IRS Publication 463's per-trip recordkeeping standard
   /// alongside date/destination/mileage. Nullable at the schema level
   /// (matching this model's existing honest-absence convention for
@@ -1663,7 +1843,7 @@ model ComplianceDocument {
   /// Real, closed vocabulary in code (OSHA / Certification / License), not
   /// a DB enum — same "closed vocab lives in the service layer" convention
   /// as ProjectFileCategory/LogisticsDocumentCategory.
-  category String @map("category")
+  category    String  @map("category")
   /// Free text — who/what this document is about (an employee name, an
   /// equipment id, a site) — deliberately not a real FK to any employee/
   /// equipment table, since neither exists yet (see gap B7).
@@ -1761,16 +1941,16 @@ model NetworkVlan {
 }
 
 model NetworkDevice {
-  id    String            @id @default(cuid())
+  id        String            @id @default(cuid())
   /// Real label from the diagram, e.g. "PLC-01", "Core L3 Switch".
-  name  String
-  role  NetworkDeviceRole
+  name      String
+  role      NetworkDeviceRole
   /// Real hardware model where the diagram shows one (e.g. "3560-24PS",
   /// "2960-X-24PS", "5506-X") — null for devices with no model shown.
-  model String?
+  model     String?
   /// Real IP from the diagram — null for devices with none shown (e.g. the
   /// Industrial AP).
-  ipAddress String? @map("ip_address")
+  ipAddress String?           @map("ip_address")
 
   vlanId String?      @map("vlan_id")
   vlan   NetworkVlan? @relation(fields: [vlanId], references: [id])
@@ -1873,6 +2053,10 @@ enum InventoryItemKind {
   /// Inventory capability to Asset/Genealogy, not just a Logistics-owned
   /// list surfaced elsewhere.
   material
+  /// Phase 9, 2026-08-17. The real physical-result identity a
+  /// ProductionOutput row anchors on -- see that model's own header
+  /// comment for the full reasoning.
+  production_output
 }
 
 model InventoryItem {
@@ -1885,12 +2069,13 @@ model InventoryItem {
   /// no real location concept.
   location String?
 
-  asset          Asset?
-  genealogyNode  GenealogyNode?
-  vehicle        Vehicle?
-  logisticsModule LogisticsModule?
+  asset               Asset?
+  genealogyNode       GenealogyNode?
+  vehicle             Vehicle?
+  logisticsModule     LogisticsModule?
   moduleSequenceEntry ModuleSequenceEntry?
-  material       LogisticsMaterial?
+  material            LogisticsMaterial?
+  productionOutput    ProductionOutput?
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1996,12 +2181,12 @@ model SyntheticDataProvenance {
   contentStatus      SyntheticDataContentStatus? @map("content_status")
   /// When the content (not necessarily the record itself) was produced --
   /// distinct from generatedAt, which is about the record.
-  contentGeneratedAt DateTime?                    @map("content_generated_at")
+  contentGeneratedAt DateTime?                   @map("content_generated_at")
   /// Free-text description of what produced the content (e.g. "CE Forge
   /// reconstruction pass (backend/scripts/reconstruct-construction-content.ts)")
   /// -- not an enum, since this is meant to be human-readable provenance,
   /// not a closed vocabulary.
-  contentGenerator   String?                      @map("content_generator")
+  contentGenerator   String?                     @map("content_generator")
 
   /// A named body of synthetic data this record belongs to (e.g. one pilot
   /// customer's dataset) -- distinct from runId: one dataset can be built

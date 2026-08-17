@@ -8,6 +8,7 @@ const createBodySchema = z.object({
   name: z.string().trim().min(1),
   location: z.string().trim().min(1).optional(),
   dispatchId: z.string().min(1).optional(),
+  productionOutputId: z.string().min(1).optional(),
 });
 
 /** Same real gap/fix as logisticsMaterials.ts — Phase 4 shipped no create route for this model either. */
