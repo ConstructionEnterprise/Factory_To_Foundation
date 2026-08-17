@@ -118,3 +118,16 @@ export function findBlockingEntries(blockedEntryId: string) {
     include: { blockingEntry: { select: { id: true, status: true } } },
   });
 }
+
+/** Every real dependency edge between two entries that both belong to one project -- the real graph shape transitive blockage propagation walks (Phase 7). */
+export function findDependencyEdgesForProject(
+  projectId: string
+): Promise<{ blockingEntryId: string; blockedEntryId: string }[]> {
+  return prisma.moduleSequenceDependency.findMany({
+    where: {
+      blockingEntry: { constructionProjectId: projectId },
+      blockedEntry: { constructionProjectId: projectId },
+    },
+    select: { blockingEntryId: true, blockedEntryId: true },
+  });
+}

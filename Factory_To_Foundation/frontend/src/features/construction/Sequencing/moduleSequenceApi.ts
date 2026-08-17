@@ -32,6 +32,14 @@ export type EligibleModule = {
   buildingTitle: string | null;
 };
 
+/** Real transitive-blockage overlay (Phase 7) -- see moduleSequenceStatusService.ts. */
+export type SequenceEffectiveState = "ready" | "blocked";
+
+export type ModuleSequenceGraphEntry = ModuleSequenceEntry & {
+  effectiveState: SequenceEffectiveState;
+  blockedByChain: string[];
+};
+
 export type ModuleSequenceEvent = {
   id: string;
   sequenceEntryId: string;
@@ -60,6 +68,11 @@ export function fetchModuleSequences(projectId: string): Promise<ModuleSequenceE
 
 export function fetchEligibleModules(projectId: string): Promise<EligibleModule[]> {
   return requestJson(`/construction-projects/${projectId}/eligible-sequence-modules`);
+}
+
+/** Real live-monitor payload (Phase 7) -- entries plus the pure transitive-blockage overlay. Construction's own Sequencing viewport uses this; Scheduling/Analytics' read-only projections keep using the plain fetchModuleSequences() above -- they don't need monitor semantics. */
+export function fetchModuleSequenceGraph(projectId: string): Promise<{ entries: ModuleSequenceGraphEntry[] }> {
+  return requestJson(`/construction-projects/${projectId}/module-sequences/graph`);
 }
 
 export function createModuleSequenceEntry(

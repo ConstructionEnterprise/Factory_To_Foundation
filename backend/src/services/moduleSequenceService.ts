@@ -2,6 +2,7 @@ import type { ModuleSequenceEntry, ModuleSequenceStatus } from "@prisma/client";
 
 import { NotFoundError, ValidationError } from "../lib/httpErrors";
 import * as repo from "../repositories/moduleSequenceRepository";
+import { computeEffectiveStates, type SequenceEffectiveState } from "./moduleSequenceStatusService";
 
 export type ModuleSequenceEntryDto = {
   id: string;
@@ -46,6 +47,40 @@ function toDto(row: EntryRow): ModuleSequenceEntryDto {
 export async function listEntriesForProject(projectId: string): Promise<ModuleSequenceEntryDto[]> {
   const rows = await repo.findEntriesByProject(projectId);
   return rows.map(toDto);
+}
+
+export type ModuleSequenceGraphEntryDto = ModuleSequenceEntryDto & {
+  effectiveState: SequenceEffectiveState;
+  blockedByChain: string[];
+};
+
+export type ModuleSequenceGraphDto = {
+  entries: ModuleSequenceGraphEntryDto[];
+};
+
+/**
+ * The real live-monitor payload (Phase 7, 2026-08-17) -- what the
+ * viewport's Run/Step polls. Sequencing needs no derived-sync step
+ * (unlike Logistics Flow's Vehicle/Dispatch-linked points, no
+ * ModuleSequenceEntry field mirrors another domain's live status); this
+ * is purely the real current entries plus the pure, unpersisted
+ * transitive-blockage overlay across the real dependency graph.
+ */
+export async function getSequenceGraph(projectId: string): Promise<ModuleSequenceGraphDto> {
+  const [rows, edges] = await Promise.all([
+    repo.findEntriesByProject(projectId),
+    repo.findDependencyEdgesForProject(projectId),
+  ]);
+  const effective = computeEffectiveStates(rows, edges);
+  const effectiveById = new Map(effective.map((e) => [e.id, e]));
+
+  return {
+    entries: rows.map((row) => {
+      const dto = toDto(row);
+      const eff = effectiveById.get(row.id)!;
+      return { ...dto, effectiveState: eff.effectiveState, blockedByChain: eff.blockedByChain };
+    }),
+  };
 }
 
 export type EligibleModuleDto = {

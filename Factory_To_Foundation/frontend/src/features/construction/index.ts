@@ -8,4 +8,4 @@ export type { ConstructionDispatchSummary } from "./DataMap";
 export { CostEstimatingPanel, CostEstimatingInspector } from "./CostEstimating";
 export type { CostEstimateScenario } from "./CostEstimating";
 export { SequencingPanel, SequencingInspector, Timeliner } from "./Sequencing";
-export type { ModuleSequenceEntry, ModuleSequenceStatus } from "./Sequencing";
+export type { ModuleSequenceEntry, ModuleSequenceStatus, ModuleSequenceGraphEntry } from "./Sequencing";

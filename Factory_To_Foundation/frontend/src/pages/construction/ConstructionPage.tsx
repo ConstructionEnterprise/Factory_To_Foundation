@@ -19,7 +19,7 @@ import {
   Timeliner,
   type ConstructionDispatchSummary,
   type CostEstimateScenario,
-  type ModuleSequenceEntry,
+  type ModuleSequenceGraphEntry,
 } from "@/features/construction";
 import { useDocumentPreview } from "@/features/construction/constructionDocumentPreviewStore";
 
@@ -72,8 +72,8 @@ export default function ConstructionPage() {
   const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
 
   const [sequencingProjectId, setSequencingProjectId] = useState<string | null>(searchParams.get("project"));
-  const [sequenceEntries, setSequenceEntries] = useState<ModuleSequenceEntry[]>([]);
-  const [selectedSequenceEntry, setSelectedSequenceEntry] = useState<ModuleSequenceEntry | null>(null);
+  const [sequenceEntries, setSequenceEntries] = useState<ModuleSequenceGraphEntry[]>([]);
+  const [selectedSequenceEntry, setSelectedSequenceEntry] = useState<ModuleSequenceGraphEntry | null>(null);
   // Bumped after a real status/position/dependency change so the Panel's
   // own list refetches without the Inspector owning that read path itself.
   const [sequenceRefreshKey, setSequenceRefreshKey] = useState(0);

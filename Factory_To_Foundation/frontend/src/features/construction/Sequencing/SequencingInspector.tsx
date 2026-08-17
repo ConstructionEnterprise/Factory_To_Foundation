@@ -7,8 +7,8 @@ import {
   addModuleSequenceDependency,
   fetchModuleSequenceEvents,
   transitionModuleSequenceStatus,
-  type ModuleSequenceEntry,
   type ModuleSequenceEvent,
+  type ModuleSequenceGraphEntry,
   type ModuleSequenceStatus,
 } from "./moduleSequenceApi";
 
@@ -22,8 +22,8 @@ const VALID_TRANSITIONS: Record<ModuleSequenceStatus, ModuleSequenceStatus[]> = 
 };
 
 type SequencingInspectorProps = {
-  entry: ModuleSequenceEntry | null;
-  otherEntries: ModuleSequenceEntry[];
+  entry: ModuleSequenceGraphEntry | null;
+  otherEntries: ModuleSequenceGraphEntry[];
   onChanged: () => void;
 };
 
@@ -90,7 +90,10 @@ export default function SequencingInspector({ entry, otherEntries, onChanged }: 
         </h2>
         {entry && (
           <div className="mt-1">
-            <StatusBadge label={entry.status.replace(/_/g, " ")} tone={STATUS_TONE[entry.status]} />
+            <StatusBadge
+              label={entry.status.replace(/_/g, " ")}
+              tone={entry.effectiveState === "blocked" ? "critical" : STATUS_TONE[entry.status]}
+            />
           </div>
         )}
       </div>
@@ -100,11 +103,26 @@ export default function SequencingInspector({ entry, otherEntries, onChanged }: 
           <div className="mt-5 space-y-0.5">
             <DetailRow label="Building" value={entry.buildingTitle} />
             <DetailRow label="Sequence Position" value={entry.sequencePosition !== null ? String(entry.sequencePosition) : "Unset"} />
-            <DetailRow label="Blocked By" value={entry.blockedByCount > 0 ? `${entry.blockedByCount} real entr${entry.blockedByCount === 1 ? "y" : "ies"}` : "None"} />
+            <DetailRow label="Blocked By (direct)" value={entry.blockedByCount > 0 ? `${entry.blockedByCount} real entr${entry.blockedByCount === 1 ? "y" : "ies"}` : "None"} />
             <DetailRow label="Source Dispatch" value={entry.sourceDispatchId ?? "--"} />
             <DetailRow label="Notes" value={entry.notes ?? "--"} />
             <DetailRow label="Created" value={new Date(entry.createdAt).toLocaleString()} />
           </div>
+
+          {entry.effectiveState === "blocked" && (
+            <div className="mt-5 rounded-lg p-3" style={{ border: "1px solid var(--ff-status-critical)" }}>
+              <h3 className="text-xs font-semibold uppercase" style={{ color: "var(--ff-status-critical)" }}>Live Status -- Blocked</h3>
+              <p className="mt-1 text-xs" style={{ color: "var(--ff-text-secondary)" }}>
+                Waiting on {entry.blockedByChain.length} real upstream entr{entry.blockedByChain.length === 1 ? "y" : "ies"} to reach complete, transitively:
+              </p>
+              <ul className="mt-1 list-disc pl-4 text-xs" style={{ color: "var(--ff-text-secondary)" }}>
+                {entry.blockedByChain.map((id) => {
+                  const blocker = otherEntries.find((e) => e.id === id);
+                  return <li key={id}>{blocker ? `${blocker.itemTitle} (${blocker.status.replace(/_/g, " ")})` : id}</li>;
+                })}
+              </ul>
+            </div>
+          )}
 
           <div className="mt-5">
             <h3 className="text-xs font-semibold uppercase" style={{ color: "var(--ff-text-muted)" }}>Advance Status</h3>
@@ -114,7 +132,12 @@ export default function SequencingInspector({ entry, otherEntries, onChanged }: 
                 <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>This entry is complete -- no further real transitions.</p>
               )}
               {nextStatuses.map((s) => (
-                <ToolbarButton key={s} onClick={() => handleAdvance(s)} disabled={transitioning}>
+                <ToolbarButton
+                  key={s}
+                  onClick={() => handleAdvance(s)}
+                  disabled={transitioning || entry.effectiveState === "blocked"}
+                  title={entry.effectiveState === "blocked" ? "Blocked by a real, unresolved upstream entry -- see Live Status above." : undefined}
+                >
                   {transitioning ? "Updating…" : `→ ${s.replace(/_/g, " ")}`}
                 </ToolbarButton>
               ))}

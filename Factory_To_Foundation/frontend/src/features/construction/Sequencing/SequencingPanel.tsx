@@ -1,16 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PanelCard, StatusBadge, ToolbarButton, ToolbarSelect, type StatusTone } from "@/framework/ui";
 
 import {
   createModuleSequenceEntry,
   fetchEligibleModules,
-  fetchModuleSequences,
+  fetchModuleSequenceGraph,
   updateModuleSequencePosition,
   type EligibleModule,
-  type ModuleSequenceEntry,
+  type ModuleSequenceGraphEntry,
   type ModuleSequenceStatus,
 } from "./moduleSequenceApi";
+
+const MONITOR_POLL_MS = 8000;
 
 export const STATUS_TONE: Record<ModuleSequenceStatus, StatusTone> = {
   pending: "neutral",
@@ -24,15 +26,15 @@ export const STATUS_TONE: Record<ModuleSequenceStatus, StatusTone> = {
 type SequencingPanelProps = {
   projectId: string | null;
   selectedEntryId: string | null;
-  onSelectEntry: (entry: ModuleSequenceEntry) => void;
+  onSelectEntry: (entry: ModuleSequenceGraphEntry) => void;
   /** Bumped by the Inspector after a real status/dependency change, so this panel refetches without owning that write path itself. */
   refreshKey: number;
   /** Reports the real, freshly-loaded entry list up so the parent can hand it to the Timeliner/Inspector without a second fetch. */
-  onEntriesLoaded: (entries: ModuleSequenceEntry[]) => void;
+  onEntriesLoaded: (entries: ModuleSequenceGraphEntry[]) => void;
 };
 
-function groupByBuilding(entries: ModuleSequenceEntry[]): Map<string, ModuleSequenceEntry[]> {
-  const groups = new Map<string, ModuleSequenceEntry[]>();
+function groupByBuilding(entries: ModuleSequenceGraphEntry[]): Map<string, ModuleSequenceGraphEntry[]> {
+  const groups = new Map<string, ModuleSequenceGraphEntry[]>();
   for (const entry of entries) {
     const list = groups.get(entry.buildingTitle) ?? [];
     list.push(entry);
@@ -51,7 +53,7 @@ function groupByBuilding(entries: ModuleSequenceEntry[]): Map<string, ModuleSequ
  * real, delivered, not-yet-sequenced LogisticsModule rows, never a typed id.
  */
 export default function SequencingPanel({ projectId, selectedEntryId, onSelectEntry, refreshKey, onEntriesLoaded }: SequencingPanelProps) {
-  const [entries, setEntries] = useState<ModuleSequenceEntry[]>([]);
+  const [entries, setEntries] = useState<ModuleSequenceGraphEntry[]>([]);
   const [eligible, setEligible] = useState<EligibleModule[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,17 +67,53 @@ export default function SequencingPanel({ projectId, selectedEntryId, onSelectEn
     }
     setLoading(true);
     setError(null);
-    Promise.all([fetchModuleSequences(projectId), fetchEligibleModules(projectId)])
-      .then(([entryRows, eligibleRows]) => {
-        setEntries(entryRows);
+    Promise.all([fetchModuleSequenceGraph(projectId), fetchEligibleModules(projectId)])
+      .then(([graph, eligibleRows]) => {
+        setEntries(graph.entries);
         setEligible(eligibleRows);
-        onEntriesLoaded(entryRows);
+        onEntriesLoaded(graph.entries);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
   };
 
   useEffect(load, [projectId, refreshKey]);
+
+  // Real LIVE MONITOR mode (Phase 7, 2026-08-17) -- same posture as
+  // logisticsFlowStore.ts's startMonitor(): "Run" only starts polling the
+  // real backend graph endpoint (real entries + the pure, unpersisted
+  // transitive-blockage overlay computed from them). It never advances
+  // anything client-side. "Step" is one manual poll without starting the
+  // interval; "Reset" stops any running poll and re-fetches current
+  // authoritative state -- it never touches a real ModuleSequenceEvent.
+  const [monitorRunning, setMonitorRunning] = useState(false);
+  const monitorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (monitorInterval.current) clearInterval(monitorInterval.current);
+    };
+  }, []);
+
+  const startMonitor = () => {
+    if (!projectId || monitorInterval.current) return;
+    setMonitorRunning(true);
+    load();
+    monitorInterval.current = setInterval(load, MONITOR_POLL_MS);
+  };
+
+  const pauseMonitor = () => {
+    if (monitorInterval.current) {
+      clearInterval(monitorInterval.current);
+      monitorInterval.current = null;
+    }
+    setMonitorRunning(false);
+  };
+
+  const resetMonitor = () => {
+    pauseMonitor();
+    load();
+  };
 
   const [showAdd, setShowAdd] = useState(false);
   const [pickedInventoryItemId, setPickedInventoryItemId] = useState("");
@@ -91,7 +129,8 @@ export default function SequencingPanel({ projectId, selectedEntryId, onSelectEn
       setPickedInventoryItemId("");
       setShowAdd(false);
       load();
-      onSelectEntry(created);
+      // A freshly created entry has no real dependencies yet -- honestly ready, not blocked.
+      onSelectEntry({ ...created, effectiveState: "ready", blockedByChain: [] });
     } catch (err) {
       setAddError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -99,7 +138,7 @@ export default function SequencingPanel({ projectId, selectedEntryId, onSelectEn
     }
   };
 
-  const handleReorder = async (entry: ModuleSequenceEntry, position: number | null) => {
+  const handleReorder = async (entry: ModuleSequenceGraphEntry, position: number | null) => {
     await updateModuleSequencePosition(entry.id, position);
     load();
   };
@@ -117,6 +156,21 @@ export default function SequencingPanel({ projectId, selectedEntryId, onSelectEn
               Real Entries
             </h3>
             <ToolbarButton onClick={() => setShowAdd((v) => !v)}>{showAdd ? "Cancel" : "+ Add Module"}</ToolbarButton>
+          </div>
+
+          {/* Real LIVE MONITOR toolbar (Phase 7) -- Run starts polling the real backend graph endpoint; it never advances anything client-side. Same posture as Logistics Flow's Live Monitor. */}
+          <div className="flex items-center gap-2">
+            {!monitorRunning && (
+              <ToolbarButton onClick={startMonitor} disabled={!projectId}>▶ Run</ToolbarButton>
+            )}
+            {monitorRunning && <ToolbarButton onClick={pauseMonitor}>⏸ Pause</ToolbarButton>}
+            <ToolbarButton onClick={load} disabled={!projectId}>Step</ToolbarButton>
+            <ToolbarButton onClick={resetMonitor} disabled={!projectId}>Reset</ToolbarButton>
+            {monitorRunning && (
+              <span className="text-xs font-semibold" style={{ color: "var(--ff-status-positive)" }}>
+                ● LIVE
+              </span>
+            )}
           </div>
 
           {showAdd && (
@@ -163,8 +217,10 @@ export default function SequencingPanel({ projectId, selectedEntryId, onSelectEn
                 >
                   <div>
                     <div className="text-sm font-semibold" style={{ color: "var(--ff-text-primary)" }}>{entry.itemTitle}</div>
-                    <div className="text-xs" style={{ color: "var(--ff-text-muted)" }}>
-                      {entry.blockedByCount > 0 ? `Blocked by ${entry.blockedByCount} entr${entry.blockedByCount === 1 ? "y" : "ies"}` : "No blockers"}
+                    <div className="text-xs" style={{ color: entry.effectiveState === "blocked" ? "var(--ff-status-critical)" : "var(--ff-text-muted)" }}>
+                      {entry.effectiveState === "blocked"
+                        ? `Blocked -- waiting on ${entry.blockedByChain.length} real upstream entr${entry.blockedByChain.length === 1 ? "y" : "ies"} to complete`
+                        : "No real blockers"}
                     </div>
                   </div>
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -180,7 +236,10 @@ export default function SequencingPanel({ projectId, selectedEntryId, onSelectEn
                         if (next !== entry.sequencePosition) handleReorder(entry, next);
                       }}
                     />
-                    <StatusBadge label={entry.status.replace(/_/g, " ")} tone={STATUS_TONE[entry.status]} />
+                    <StatusBadge
+                      label={entry.status.replace(/_/g, " ")}
+                      tone={entry.effectiveState === "blocked" ? "critical" : STATUS_TONE[entry.status]}
+                    />
                   </div>
                 </div>
               ))}
