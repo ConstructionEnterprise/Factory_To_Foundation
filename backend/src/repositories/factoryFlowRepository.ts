@@ -52,7 +52,18 @@ export function findAllCompletedOutputsForUnitLifecycle() {
       inventoryItem: {
         include: {
           logisticsModule: { include: { dispatch: true } },
-          moduleSequenceEntry: true,
+          moduleSequenceEntry: {
+            include: {
+              // Real blocking-dependency read (reuses the same real
+              // ModuleSequenceDependency graph moduleSequenceStatusService.ts's
+              // computeEffectiveStates() walks) -- only the direct blocker's
+              // own status/title is needed here, not the full transitive
+              // chain that live-monitor feature computes.
+              blockedDependencies: {
+                include: { blockingEntry: { include: { inventoryItem: { select: { title: true } } } } },
+              },
+            },
+          },
         },
       },
     },

@@ -12,10 +12,13 @@ import type { ModuleSequenceStatus } from "@/features/construction/Sequencing/mo
 export type UnitLifecycleRow = {
   productionOutputId: string;
   serialNumber: string;
+  qcStatus: "pending" | "passed" | "failed";
   logisticsModuleId: string | null;
   dispatchStatus: string | null;
   sequenceEntryId: string | null;
   sequenceStatus: ModuleSequenceStatus | null;
+  sequenceBlocked: boolean;
+  blockedByLabel: string | null;
   endToEndComplete: boolean;
 };
 

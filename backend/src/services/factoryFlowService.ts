@@ -225,16 +225,25 @@ export async function getFactoryFlow(productionRunId: string): Promise<FactoryFl
 export type UnitLifecycleRowDto = {
   productionOutputId: string;
   serialNumber: string;
+  qcStatus: "pending" | "passed" | "failed";
   logisticsModuleId: string | null;
   dispatchStatus: string | null;
   sequenceEntryId: string | null;
   sequenceStatus: ModuleSequenceStatus | null;
+  /** Real, direct-only (not transitive) blocker check -- same "blocked" fact moduleSequenceService.transitionStatus() itself enforces before letting an entry leave `pending`. Only meaningful while sequenceStatus === "pending"; an entry that already advanced past pending is never re-blocked by a later predecessor regression (transitionStatus() never re-checks). */
+  sequenceBlocked: boolean;
+  /** Real title of the one real incomplete blocking entry's InventoryItem, e.g. "Module CWF-D-301 (Cedarwood, Building D)" -- null unless sequenceBlocked is true. Never a synthesized/shortened label. */
+  blockedByLabel: string | null;
   endToEndComplete: boolean;
 };
 
 /**
- * Real End-to-End Unit Lifecycle report (Reports rebuild, 2026-08-18) --
- * the same real Factory -> Logistics -> Transportation -> Modular
+ * Real End-to-End Unit Lifecycle report (Reports rebuild, 2026-08-18;
+ * extended same day after a real investigation -- see
+ * docs/decisions/2026-08-18-reports-domain-audit-and-taxonomy.md and this
+ * session's own findings -- distinguishing "QC failed" and "blocked" from
+ * plain "not started" honestly, rather than collapsing all three into one
+ * dash). The same real Factory -> Logistics -> Transportation -> Modular
  * Sequence chain getFactoryFlow() reads per-run, applied unscoped across
  * every real completed ProductionOutput. Every row's factory leg is
  * already "complete" by construction (repo.findAllCompletedOutputsForUnitLifecycle()
@@ -251,13 +260,22 @@ export async function getUnitLifecycleReport(): Promise<UnitLifecycleRowDto[]> {
     const entry = o.inventoryItem.moduleSequenceEntry;
     const dispatchStatus = module?.dispatch?.status ?? null;
     const sequenceStatus = entry?.status ?? null;
+
+    const incompleteBlocker =
+      entry?.status === "pending"
+        ? entry.blockedDependencies.find((d) => d.blockingEntry.status !== "complete")
+        : undefined;
+
     return {
       productionOutputId: o.id,
       serialNumber: o.serialNumber,
+      qcStatus: o.qcStatus,
       logisticsModuleId: module?.id ?? null,
       dispatchStatus,
       sequenceEntryId: entry?.id ?? null,
       sequenceStatus,
+      sequenceBlocked: !!incompleteBlocker,
+      blockedByLabel: incompleteBlocker?.blockingEntry.inventoryItem.title ?? null,
       endToEndComplete: dispatchStatus === "delivered" && sequenceStatus === "complete",
     };
   });
