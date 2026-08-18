@@ -23,25 +23,30 @@ BUILD → FREEZE → DOCUMENT → SNAPSHOT → AWS EXPORT → GCS MIRROR → COL
 
 - **Phase 1 (reconnaissance): CLOSED.** All four repos inspected with real evidence, cross-repo topology mapped and corrected (see the architecture-correction note above), AWS resources inventoried read-only, GCS confirmed nonexistent.
 - **Phase 2 (preservation): in progress.** Done: all four repos committed and pushed to GitHub; local git-bundle snapshots (verified, checksummed); logical database export (restore-tested, verified, zero data-integrity defects); business-archive documents copied and verified into a private location (originals untouched); real cold-start deployment procedure written (`15_DEPLOYMENT.md`).
-- **Not yet done, deliberately**: GCP/GCS project creation (requires explicit human-owner authorization — a new account), native RDS snapshot (blocked on a real IAM gap, exact policy proposed in `20_NEXT_ACTIONS.md`), S3 object-level export (same IAM gap), a third-party Cold Start Test.
+- **Not yet done, deliberately**: GCP/GCS project creation (a real hard boundary, not just a permission gate — creating Google accounts/authenticating new identities is on the AI session's own prohibited-actions list; the human owner must create the account/project and either authenticate `gcloud` interactively or hand over a service-account key before any GCS step can proceed), native RDS snapshot (blocked on a real IAM gap, exact policy proposed in `20_NEXT_ACTIONS.md`), S3 object-level export (same IAM gap), a third-party Cold Start Test.
 
 ## Canonical documents
 
+Two distinct statuses are used deliberately, per explicit instruction — do not conflate them:
+
+- **VERIFIED ARTIFACT** — this document's own content is the real, evidence-based record. Trust what it says.
+- **TEMPLATE / NOT YET CONSOLIDATED** — this specific file is still the original placeholder. The real underlying information may already exist (cited below, per file), but has not been written into *this* document. Do not infer completeness from this package's file listing alone — check the cited real location instead.
+
 | File | Role | Status |
 |---|---|---|
-| `01_CURRENT_STATE.md` | Forensic repository reality | **Verified** — evidence-based, real commands/paths cited throughout |
-| `02_ARCHITECTURE.md` | System boundaries and data flow | **Verified** — real ports/layering/CE_Forge ingestion chain traced |
-| `03_DATABASE_SCHEMA.md` | Persistent state and restoration | Draft — schema itself is real (`backend/prisma/schema.prisma`, 38 migrations, already in the git bundle); this document doesn't yet summarize it separately |
-| `04_API_REFERENCE.md` | Service contract | Draft — not yet written; 43 real route files exist and are catalogued by name in `01_CURRENT_STATE.md` only |
-| `05_FRONTEND_MAP.md` | UI and route reconstruction | Draft — not yet written |
-| `06_CE_FORGE_PIPELINE.md` | Generator and ingestion pipeline | Draft — real content exists in `CE_Forge/CE_RECOVERY/01_CURRENT_STATE.md` and `02_ARCHITECTURE.md`'s ingestion-chain section instead; not yet consolidated here |
-| `07_SYNTHETIC_DATA_CATALOG.md` | Reproducible representative data | Draft — not yet written |
-| `15_DEPLOYMENT.md` | Rebuild and deployment path | **Verified** — real 20-step cold-start procedure, LOCAL/AWS/OPTIONAL/UNAVAILABLE tagged throughout |
-| `16_AWS_INFRASTRUCTURE.md` | Current AWS environment | **Verified** — real, read-only resource inventory with LIVE/REQUIRED/OPTIONAL/UNKNOWN classification |
-| `17_GCS_RECOVERY.md` | Recovery archive and retrieval | **Verified as "nothing exists yet"** — real check performed, proposed structure only |
-| `18_ENVIRONMENT_VARIABLES.md` | Redacted secrets and configuration inventory | Draft — real variable names are scattered correctly across `01_CURRENT_STATE.md` and `15_DEPLOYMENT.md`; not yet consolidated into one inventory with owner/rotation-method per variable |
-| `19_KNOWN_ISSUES.md` | Recovery-impacting defects | **Verified** — 2 real entries, one still disputed pending the human owner's own repro |
-| `20_NEXT_ACTIONS.md` | Concrete remaining work | **Verified, actively maintained** — real punch list, updated each session |
+| `01_CURRENT_STATE.md` | Forensic repository reality | **VERIFIED ARTIFACT** — evidence-based, real commands/paths cited throughout |
+| `02_ARCHITECTURE.md` | System boundaries and data flow | **VERIFIED ARTIFACT** — real ports/layering/CE_Forge ingestion chain traced |
+| `03_DATABASE_SCHEMA.md` | Persistent state and restoration | **TEMPLATE / NOT YET CONSOLIDATED** — real schema is `backend/prisma/schema.prisma` (38 migrations, already in the git bundle) and the restore-tested export in `AI_Dispatch/backups/FF-RECOVERY-v1.0/databases/`; this file itself has not been written |
+| `04_API_REFERENCE.md` | Service contract | **TEMPLATE / NOT YET CONSOLIDATED** — 43 real route files exist at `backend/src/routes/`, named (not documented) in `01_CURRENT_STATE.md` only |
+| `05_FRONTEND_MAP.md` | UI and route reconstruction | **TEMPLATE / NOT YET CONSOLIDATED** — no real content gathered anywhere yet |
+| `06_CE_FORGE_PIPELINE.md` | Generator and ingestion pipeline | **TEMPLATE / NOT YET CONSOLIDATED** — real content exists in `CE_Forge/CE_RECOVERY/01_CURRENT_STATE.md` and this repo's own `02_ARCHITECTURE.md` ingestion-chain section; not copied into this file |
+| `07_SYNTHETIC_DATA_CATALOG.md` | Reproducible representative data | **TEMPLATE / NOT YET CONSOLIDATED** — no real content gathered anywhere yet |
+| `15_DEPLOYMENT.md` | Rebuild and deployment path | **VERIFIED ARTIFACT** — real 20-step cold-start procedure, LOCAL/AWS/OPTIONAL/UNAVAILABLE tagged throughout |
+| `16_AWS_INFRASTRUCTURE.md` | Current AWS environment | **VERIFIED ARTIFACT** — real, read-only resource inventory with LIVE/REQUIRED/OPTIONAL/UNKNOWN classification |
+| `17_GCS_RECOVERY.md` | Recovery archive and retrieval | **VERIFIED ARTIFACT** (of a negative fact) — confirmed nothing exists yet; proposed structure is a plan, not a report of real resources |
+| `18_ENVIRONMENT_VARIABLES.md` | Redacted secrets and configuration inventory | **TEMPLATE / NOT YET CONSOLIDATED** — real variable names exist correctly in `01_CURRENT_STATE.md` and `15_DEPLOYMENT.md`; no single inventory with owner/rotation-method per variable exists yet |
+| `19_KNOWN_ISSUES.md` | Recovery-impacting defects | **VERIFIED ARTIFACT** — 2 real entries, one still disputed pending the human owner's own repro |
+| `20_NEXT_ACTIONS.md` | Concrete remaining work | **VERIFIED ARTIFACT, actively maintained** — real punch list, updated each session |
 
 ## Required archive layers
 
