@@ -5,7 +5,9 @@
 **Created:** 2026-08-17  
 **Recovery objective:** Preserve the executable history, current implementation record, state, deployment path, and minimum viable reconstruction capability of Factory » Foundation independently of the current AWS and AI-tooling environment.
 
-**See also:** `AI_Dispatch/CE_RECOVERY/CROSS_REPOSITORY_DEPENDENCY_MAP.md` — this repo is one of three (`Construction_Enterprises`, `Factory_To_Foundation`, `AI_Dispatch`), and none is independently recoverable to full functionality. That document covers the real filesystem/hardcoded-path coupling to `Construction_Enterprises` and the orchestration relationship with `AI_Dispatch`.
+**See also:** `AI_Dispatch/CE_RECOVERY/CROSS_REPOSITORY_DEPENDENCY_MAP.md` — this repo is one of **four** (`CE_Forge`, `Construction_Enterprises`, `Factory_To_Foundation`, `AI_Dispatch`), and none is independently recoverable to full functionality. That document covers the real filesystem/hardcoded-path coupling to `Construction_Enterprises` and the orchestration relationship with `AI_Dispatch`.
+
+**Architecture verification correction (2026-08-18, high-value recovery fact):** `CE_Forge` does not feed `Construction_Enterprises`. `CE_Forge` writes directly to Factory » Foundation through its own real API. `Construction_Enterprises` is an independent system with separate runtime/twin integrations into Factory » Foundation. The originally assumed linear chain (`CE_Forge → Construction_Enterprises → FF`) was never evidenced anywhere and has been corrected — see the cross-repository map above for the real topology.
 
 ## Recovery sequence
 
@@ -47,7 +49,11 @@ A technically competent person must be able to reconstruct the MVP Recovery targ
 
 | Artifact | SHA-256 | Location | Verified |
 |---|---|---|---|
-| `CE_RECOVERY` archive | _To generate_ | _To record_ | _No_ |
+| `Factory_To_Foundation.bundle` (git bundle, full history, `f14a19c`) | `ba61ebe7...8df4307` (full hash in `CHECKSUMS.sha256`) | `AI_Dispatch/backups/FF-RECOVERY-v1.0/source-and-infrastructure/` (local, not yet mirrored to GCS) | **Yes** — `git bundle verify` passed |
+| `Construction_Enterprises.bundle` (`7b6a678`) | `6295f135...dcefa8d` | same | **Yes** |
+| `AI_Dispatch.bundle` (`3d64141`) | `e328f6f3...093c981b` | same | **Yes** |
+| `CE_Forge.bundle` (`cad57d0`) | `90cf7fc9...3701e28b7` | same | **Yes** |
+| `CE_RECOVERY` archive (packaged, encrypted) | _To generate_ | _To record_ | _No_ |
 | Database archive | _To generate_ | _To record_ | _No_ |
 | Object-storage archive | _To generate_ | _To record_ | _No_ |
 | Full recovery package | _To generate_ | _To record_ | _No_ |
