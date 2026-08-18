@@ -356,27 +356,34 @@ function ShopDrawingsTreeLoaded() {
   return <ShopDrawingsTree tree={tree} />;
 }
 
+export type ManufacturingBrowseMode = "objects" | "drawings";
+
+type ManufacturingBrowseProps = {
+  /** Controlled (Phase 10, 2026-08-18) -- lifted to ManufacturingPage.tsx so the real "Generate Shop Drawing" ribbon action can switch this panel to its Shop Drawings view directly, as its own distinct real action from "Create Instructions" (Joshua's own correction: a model arriving in FF doesn't come with FF-readable shop drawings already made -- creating them is a genuinely separate step, not the same function as instruction generation). */
+  mode: ManufacturingBrowseMode;
+  onModeChange: (mode: ManufacturingBrowseMode) => void;
+};
+
 /**
  * Real tree, exactly as the currently-loaded model's own hierarchy is
  * authored — no fabricated grouping level, no naming-pattern assumption.
  * A deeply flat file (hundreds of same-level siblings) and a shallow one
  * both render through this identical path; see manufacturingModel.ts.
  *
- * A second mode, "Shop Drawings" (toggled via the PanelCard header), shows
- * the same real tree but clicking opens one structured spec-sheet per
- * node — self-contained master/detail local to this panel, also driving
- * the real global SelectionContext so the viewport/Inspector stay in sync.
+ * A second mode, "Shop Drawings" (toggled via the PanelCard header, or the
+ * ribbon's "Generate Shop Drawing" action), shows the same real tree but
+ * clicking opens one structured spec-sheet per node — self-contained
+ * master/detail local to this panel, also driving the real global
+ * SelectionContext so the viewport/Inspector stay in sync.
  */
-export default function ManufacturingBrowse() {
-  const [mode, setMode] = useState<"objects" | "drawings">("objects");
-
+export default function ManufacturingBrowse({ mode, onModeChange }: ManufacturingBrowseProps) {
   const toggle = (
     <div className="flex gap-1">
       {(["objects", "drawings"] as const).map((m) => (
         <button
           key={m}
           type="button"
-          onClick={() => setMode(m)}
+          onClick={() => onModeChange(m)}
           className="rounded-[0.2rem] px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide"
           style={{
             background: mode === m ? "var(--ff-accent)" : "transparent",

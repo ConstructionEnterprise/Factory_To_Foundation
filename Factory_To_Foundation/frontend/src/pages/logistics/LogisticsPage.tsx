@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
+import { FeaturePage } from "@/framework/ui";
 
 import {
   FleetBrowse,
@@ -16,42 +16,34 @@ import {
   LogisticsMap,
   LogisticsMaterialForm,
   LogisticsModuleForm,
-  LogisticsToolbar,
   MileageRateManager,
   fetchVehicles,
   type VehicleRecord,
 } from "@/features/logistics";
-import { getLogisticsKpis, type LogisticsKpis } from "@/features/logistics/logisticsOperationsApi";
-
-/**
- * Real KPI row (closes gap #4 — this row was left on its original fixture
- * numbers when Phase 8's Browse panel went real). "Modules Staged"/"In
- * Transit"/"Deliveries (MTD)" are real, server-computed counts
- * (logisticsKpiService.ts). "Dock Utilization" stays an honest, disclosed
- * non-value — no dock/capacity concept exists anywhere in this schema (no
- * LogisticsReceiving model either, per LogisticsBrowse.tsx's own doc
- * comment), and inventing one just to fill a percentage would be
- * fabrication, not a real KPI.
- */
-function buildKpis(kpis: LogisticsKpis | null): KpiDefinition[] {
-  return [
-    { title: "Modules Staged", value: kpis ? String(kpis.modulesStaged) : "…" },
-    { title: "In Transit", value: kpis ? String(kpis.modulesInTransit) : "…" },
-    { title: "Dock Utilization", value: "No dock model yet" },
-    { title: "Deliveries (MTD)", value: kpis ? String(kpis.deliveriesThisMonth) : "…" },
-  ];
-}
 
 type LogisticsCapability = "operations" | "flow" | "fleet";
 
+/**
+ * Real command-ribbon correction (Phase 10, 2026-08-18): Operations and
+ * Logistics Flow used to be a `mode` toggle buried inside LogisticsToolbar
+ * (rendered via the "Filters" dropdown) -- both are genuine first-class
+ * capabilities that swap the whole workspace, exactly like Fleet already
+ * does, so they get the same real CommandRibbon onClick/active mechanism
+ * Fleet always used. See CommandRibbon.tsx's own doc comment for the
+ * real distinction this now correctly follows.
+ *
+ * Metrics/Filters removed entirely (Phase 10, second pass, same day) --
+ * the real, functional dispatch actions (+New Material/+New Module/
+ * +New Dispatch/Track Dispatches/Mileage Rate) that used to live inside
+ * "Filters" moved to a real "Dispatch" tab inside LogisticsBrowse's own
+ * panel header (mirrors ManufacturingBrowse's Objects/Shop Drawings
+ * toggle exactly) -- see LogisticsBrowse.tsx's own doc comment. The
+ * generic search/zone/status/Filters/Reset controls that sat alongside
+ * them were confirmed decorative and dropped, not relocated. KPI numbers
+ * were real but purely informational, same as every other domain's
+ * removed Metrics this phase -- nothing functional was lost.
+ */
 export default function LogisticsPage() {
-  // Real command-ribbon correction (Phase 10, 2026-08-18): Operations and
-  // Logistics Flow used to be a `mode` toggle buried inside LogisticsToolbar
-  // (rendered via the "Filters" dropdown) -- both are genuine first-class
-  // capabilities that swap the whole workspace, exactly like Fleet already
-  // does, so they get the same real CommandRibbon onClick/active mechanism
-  // Fleet always used. See CommandRibbon.tsx's own doc comment for the
-  // real distinction this now correctly follows.
   const [capability, setCapability] = useState<LogisticsCapability>("operations");
   const [showDispatchForm, setShowDispatchForm] = useState(false);
   const [showDispatchTracker, setShowDispatchTracker] = useState(false);
@@ -75,13 +67,6 @@ export default function LogisticsPage() {
   const [browseRefreshKey, setBrowseRefreshKey] = useState(0);
   const refreshBrowse = () => setBrowseRefreshKey((k) => k + 1);
 
-  const [kpis, setKpis] = useState<LogisticsKpis | null>(null);
-  useEffect(() => {
-    getLogisticsKpis()
-      .then(setKpis)
-      .catch(() => setKpis(null));
-  }, [browseRefreshKey]);
-
   const extraMenus = [
     { label: "Operations", onClick: () => setCapability("operations"), active: capability === "operations" },
     { label: "Logistics Flow", onClick: () => setCapability("flow"), active: capability === "flow" },
@@ -95,16 +80,6 @@ export default function LogisticsPage() {
           pageLabel="Logistics"
           pageSubtitle={vehiclesError ? `Fleet — Vehicle Registry & Dispatch History — ${vehiclesError}` : "Fleet — Vehicle Registry & Dispatch History"}
           extraMenus={extraMenus}
-          kpis={
-            <KpiList
-              kpis={[
-                { title: "Total Vehicles", value: String(vehicles.length) },
-                { title: "Active", value: String(vehicles.filter((v) => v.status === "active").length) },
-                { title: "In Maintenance", value: String(vehicles.filter((v) => v.status === "maintenance").length) },
-                { title: "Retired", value: String(vehicles.filter((v) => v.status === "retired").length) },
-              ]}
-            />
-          }
           left={<FleetBrowse vehicles={vehicles} />}
           center={<FleetWorkspace />}
           right={<FleetInspector />}
@@ -115,7 +90,6 @@ export default function LogisticsPage() {
           pageLabel="Logistics"
           pageSubtitle="Logistics Flow — Point-to-Point Map"
           extraMenus={extraMenus}
-          kpis={<KpiList kpis={buildKpis(kpis)} />}
           left={<LogisticsFlowBrowse />}
           center={<LogisticsFlowMap />}
           right={<LogisticsFlowInspector />}
@@ -126,9 +100,9 @@ export default function LogisticsPage() {
           pageLabel="Logistics"
           pageSubtitle="Material & Module Flow"
           extraMenus={extraMenus}
-          kpis={<KpiList kpis={buildKpis(kpis)} />}
-          toolbar={
-            <LogisticsToolbar
+          left={
+            <LogisticsBrowse
+              key={browseRefreshKey}
               onNewMaterial={() => setShowMaterialForm(true)}
               onNewModule={() => setShowModuleForm(true)}
               onNewDispatch={() => setShowDispatchForm(true)}
@@ -136,7 +110,6 @@ export default function LogisticsPage() {
               onMileageRate={() => setShowMileageRateManager(true)}
             />
           }
-          left={<LogisticsBrowse key={browseRefreshKey} />}
           center={<LogisticsMap />}
           right={<LogisticsInspector />}
         />

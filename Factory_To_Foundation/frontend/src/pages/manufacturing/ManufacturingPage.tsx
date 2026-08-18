@@ -9,7 +9,12 @@ import { BLENDER_BRIDGE_URL } from "@/lib/env";
 import { generateInstructionSet } from "@/features/manufacturing/instructionGeneration";
 import { bumpManufacturingModelVersion } from "@/features/manufacturing/manufacturingModel";
 
-import { GeometryViewport, ManufacturingBrowse, ManufacturingInspector } from "@/features/manufacturing";
+import {
+  GeometryViewport,
+  ManufacturingBrowse,
+  ManufacturingInspector,
+  type ManufacturingBrowseMode,
+} from "@/features/manufacturing";
 
 const BLENDER_BRIDGE_CONVERT_URL = `${BLENDER_BRIDGE_URL}/convert`;
 
@@ -35,23 +40,37 @@ type UploadState =
  * where it happened instead of taking down panels that don't depend on
  * it (Inspector, until something is actually selected).
  *
- * Real command-ribbon correction (Phase 10, 2026-08-18): both real
- * actions ("Import .blend File", "Generate Shop Drawings & Instructions")
- * used to live inside ManufacturingToolbar, only reachable via the
- * "Filters" dropdown -- Joshua's own explicit friction complaint about
- * the extra click for each. Both are now direct always-visible ribbon
- * actions instead (no browse/view/detail surface of their own, so neither
- * gets the onClick/active capability-switch treatment either -- they're
- * one-shot actions, not navigable capabilities). With both moved out,
- * ManufacturingToolbar has nothing real left to show, so the `toolbar`
- * prop (and the "Filters" dropdown it produced) is gone from this page
- * entirely rather than left empty.
+ * Real command-ribbon correction (Phase 10, 2026-08-18): real actions
+ * ("Import .blend File", instruction generation) used to live inside
+ * ManufacturingToolbar, only reachable via the "Filters" dropdown --
+ * Joshua's own explicit friction complaint about the extra click for
+ * each. Now direct always-visible ribbon actions instead (no browse/view/
+ * detail surface of their own, so none get the onClick/active
+ * capability-switch treatment either -- they're one-shot actions, not
+ * navigable capabilities). With everything moved out, ManufacturingToolbar
+ * has nothing real left to show, so the `toolbar` prop (and the "Filters"
+ * dropdown it produced) is gone from this page entirely rather than left
+ * empty.
+ *
+ * "Generate Shop Drawings & Instructions" was one button doing one real
+ * thing (calling generateInstructionSet()) -- "shop drawing" wasn't a
+ * separate real action at all, just a passive client-side projection
+ * (ShopDrawingProjection) that already renders automatically when you
+ * open an element's sheet. Split per Joshua's own correction: a model
+ * arriving in FF does NOT come in with FF-readable shop drawings already
+ * made, so creating them is a genuinely separate real step from creating
+ * instructions, even though today's "creation" of one is just switching
+ * ManufacturingBrowse to its real Shop Drawings view (lifted here so the
+ * ribbon can drive it directly) rather than a persisted backend artifact.
+ * "Create Instructions" keeps the original real generateInstructionSet()
+ * call, unchanged.
  */
 export default function ManufacturingPage() {
   const { selected } = useSelection();
   const { connected, manifest } = useTwinManifest();
   const { setInstructionSet } = useManufacturingOutput();
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
+  const [browseMode, setBrowseMode] = useState<ManufacturingBrowseMode>("objects");
 
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,7 +144,8 @@ export default function ManufacturingPage() {
         fileInputRef.current?.click();
       },
     },
-    { label: "Generate Shop Drawings & Instructions", onClick: handleGenerate },
+    { label: "Generate Shop Drawing", onClick: () => setBrowseMode("drawings") },
+    { label: "Create Instructions", onClick: handleGenerate },
   ];
 
   return (
@@ -165,7 +185,7 @@ export default function ManufacturingPage() {
                   {generateMessage && <div style={{ color: "var(--ff-text-muted)" }}>{generateMessage}</div>}
                 </div>
               )}
-              <ManufacturingBrowse />
+              <ManufacturingBrowse mode={browseMode} onModeChange={setBrowseMode} />
             </>
           </ErrorBoundary>
         }

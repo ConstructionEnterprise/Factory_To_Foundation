@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 
 import { useSelection } from "@/context/SelectionContext";
+import { usePermission } from "@/context/AuthContext";
 import { constructionProjects } from "@/features/construction/constructionData";
-import { BrowseList, PanelCard, type BrowseListItem } from "@/framework/ui";
+import { BrowseList, PanelCard, ToolbarButton, type BrowseListItem } from "@/framework/ui";
 
 import {
   listDispatches,
@@ -94,7 +95,70 @@ function buildBrowseItems(data: LoadedData): BrowseListItem[] {
 const EMPTY_LEAF_IDS = new Set(["receiving-empty", "storage-empty", "yard-empty", "transportation-empty"]);
 const ZONE_HEADER_IDS = new Set(["zone-receiving", "zone-storage", "zone-yard", "zone-transportation"]);
 
-export default function LogisticsBrowse() {
+type LogisticsBrowseProps = {
+  /** Opens the real (provisional) Material-creation form — see LogisticsMaterialForm's own doc comment. */
+  onNewMaterial?: () => void;
+  /** Opens the real (provisional) Module-creation form — see LogisticsModuleForm's own doc comment. */
+  onNewModule?: () => void;
+  /** Opens the real (provisional) Dispatch-creation form — see LogisticsDispatchForm's own doc comment for why this still lives here rather than an inline Browse affordance. */
+  onNewDispatch?: () => void;
+  /** Opens the real (provisional) chain-of-custody tracker — see LogisticsDispatchTracker's own doc comment. */
+  onTrackDispatches?: () => void;
+  /** Opens the real, configurable mileage-rate manager — see MileageRateManager's own doc comment. */
+  onMileageRate?: () => void;
+};
+
+/**
+ * Real, narrow-column dispatch-specific action controls (Phase 10,
+ * 2026-08-18) -- moved out of the ribbon's "Filters" dropdown into a real
+ * "Dispatch" tab inside this panel's own header, mirroring
+ * ManufacturingBrowse.tsx's Objects/Shop Drawings tab-toggle exactly
+ * (`PanelCard`'s own `toolbar` prop). Deliberately real actions ONLY --
+ * the old generic search/zone/status/Filters/Reset controls that used to
+ * sit alongside these were confirmed decorative (no onClick/onChange
+ * anywhere, same fate as every other placeholder toolbar removed this
+ * phase) and are dropped here entirely, not relocated. Stacked
+ * vertically, not ToolbarShell's horizontal flex-wrap row -- this lives
+ * in a narrow sidebar column now, not a wide ribbon dropdown.
+ */
+function DispatchControls({ onNewMaterial, onNewModule, onNewDispatch, onTrackDispatches, onMileageRate }: LogisticsBrowseProps) {
+  const createPermission = usePermission("logistics", "create");
+  const readPermission = usePermission("logistics", "read");
+  const updatePermission = usePermission("logistics", "update");
+
+  return (
+    <div className="flex flex-col gap-2 p-3">
+      {onNewMaterial && (
+        <ToolbarButton onClick={onNewMaterial} disabled={!createPermission.allowed} title={createPermission.reason}>
+          + New Material
+        </ToolbarButton>
+      )}
+      {onNewModule && (
+        <ToolbarButton onClick={onNewModule} disabled={!createPermission.allowed} title={createPermission.reason}>
+          + New Module
+        </ToolbarButton>
+      )}
+      {onNewDispatch && (
+        <ToolbarButton onClick={onNewDispatch} disabled={!createPermission.allowed} title={createPermission.reason}>
+          + New Dispatch
+        </ToolbarButton>
+      )}
+      {onTrackDispatches && (
+        <ToolbarButton onClick={onTrackDispatches} disabled={!readPermission.allowed} title={readPermission.reason}>
+          Track Dispatches
+        </ToolbarButton>
+      )}
+      {onMileageRate && (
+        <ToolbarButton onClick={onMileageRate} disabled={!updatePermission.allowed} title={updatePermission.reason}>
+          Mileage Rate
+        </ToolbarButton>
+      )}
+    </div>
+  );
+}
+
+export default function LogisticsBrowse(props: LogisticsBrowseProps) {
+  const [mode, setMode] = useState<"browse" | "dispatch">("browse");
   const { selected, setSelected } = useSelection();
   const [data, setData] = useState<LoadedData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -185,19 +249,44 @@ export default function LogisticsBrowse() {
     }
   }
 
+  const toggle = (
+    <div className="flex gap-1">
+      {(["browse", "dispatch"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => setMode(m)}
+          className="rounded-[0.2rem] px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide"
+          style={{
+            background: mode === m ? "var(--ff-accent)" : "transparent",
+            color: mode === m ? "white" : "var(--ff-text-muted)",
+          }}
+        >
+          {m === "browse" ? "Browse" : "Dispatch"}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <PanelCard title="Browse Logistics" className="h-full">
-      {error && (
-        <p className="p-3 text-xs" style={{ color: "var(--ff-status-critical)" }}>
-          Couldn't load real Logistics data ({error}).
-        </p>
+    <PanelCard title="Browse Logistics" toolbar={toggle} className="h-full">
+      {mode === "dispatch" ? (
+        <DispatchControls {...props} />
+      ) : (
+        <>
+          {error && (
+            <p className="p-3 text-xs" style={{ color: "var(--ff-status-critical)" }}>
+              Couldn't load real Logistics data ({error}).
+            </p>
+          )}
+          {!data && !error && (
+            <p className="p-3 text-xs" style={{ color: "var(--ff-text-muted)" }}>
+              Loading…
+            </p>
+          )}
+          {data && <BrowseList items={buildBrowseItems(data)} activeId={activeId} onSelect={handleSelect} />}
+        </>
       )}
-      {!data && !error && (
-        <p className="p-3 text-xs" style={{ color: "var(--ff-text-muted)" }}>
-          Loading…
-        </p>
-      )}
-      {data && <BrowseList items={buildBrowseItems(data)} activeId={activeId} onSelect={handleSelect} />}
     </PanelCard>
   );
 }
