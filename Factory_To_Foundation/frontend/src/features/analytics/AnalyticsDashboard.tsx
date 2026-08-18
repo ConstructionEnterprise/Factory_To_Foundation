@@ -8,6 +8,7 @@ import { useTwinManifest } from "@/features/factory/useTwinManifest";
 import { useTwinState } from "@/features/factory/useTwinState";
 import { translateManifest } from "@/features/factory/twinTranslator";
 import { listExecutionHistory, type InstructionExecutionHistoryEntry } from "@/features/factory/instructionExecutionsApi";
+import { startCollisionMonitor, useCollisionSnapshot } from "@/features/factory/collisionStore";
 
 import { TIER_LABEL, TIER_ORDER } from "@/features/genealogy/graphData";
 import { ensureGenealogyGraphLoaded, useGenealogyGraph } from "@/features/genealogy/genealogyStore";
@@ -1048,6 +1049,62 @@ export function QualityControlWidget() {
           {lastVerify.note && <Row label="Note" value={lastVerify.note} />}
         </div>
       )}
+    </ChartableWidgetCard>
+  );
+}
+
+/**
+ * Real Collision Monitoring widget (relocated from Reports, 2026-08-18 --
+ * see docs/decisions/2026-08-18-reports-domain-audit-and-taxonomy.md §2/§3)
+ * -- a live, non-persisted twin projection is Analytics' territory, not a
+ * formal Reports item. Reads the exact same real geometric-intersection
+ * monitor (collisionStore.ts) the Reports version did; nothing new
+ * computed, nothing persisted. No chartData -- a live event log has no
+ * honest single-series breakdown to chart, same posture as
+ * QualityControlWidget above.
+ */
+export function CollisionWidget() {
+  const snap = useCollisionSnapshot();
+
+  // Idempotent -- monitoring may already be running if Factory's viewport
+  // started it, or another dashboard already opened this widget.
+  useEffect(() => {
+    startCollisionMonitor();
+  }, []);
+
+  const persistent = snap.events.filter((e) => e.persistent);
+  const transient = snap.events.filter((e) => !e.persistent);
+  const ongoing = transient.filter((e) => e.ongoing).length;
+
+  return (
+    <ChartableWidgetCard
+      title="Collision Monitoring"
+      toolbar={
+        <StatusBadge
+          label={
+            !snap.connected
+              ? "Twin Bridge Offline"
+              : ongoing > 0
+                ? `${ongoing} Active Transient`
+                : `${transient.length} Transient Event${transient.length === 1 ? "" : "s"}`
+          }
+          tone={!snap.connected ? "neutral" : ongoing > 0 ? "critical" : transient.length > 0 ? "warning" : "positive"}
+        />
+      }
+      chartData={null}
+    >
+      <p className="mb-2 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
+        Real geometric intersection testing against every state.json snapshot the twin writes. In-memory for this
+        session only.
+      </p>
+      <div className="space-y-1.5">
+        <Row label="Real persistent contacts" value={String(persistent.length)} />
+        <Row label="Real transient events" value={String(transient.length)} />
+        <Row label="Snapshots checked" value={String(snap.checkedSnapshots)} />
+        {snap.robotPairStats.map((s) => (
+          <Row key={s.pair} label={`${s.a} × ${s.b} min clearance`} value={`${s.minDistance.toFixed(3)} m @ frame ${s.atFrame}`} />
+        ))}
+      </div>
     </ChartableWidgetCard>
   );
 }

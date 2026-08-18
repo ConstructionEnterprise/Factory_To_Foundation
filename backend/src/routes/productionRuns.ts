@@ -60,4 +60,12 @@ export async function productionRunRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     return factoryFlowService.getFactoryFlow(id);
   });
+
+  /**
+   * Real End-to-End Unit Lifecycle report (Reports rebuild, 2026-08-18) --
+   * the same real Factory Flow chain as above, unscoped from any one run:
+   * every real completed ProductionOutput across the whole app. See
+   * factoryFlowService.getUnitLifecycleReport().
+   */
+  app.get("/production-outputs/factory-flow", { preHandler: readPreHandler }, async () => factoryFlowService.getUnitLifecycleReport());
 }

@@ -37,3 +37,25 @@ export function findInstructionSetsBySourceObjectId(sourceObjectId: string) {
     orderBy: { generatedAt: "desc" },
   });
 }
+
+/**
+ * Real End-to-End Unit Lifecycle read (Reports rebuild, 2026-08-18) -- the
+ * same real chain findRunForFlow() above reads per-run, unscoped: every
+ * real completed ProductionOutput across every real ProductionRun. Same
+ * exact nested include, just rooted on productionOutput directly instead
+ * of nested under productionRun.outputs.
+ */
+export function findAllCompletedOutputsForUnitLifecycle() {
+  return prisma.productionOutput.findMany({
+    where: { status: "complete" },
+    include: {
+      inventoryItem: {
+        include: {
+          logisticsModule: { include: { dispatch: true } },
+          moduleSequenceEntry: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}

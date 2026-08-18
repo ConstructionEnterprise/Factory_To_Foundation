@@ -22,6 +22,7 @@ export const EXISTING_SUMMARY_WIDGET_KEYS = [
   "scheduleCriticalPath",
   "digitalTwinLifecycle",
   "qualityControl",
+  "collision",
 ] as const;
 
 export type ExistingSummaryWidgetKey = (typeof EXISTING_SUMMARY_WIDGET_KEYS)[number];
@@ -41,6 +42,7 @@ const LABELS: Record<ExistingSummaryWidgetKey, string> = {
   scheduleCriticalPath: "Production Schedule Performance — Critical Path",
   digitalTwinLifecycle: "Digital Twin Lifecycle",
   qualityControl: "Quality Control",
+  collision: "Collision Monitoring — Live Twin Run",
 };
 
 export function labelForSummaryWidgetKey(key: ExistingSummaryWidgetKey): string {

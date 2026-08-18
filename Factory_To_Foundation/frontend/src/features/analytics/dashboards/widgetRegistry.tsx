@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 
 import {
   AssetsWidget,
+  CollisionWidget,
   ConstructionWidget,
   CostEstimatingWidget,
   CostIntelligenceWidget,
@@ -40,6 +41,7 @@ export const SELF_CONTAINED_WIDGETS: Record<Exclude<ExistingSummaryWidgetKey, "p
   scheduleCriticalPath: ScheduleCriticalPathWidget,
   digitalTwinLifecycle: DigitalTwinLifecycleWidget,
   qualityControl: QualityControlWidget,
+  collision: CollisionWidget,
 };
 
 export type ExecutionHistoryProps = {

@@ -221,3 +221,44 @@ export async function getFactoryFlow(productionRunId: string): Promise<FactoryFl
     modularSequence,
   };
 }
+
+export type UnitLifecycleRowDto = {
+  productionOutputId: string;
+  serialNumber: string;
+  logisticsModuleId: string | null;
+  dispatchStatus: string | null;
+  sequenceEntryId: string | null;
+  sequenceStatus: ModuleSequenceStatus | null;
+  endToEndComplete: boolean;
+};
+
+/**
+ * Real End-to-End Unit Lifecycle report (Reports rebuild, 2026-08-18) --
+ * the same real Factory -> Logistics -> Transportation -> Modular
+ * Sequence chain getFactoryFlow() reads per-run, applied unscoped across
+ * every real completed ProductionOutput. Every row's factory leg is
+ * already "complete" by construction (repo.findAllCompletedOutputsForUnitLifecycle()
+ * only selects completed outputs) -- nothing here infers a stage from
+ * another; each field is read straight off its own real record, same as
+ * logisticsHandoff/modularSequence above. endToEndComplete is the
+ * "brutally simple" AND predicate: real dispatch delivered AND real
+ * sequence entry complete, computed at read time, never stored.
+ */
+export async function getUnitLifecycleReport(): Promise<UnitLifecycleRowDto[]> {
+  const outputs = await repo.findAllCompletedOutputsForUnitLifecycle();
+  return outputs.map((o) => {
+    const module = o.inventoryItem.logisticsModule;
+    const entry = o.inventoryItem.moduleSequenceEntry;
+    const dispatchStatus = module?.dispatch?.status ?? null;
+    const sequenceStatus = entry?.status ?? null;
+    return {
+      productionOutputId: o.id,
+      serialNumber: o.serialNumber,
+      logisticsModuleId: module?.id ?? null,
+      dispatchStatus,
+      sequenceEntryId: entry?.id ?? null,
+      sequenceStatus,
+      endToEndComplete: dispatchStatus === "delivered" && sequenceStatus === "complete",
+    };
+  });
+}
