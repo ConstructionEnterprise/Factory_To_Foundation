@@ -53,7 +53,7 @@ A technically competent person must be able to reconstruct the MVP Recovery targ
 | `Construction_Enterprises.bundle` (`7b6a678`) | `6295f135...dcefa8d` | same | **Yes** |
 | `AI_Dispatch.bundle` (`3d64141`) | `e328f6f3...093c981b` | same | **Yes** |
 | `CE_Forge.bundle` (`cad57d0`) | `90cf7fc9...3701e28b7` | same | **Yes** |
+| `ff-postgres-dev-logical-export-20260818.tar.gz` (logical row-data export, 63 real models) | `13d8c8cc...025bb11` (full hash in `databases/CHECKSUMS.sha256`) | `AI_Dispatch/backups/FF-RECOVERY-v1.0/databases/` (local, not yet mirrored to GCS) | **Partial** — file size + `git bundle`-style transfer integrity confirmed (server-reported size matched exactly); **restore not yet tested**, and this is a logical export, not a native RDS snapshot (see `20_NEXT_ACTIONS.md` for the IAM gap blocking the native form) |
 | `CE_RECOVERY` archive (packaged, encrypted) | _To generate_ | _To record_ | _No_ |
-| Database archive | _To generate_ | _To record_ | _No_ |
 | Object-storage archive | _To generate_ | _To record_ | _No_ |
 | Full recovery package | _To generate_ | _To record_ | _No_ |
