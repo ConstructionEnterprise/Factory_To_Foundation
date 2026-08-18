@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { PanelCard, ToolbarButton, ToolbarInput, ToolbarSelect } from "@/framework/ui";
 import { usePermission } from "@/context/AuthContext";
-import { listUsers, type ManagedUser } from "@/features/permissions/userManagementApi";
+import { listUsers, USERS_CHANGED_EVENT, type ManagedUser } from "@/features/permissions/userManagementApi";
 import * as api from "../payrollAccountsApi";
 import type { PayFrequency, PayrollAccount, PayType } from "../payrollAccountsApi";
 
@@ -49,7 +49,16 @@ export default function PayrollAccountsTable() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load payroll accounts"));
   }
 
-  useEffect(reload, []);
+  useEffect(() => {
+    reload();
+    // Real fix for the same stale-panel bug class scheduleTasksApi.ts's own
+    // doc comment describes: User Management now lives right above this
+    // panel on the same Administration page, so a real create/edit/delete
+    // there should update this panel's eligible-user list without a manual
+    // reload.
+    window.addEventListener(USERS_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(USERS_CHANGED_EVENT, reload);
+  }, []);
 
   const eligibleUsers = users.filter((u) => !accounts?.some((a) => a.userId === u.id));
 

@@ -14,6 +14,12 @@ import type { ManagedUser } from "./userManagementApi";
  * Every write control is gated the same UX/honesty way every other real
  * write control in this app is (usePermission) — real enforcement is still
  * the backend's requirePermission middleware.
+ *
+ * Rendered from Administration, not Permissions (2026-08-18, explicit
+ * instruction) — this component and its real `permissions`-module gating
+ * are unchanged, only AdministrationPage.tsx mounts it now, directly above
+ * Payroll Accounts (real onboarding order: create the account, then set up
+ * its payroll profile).
  */
 export default function UserManagementTable() {
   const { user: currentUser } = useAuth();

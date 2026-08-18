@@ -30,6 +30,21 @@ export function listUsers(): Promise<ManagedUser[]> {
   return requestJson("/users");
 }
 
+/**
+ * Real cross-page refresh signal (2026-08-18) — Create User moved to
+ * Administration while the User list itself stays on Permissions, and
+ * Administration's own Payroll Accounts picks a real user from this same
+ * directory. Same plain-window-event mechanism already established by
+ * scheduleTasksApi.ts's SCHEDULE_TASKS_CHANGED_EVENT (itself following
+ * AuthContext's AUTH_CHANGED_EVENT) — any interested component listens
+ * without importing this module's internals.
+ */
+export const USERS_CHANGED_EVENT = "ff:users-changed";
+
+function broadcastUsersChanged(): void {
+  window.dispatchEvent(new Event(USERS_CHANGED_EVENT));
+}
+
 export type CreateUserInput = {
   email: string;
   displayName: string;
@@ -37,12 +52,14 @@ export type CreateUserInput = {
   roleId: string;
 };
 
-export function createUser(input: CreateUserInput): Promise<ManagedUser> {
-  return requestJson("/users", {
+export async function createUser(input: CreateUserInput): Promise<ManagedUser> {
+  const created = await requestJson<ManagedUser>("/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+  broadcastUsersChanged();
+  return created;
 }
 
 export type UpdateUserInput = {
@@ -50,14 +67,17 @@ export type UpdateUserInput = {
   roleId?: string;
 };
 
-export function updateUser(id: string, patch: UpdateUserInput): Promise<ManagedUser> {
-  return requestJson(`/users/${id}`, {
+export async function updateUser(id: string, patch: UpdateUserInput): Promise<ManagedUser> {
+  const updated = await requestJson<ManagedUser>(`/users/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
+  broadcastUsersChanged();
+  return updated;
 }
 
-export function deleteUser(id: string): Promise<void> {
-  return requestJson(`/users/${id}`, { method: "DELETE" });
+export async function deleteUser(id: string): Promise<void> {
+  await requestJson(`/users/${id}`, { method: "DELETE" });
+  broadcastUsersChanged();
 }
