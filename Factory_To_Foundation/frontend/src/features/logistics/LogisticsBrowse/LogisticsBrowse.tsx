@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useSelection } from "@/context/SelectionContext";
 import { usePermission } from "@/context/AuthContext";
@@ -96,6 +96,8 @@ const EMPTY_LEAF_IDS = new Set(["receiving-empty", "storage-empty", "yard-empty"
 const ZONE_HEADER_IDS = new Set(["zone-receiving", "zone-storage", "zone-yard", "zone-transportation"]);
 
 type LogisticsBrowseProps = {
+  /** Real cross-domain deep link (e.g. from LogisticsFlowInspector's Transportation Handoff dispatch reference, via LogisticsPage's `?dispatch=<id>` query param) — auto-selects this real dispatch once data loads, so a click elsewhere in the app can land directly on a specific dispatch here instead of just opening this page unselected. */
+  initialDispatchId?: string | null;
   /** Opens the real (provisional) Material-creation form — see LogisticsMaterialForm's own doc comment. */
   onNewMaterial?: () => void;
   /** Opens the real (provisional) Module-creation form — see LogisticsModuleForm's own doc comment. */
@@ -158,6 +160,7 @@ function DispatchControls({ onNewMaterial, onNewModule, onNewDispatch, onTrackDi
 }
 
 export default function LogisticsBrowse(props: LogisticsBrowseProps) {
+  const { initialDispatchId } = props;
   const [mode, setMode] = useState<"browse" | "dispatch">("browse");
   const { selected, setSelected } = useSelection();
   const [data, setData] = useState<LoadedData | null>(null);
@@ -171,6 +174,19 @@ export default function LogisticsBrowse(props: LogisticsBrowseProps) {
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
+
+  // Applies a real cross-domain deep link exactly once per real target id --
+  // guarded by a ref (not just `!selected`) so it survives the user
+  // deliberately clearing/changing selection afterward without re-forcing
+  // itself back.
+  const appliedDeepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data || !initialDispatchId) return;
+    if (appliedDeepLinkRef.current === initialDispatchId) return;
+    appliedDeepLinkRef.current = initialDispatchId;
+    handleSelect(`dispatch:${initialDispatchId}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, initialDispatchId]);
 
   const activeId = (() => {
     if (selected?.feature !== "logistics") return undefined;

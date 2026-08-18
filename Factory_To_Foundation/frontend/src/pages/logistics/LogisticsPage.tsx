@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { FeaturePage } from "@/framework/ui";
 
@@ -44,7 +45,24 @@ type LogisticsCapability = "operations" | "flow" | "fleet";
  * removed Metrics this phase -- nothing functional was lost.
  */
 export default function LogisticsPage() {
-  const [capability, setCapability] = useState<LogisticsCapability>("operations");
+  const [searchParams] = useSearchParams();
+  const capabilityParam = searchParams.get("capability");
+  const [capability, setCapability] = useState<LogisticsCapability>(
+    capabilityParam === "flow" || capabilityParam === "fleet" ? capabilityParam : "operations"
+  );
+  // Real cross-domain deep link (e.g. LogisticsFlowInspector's Transportation
+  // Handoff dispatch reference navigating here via ?dispatch=<id>), same
+  // convention ModularSequenceTimeline.tsx established for Scheduling ->
+  // Construction's ?capability=/?project= link. Synced via effect, not just
+  // read once at mount -- LogisticsPage stays mounted across a same-route
+  // client-side navigate() (Flow -> Operations via this exact link), so the
+  // useState initializer alone would miss a param change after first mount.
+  useEffect(() => {
+    if (capabilityParam === "flow" || capabilityParam === "fleet" || capabilityParam === "operations") {
+      setCapability(capabilityParam);
+    }
+  }, [capabilityParam]);
+  const initialDispatchId = searchParams.get("dispatch");
   const [showDispatchForm, setShowDispatchForm] = useState(false);
   const [showDispatchTracker, setShowDispatchTracker] = useState(false);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
@@ -103,6 +121,7 @@ export default function LogisticsPage() {
           left={
             <LogisticsBrowse
               key={browseRefreshKey}
+              initialDispatchId={initialDispatchId}
               onNewMaterial={() => setShowMaterialForm(true)}
               onNewModule={() => setShowModuleForm(true)}
               onNewDispatch={() => setShowDispatchForm(true)}

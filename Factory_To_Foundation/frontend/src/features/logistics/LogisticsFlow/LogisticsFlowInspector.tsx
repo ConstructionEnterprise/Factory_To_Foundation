@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { usePermission } from "@/context/AuthContext";
 import { DetailRow, PanelCard } from "@/framework/ui";
@@ -24,6 +25,7 @@ function projectTitle(id: string): string {
 /** Real detail + edit/delete for whichever flow point or connection is currently selected — honest "Nothing selected" state otherwise. Mirrors ManufacturingInspector.tsx's selection-branch shape. */
 export default function LogisticsFlowInspector() {
   const { flows, points, connections, selection, selectedFlowId, graph } = useLogisticsFlowState();
+  const navigate = useNavigate();
   const updatePermission = usePermission("logistics", "update");
   const deletePermission = usePermission("logistics", "delete");
   const createPermission = usePermission("logistics", "create");
@@ -288,12 +290,39 @@ export default function LogisticsFlowInspector() {
             <input type="text" className="w-full rounded border px-2 py-1.5 text-sm" value={assetRef} onChange={(e) => setAssetRef(e.target.value)} />
             {(selectedPoint.type === "load_assignment" || selectedPoint.type === "transportation_handoff") &&
               (() => {
-                const resolved = resolveFlowPointAsset(selectedPoint.type, assetRef.trim() || null, assetLookups);
-                return resolved ? (
+                const trimmedRef = assetRef.trim() || null;
+                const resolved = resolveFlowPointAsset(selectedPoint.type, trimmedRef, assetLookups);
+                if (!resolved) return null;
+
+                // Real cross-domain navigation (not just a description): a
+                // transportation_handoff's assetRef IS a real LogisticsDispatch
+                // id, so it can navigate straight to that dispatch selected in
+                // Logistics Operations -- same ?capability=/deep-link query-param
+                // convention ModularSequenceTimeline.tsx already established for
+                // Scheduling -> Construction. load_assignment's assetRef (a real
+                // LogisticsTruck id) has no equivalent Fleet deep-link wired up
+                // yet, so it stays plain text for now.
+                if (selectedPoint.type === "transportation_handoff" && trimmedRef) {
+                  const dispatchExists = assetLookups.dispatches.some((d) => d.id === trimmedRef);
+                  if (dispatchExists) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/logistics?capability=operations&dispatch=${trimmedRef}`)}
+                        className="mt-1 text-[0.65rem] underline"
+                        style={{ color: "var(--ff-accent)" }}
+                      >
+                        Dispatch: {resolved} ↗
+                      </button>
+                    );
+                  }
+                }
+
+                return (
                   <p className="mt-1 text-[0.65rem]" style={{ color: "var(--ff-text-muted)" }}>
                     Resolves to: {resolved}
                   </p>
-                ) : null;
+                );
               })()}
           </div>
 
