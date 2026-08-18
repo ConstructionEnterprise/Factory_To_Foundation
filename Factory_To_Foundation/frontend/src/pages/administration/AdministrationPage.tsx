@@ -4,14 +4,14 @@ import PayrollAccountsTable from "@/features/administration/PayrollAccounts/Payr
 
 /**
  * Administration rebuild (2026-08-18) — the old Data Provenance / Compliance
- * Records content (real, S3-backed, still live at features/administration/
- * DataProvenanceTable.tsx and ComplianceRecords/) is unmounted from this
- * page per explicit instruction ("the administration tab is completely
- * outdated, gut it"). Left on disk rather than deleted: both still have
- * real persisted backend data behind them (S3 documents, real
- * ComplianceDocument rows) that this rebuild has no mandate to remove —
- * only to stop surfacing here. Relocate or formally retire in a separate,
- * explicit step if that data still needs a home.
+ * Records UI (DataProvenanceTable.tsx, ComplianceRecords/,
+ * complianceDocumentsApi.ts) is deleted per explicit instruction ("the
+ * administration tab is completely outdated, gut it"). The backend routes/
+ * model (complianceDocuments.ts, ComplianceDocument) and the real S3
+ * documents/DB rows behind them are untouched — deleting the frontend only
+ * removes this page's access to that data, not the data itself. Rebuild or
+ * relocate the UI in a separate, explicit step if that data needs a home
+ * again.
  *
  * Administration is now Payroll (its first real administrative function,
  * with room for more alongside it later) — real PayrollAccount records,
