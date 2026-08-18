@@ -32,7 +32,7 @@ Record repository paths, commit IDs, commands, exports, screenshots, or test res
 |---|---|---|---|---|
 | 1. GitHub — all 4 repos committed/pushed | Claude | **Done** | Each repo's `CE_RECOVERY/` + latest commit hash | — |
 | 2. Local immutable snapshot (git bundles, all 4 repos) | Claude | **Done** | `AI_Dispatch/backups/FF-RECOVERY-v1.0/source-and-infrastructure/` — 4 bundles, `git bundle verify` passed on all, SHA-256 recorded | — |
-| 3/5. Database preservation (logical export) | Claude | **Done (logical form only)** | `AI_Dispatch/backups/FF-RECOVERY-v1.0/databases/ff-postgres-dev-logical-export-20260818.tar.gz` — 63 real models, row counts recorded, transfer-integrity confirmed (exact size match) | **Native RDS snapshot still outstanding** — see IAM gap below. **Restore test not yet performed.** |
+| 3/5. Database preservation (logical export) | Claude | **Done, restore-tested** | `AI_Dispatch/backups/FF-RECOVERY-v1.0/databases/` — `ff-postgres-dev-logical-export-20260818.tar.gz` + `RESTORE_TEST_RESULTS.md`. All 63 models reloaded into an isolated schema with exact row-count parity; 0 orphaned FK references across 106 real constraints. Found and fixed 4 real restore-tooling bugs along the way (Prisma adapter ignoring `?schema=`, cascading truncate order, enum-field exclusion, unstringified Json columns) — none affected the export data itself. | **Native RDS snapshot still outstanding** — see IAM gap below. |
 | 5. S3 object export (2 real buckets) | — | **Not started** | — | Blocked on the same IAM gap that blocked bucket listing during recon — see below |
 | 6. Business archive separation (9 real docs) | — | **Classified, not yet physically moved/archived** | `Construction_Enterprises/CE_RECOVERY/BUSINESS_ARCHIVE_CLASSIFICATION.md` | Actual move into a private archive location — deliberately not done yet, routing recommendation only so far |
 | 7. GCS creation | — | **Explicitly not authorized yet** | `17_GCS_RECOVERY.md` | Requires the human owner's direct go-ahead (new Google account/project — an "explicit permission required" action) |
@@ -80,9 +80,9 @@ This session's own `codex-cli` IAM user was confirmed (via live `AccessDeniedExc
 
 ## Immediate, ungated next steps
 
-1. **Restore-test the logical database export** — spin up a throwaway local Postgres, write a small script that reads each `<Model>.json` and re-inserts it, confirm row counts match `_SUMMARY.json`. No new AWS access needed.
-2. **`15_DEPLOYMENT.md`** — write real cold-start steps now that `02_ARCHITECTURE.md` + the database export exist to ground them.
-3. **Physically separate the business archive** — move the 9 real Investor/Executive/Risk documents out of the plain `Chappell_Robotics/Factory_Documentation/` folder into a real private location, per `BUSINESS_ARCHIVE_CLASSIFICATION.md`'s own recommendation (not yet executed — that document was a routing recommendation only).
+1. ~~Restore-test the logical database export~~ — **Done**, see `RESTORE_TEST_RESULTS.md`.
+2. **Private-copy + checksum the 9 sensitive business documents** — copy (not move) into a new `CE_RECOVERY_PRIVATE/BUSINESS_ARCHIVE/` location outside all four repos, verify byte-for-byte, generate a manifest. Do **not** remove the originals from `Factory_Documentation/` yet — that's a separate decision after the copies are verified.
+3. **`15_DEPLOYMENT.md`** — write real cold-start steps now that `02_ARCHITECTURE.md` + the restore-tested database export exist to ground them.
 4. **Resolve the Logistics Flow navigation discrepancy** per `19_KNOWN_ISSUES.md`'s acceptance condition — still needs the human owner's own direct repro.
 
 ## Answered since the last revision of this file
