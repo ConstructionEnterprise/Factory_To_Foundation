@@ -128,18 +128,6 @@ export const appRoutes: AppRoute[] = [
     element: <SchedulingPage />,
   },
   {
-    path: "/networking",
-    label: "Networking",
-    icon: Wifi,
-    element: <NetworkingPage />,
-    // Real, genuinely distinct module (Permissions Migration + Real
-    // Networking Module build) — factory IT/OT network infrastructure,
-    // sourced from the real Cisco Packet Tracer diagram
-    // CE_Factory_Production_LAN. Read-only, so nothing per-control to gate
-    // beyond this route-level read check.
-    requiredPermission: { module: "networking", action: "read" },
-  },
-  {
     path: "/assets",
     label: "Assets",
     icon: Package,
@@ -158,6 +146,19 @@ export const appRoutes: AppRoute[] = [
     // direct links/bookmarks but are hidden from the sidebar itself
     // (hideFromSidebar above). See
     // docs/decisions/2026-08-15-inventory-fleet-analytics-reports-plan.md.
+    // Ordered above Networking (2026-08-18, explicit instruction).
+  },
+  {
+    path: "/networking",
+    label: "Networking",
+    icon: Wifi,
+    element: <NetworkingPage />,
+    // Real, genuinely distinct module (Permissions Migration + Real
+    // Networking Module build) — factory IT/OT network infrastructure,
+    // sourced from the real Cisco Packet Tracer diagram
+    // CE_Factory_Production_LAN. Read-only, so nothing per-control to gate
+    // beyond this route-level read check.
+    requiredPermission: { module: "networking", action: "read" },
   },
   {
     path: "/analytics",
