@@ -92,7 +92,7 @@ export default function FactoryProduction() {
   }
 
   return (
-    <div className="w-[28rem] max-w-full max-h-96 overflow-auto p-3">
+    <div className="h-full w-full overflow-auto p-4">
       {runs
         .slice()
         .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1))

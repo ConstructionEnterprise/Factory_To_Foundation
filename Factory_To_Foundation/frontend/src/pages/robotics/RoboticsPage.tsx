@@ -4,7 +4,6 @@ import {
   RoboticsBrowse,
   RoboticsInspector,
   RoboticsLayout,
-  RoboticsToolbar,
 } from "@/features/robotics";
 
 /**
@@ -18,7 +17,6 @@ export default function RoboticsPage() {
     <FeaturePage
       pageLabel="Robotics"
       pageSubtitle="Robot Library — Live Isolated Robot Views"
-      toolbar={<RoboticsToolbar />}
       left={<RoboticsBrowse />}
       center={<RoboticsLayout />}
       right={<RoboticsInspector />}

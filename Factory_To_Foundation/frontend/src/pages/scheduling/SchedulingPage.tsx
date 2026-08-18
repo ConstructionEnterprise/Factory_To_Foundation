@@ -1,6 +1,5 @@
 import { FeaturePage } from "@/framework/ui";
 
-import { ScheduleToolbar } from "@/features/scheduling";
 import ScheduleWorkspace from "@/features/scheduling/ScheduleWorkspace";
 
 /**
@@ -22,7 +21,6 @@ export default function SchedulingPage() {
     <FeaturePage
       pageLabel="Scheduling"
       pageSubtitle="Production & Project Scheduling"
-      toolbar={<ScheduleToolbar />}
       workspace={<ScheduleWorkspace />}
     />
   );

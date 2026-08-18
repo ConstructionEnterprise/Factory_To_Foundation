@@ -1,24 +1,13 @@
 import { useEffect, useState } from "react";
 
-import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
+import { FeaturePage } from "@/framework/ui";
 
-import {
-  AssetsBrowse,
-  AssetsInspector,
-  AssetsMap,
-  AssetsToolbar,
-} from "@/features/assets";
+import { AssetsBrowse, AssetsInspector, AssetsMap } from "@/features/assets";
 import { fetchAssets } from "@/features/assets/assetsApi";
-import { getAssetSummary, layoutAssets, type AssetNodeData } from "@/features/assets/assetsData";
+import { layoutAssets, type AssetNodeData } from "@/features/assets/assetsData";
 
-import {
-  GenealogyBrowser,
-  GenealogyToolbar,
-  RelationshipGraph,
-  SelectedObject,
-} from "@/features/genealogy";
-import { getGenealogyKpis } from "@/features/genealogy/genealogySummary";
-import { ensureGenealogyGraphLoaded, useGenealogyGraph } from "@/features/genealogy/genealogyStore";
+import { GenealogyBrowser, RelationshipGraph, SelectedObject } from "@/features/genealogy";
+import { ensureGenealogyGraphLoaded } from "@/features/genealogy/genealogyStore";
 
 import { MaterialsBrowse, MaterialsInspector, MaterialsSummary } from "@/features/materials";
 import { fetchMaterials, type MaterialRecord } from "@/features/materials/materialsApi";
@@ -51,6 +40,13 @@ type InventoryMode = "assets" | "materials" | "genealogy";
  * fully live — this page is an additional real entry point into the same
  * real data (fetched independently, no shared state with those routes),
  * not a replacement.
+ *
+ * Metrics/Filters removed (Phase 10, 2026-08-18) per Joshua's explicit
+ * "remove metrics and filters from every command ribbon" instruction --
+ * AssetsToolbar/GenealogyToolbar were both confirmed decorative (no
+ * onClick/onChange anywhere); this also closes the real "Filters vanishes
+ * on Materials but not Assets/Genealogy" inconsistency found earlier the
+ * same phase, since none of the three branches show it anymore.
  */
 export default function InventoryPage() {
   const [mode, setMode] = useState<InventoryMode>("assets");
@@ -63,8 +59,6 @@ export default function InventoryPage() {
       .then((records) => setAssets(layoutAssets(records)))
       .catch((err) => setAssetsError(err instanceof Error ? err.message : String(err)));
   }, []);
-
-  const { nodes: genealogyNodes, edges: genealogyEdges } = useGenealogyGraph();
 
   useEffect(() => {
     ensureGenealogyGraphLoaded();
@@ -86,20 +80,11 @@ export default function InventoryPage() {
   ];
 
   if (mode === "materials") {
-    const totalQuantity = materials.reduce((sum, m) => sum + m.quantityOnHand, 0);
-    const locations = new Set(materials.map((m) => m.location ?? "Location not recorded"));
-    const materialsKpis: KpiDefinition[] = [
-      { title: "Total Materials", value: String(materials.length) },
-      { title: "Total Quantity", value: totalQuantity.toLocaleString() },
-      { title: "Locations", value: String(locations.size) },
-    ];
-
     return (
       <FeaturePage
         pageLabel="Inventory"
         pageSubtitle={materialsError ? `Materials — Stock & Location — ${materialsError}` : "Materials — Stock & Location"}
         extraMenus={extraMenus}
-        kpis={<KpiList kpis={materialsKpis} />}
         left={<MaterialsBrowse materials={materials} />}
         center={<MaterialsSummary materials={materials} />}
         right={<MaterialsInspector />}
@@ -113,8 +98,6 @@ export default function InventoryPage() {
         pageLabel="Inventory"
         pageSubtitle="Genealogy — End-to-End Traceability & Object Relationships"
         extraMenus={extraMenus}
-        kpis={<KpiList kpis={getGenealogyKpis(genealogyNodes, genealogyEdges)} />}
-        toolbar={<GenealogyToolbar />}
         left={<GenealogyBrowser />}
         center={<RelationshipGraph />}
         right={<SelectedObject />}
@@ -122,21 +105,11 @@ export default function InventoryPage() {
     );
   }
 
-  const summary = getAssetSummary(assets);
-  const assetsKpis: KpiDefinition[] = [
-    { title: "Total Assets", value: String(summary.total) },
-    { title: "Active", value: String(summary.active) },
-    { title: "In Maintenance", value: String(summary.maintenance) },
-    { title: "Retired", value: String(summary.retired) },
-  ];
-
   return (
     <FeaturePage
       pageLabel="Inventory"
       pageSubtitle={assetsError ? `Assets — Enterprise Asset Management — ${assetsError}` : "Assets — Enterprise Asset Management"}
       extraMenus={extraMenus}
-      kpis={<KpiList kpis={assetsKpis} />}
-      toolbar={<AssetsToolbar />}
       left={<AssetsBrowse assetNodes={assets} />}
       center={<AssetsMap assetNodes={assets} />}
       right={<AssetsInspector />}

@@ -47,7 +47,7 @@ export default function FactoryInstructions() {
           : null;
 
   return (
-    <div className="w-[28rem] max-w-full max-h-96 overflow-auto p-3">
+    <div className="h-full w-full overflow-auto p-4">
       <div
         className="mb-3 rounded-[0.2rem] p-2 text-xs font-semibold"
         style={{ background: "var(--ff-status-warning)", color: "white" }}

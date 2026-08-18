@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { FeaturePage, KpiList, type KpiDefinition } from "@/framework/ui";
+import { FeaturePage } from "@/framework/ui";
 
 import {
   ConstructionDataMapBrowse,
@@ -11,7 +11,6 @@ import {
   ConstructionMap,
   ConstructionProjectObjects,
   ConstructionProjects,
-  ConstructionToolbar,
   CostEstimatingInspector,
   CostEstimatingPanel,
   SequencingInspector,
@@ -22,13 +21,6 @@ import {
   type ModuleSequenceGraphEntry,
 } from "@/features/construction";
 import { useDocumentPreview } from "@/features/construction/constructionDocumentPreviewStore";
-
-const constructionKpis: KpiDefinition[] = [
-  { title: "Buildings Complete", value: "1 / 3" },
-  { title: "Open Punch Items", value: "8" },
-  { title: "Modules Installed", value: "22" },
-  { title: "Avg Progress", value: "54%" },
-];
 
 type ConstructionCapability = "map" | "dataMap" | "estimating" | "sequencing";
 
@@ -99,7 +91,6 @@ export default function ConstructionPage() {
         pageLabel="Construction"
         pageSubtitle="Modular Sequencing — Real Handoff-Gated Timeline"
         extraMenus={extraMenus}
-        kpis={<KpiList kpis={constructionKpis} />}
         left={
           <ConstructionDataMapBrowse
             title="Sequencing"
@@ -142,7 +133,6 @@ export default function ConstructionPage() {
         pageLabel="Construction"
         pageSubtitle="Cost Estimating — Real Project Scenarios"
         extraMenus={extraMenus}
-        kpis={<KpiList kpis={constructionKpis} />}
         left={
           <ConstructionDataMapBrowse
             title="Cost Estimating"
@@ -180,7 +170,6 @@ export default function ConstructionPage() {
         pageLabel="Construction"
         pageSubtitle="Data Map — Real Project Relationships"
         extraMenus={extraMenus}
-        kpis={<KpiList kpis={constructionKpis} />}
         left={
           <ConstructionDataMapBrowse
             selectedProjectId={selectedProjectId}
@@ -207,8 +196,6 @@ export default function ConstructionPage() {
       pageLabel="Construction"
       pageSubtitle="Construction Site Operations"
       extraMenus={extraMenus}
-      kpis={<KpiList kpis={constructionKpis} />}
-      toolbar={<ConstructionToolbar />}
       left={<ConstructionProjects />}
       center={file ? <ConstructionDocumentViewer /> : <ConstructionMap />}
       right={<ConstructionProjectObjects />}

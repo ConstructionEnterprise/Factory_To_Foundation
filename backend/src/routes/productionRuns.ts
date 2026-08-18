@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { authenticate, requirePermission } from "../middleware/auth";
+import * as factoryFlowService from "../services/factoryFlowService";
 import * as materialRequirementService from "../services/materialRequirementService";
 import * as service from "../services/productionRunService";
 
@@ -52,5 +53,11 @@ export async function productionRunRoutes(app: FastifyInstance) {
   app.get("/production-runs/:id/material-requirements", { preHandler: readPreHandler }, async (request) => {
     const { id } = request.params as { id: string };
     return materialRequirementService.computeMaterialRequirements(id);
+  });
+
+  /** Real Factory Flow projection (Phase 10, 2026-08-18) -- see factoryFlowService.ts. */
+  app.get("/production-runs/:id/factory-flow", { preHandler: readPreHandler }, async (request) => {
+    const { id } = request.params as { id: string };
+    return factoryFlowService.getFactoryFlow(id);
   });
 }

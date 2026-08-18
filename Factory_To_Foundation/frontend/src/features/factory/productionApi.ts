@@ -84,3 +84,78 @@ export function listProductionOutputs(productionRunId?: string): Promise<Product
 export function fetchMaterialRequirements(productionRunId: string): Promise<MaterialRequirementReport> {
   return requestJson(`/production-runs/${productionRunId}/material-requirements`);
 }
+
+/**
+ * Real Factory Flow projection (Phase 10, 2026-08-18) -- Instructions
+ * Received -> Materials Received -> Manufacturing/Assembly -> Production
+ * Complete -> Logistics Handoff, each stage a real read projection over
+ * existing Phase 5/8/9 records, never a second parallel lifecycle. See
+ * factoryFlowService.ts.
+ */
+export type FactoryFlowStageKey =
+  | "instructions_received"
+  | "materials_received"
+  | "manufacturing"
+  | "production_complete"
+  | "logistics_handoff";
+
+export type InstructionsReceivedStage = {
+  status: "resolved" | "unresolved";
+  instructionSetId: string | null;
+  generatedAt: string | null;
+  totalSteps: number | null;
+  executedSteps: number | null;
+  unresolvedReason: string | null;
+};
+
+export type MaterialsReceivedStage = {
+  status: "sufficient" | "insufficient" | "unresolved";
+  report: MaterialRequirementReport;
+};
+
+export type ManufacturingStage = {
+  status: "in_progress" | "complete";
+  startedAt: string;
+  completedAt: string | null;
+};
+
+export type ProductionOutputSummary = {
+  id: string;
+  serialNumber: string;
+  status: string;
+  qcStatus: string;
+  inventoryItemId: string;
+};
+
+export type ProductionCompleteStage = {
+  status: "not_started" | "partial" | "complete";
+  plannedQuantity: number | null;
+  outputs: ProductionOutputSummary[];
+};
+
+export type LogisticsHandoffLine = {
+  productionOutputId: string;
+  serialNumber: string;
+  status: "handed_off" | "pending";
+  logisticsModuleId: string | null;
+  dispatchStatus: string | null;
+};
+
+export type LogisticsHandoffStage = {
+  status: "not_started" | "partial" | "complete";
+  lines: LogisticsHandoffLine[];
+};
+
+export type FactoryFlow = {
+  productionRunId: string;
+  currentStage: FactoryFlowStageKey;
+  instructionsReceived: InstructionsReceivedStage;
+  materialsReceived: MaterialsReceivedStage;
+  manufacturing: ManufacturingStage;
+  productionComplete: ProductionCompleteStage;
+  logisticsHandoff: LogisticsHandoffStage;
+};
+
+export function fetchFactoryFlow(productionRunId: string): Promise<FactoryFlow> {
+  return requestJson(`/production-runs/${productionRunId}/factory-flow`);
+}

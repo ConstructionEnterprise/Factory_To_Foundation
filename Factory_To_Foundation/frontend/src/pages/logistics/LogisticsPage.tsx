@@ -19,7 +19,6 @@ import {
   LogisticsToolbar,
   MileageRateManager,
   fetchVehicles,
-  type LogisticsMode,
   type VehicleRecord,
 } from "@/features/logistics";
 import { getLogisticsKpis, type LogisticsKpis } from "@/features/logistics/logisticsOperationsApi";
@@ -43,16 +42,17 @@ function buildKpis(kpis: LogisticsKpis | null): KpiDefinition[] {
   ];
 }
 
-type LogisticsCapability = "logistics" | "fleet";
+type LogisticsCapability = "operations" | "flow" | "fleet";
 
 export default function LogisticsPage() {
-  // Fleet is a sibling capability of Logistics Flow (Phase 3, 2026-08-15
-  // rollout) -- reached via the CommandRibbon's real onClick/active
-  // capability switch (the same infrastructure Inventory's Assets/
-  // Genealogy switch uses), never nested under Logistics Flow's own
-  // operations/flow toggle below.
-  const [capability, setCapability] = useState<LogisticsCapability>("logistics");
-  const [mode, setMode] = useState<LogisticsMode>("operations");
+  // Real command-ribbon correction (Phase 10, 2026-08-18): Operations and
+  // Logistics Flow used to be a `mode` toggle buried inside LogisticsToolbar
+  // (rendered via the "Filters" dropdown) -- both are genuine first-class
+  // capabilities that swap the whole workspace, exactly like Fleet already
+  // does, so they get the same real CommandRibbon onClick/active mechanism
+  // Fleet always used. See CommandRibbon.tsx's own doc comment for the
+  // real distinction this now correctly follows.
+  const [capability, setCapability] = useState<LogisticsCapability>("operations");
   const [showDispatchForm, setShowDispatchForm] = useState(false);
   const [showDispatchTracker, setShowDispatchTracker] = useState(false);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
@@ -83,13 +83,14 @@ export default function LogisticsPage() {
   }, [browseRefreshKey]);
 
   const extraMenus = [
-    { label: "Logistics", onClick: () => setCapability("logistics"), active: capability === "logistics" },
+    { label: "Operations", onClick: () => setCapability("operations"), active: capability === "operations" },
+    { label: "Logistics Flow", onClick: () => setCapability("flow"), active: capability === "flow" },
     { label: "Fleet", onClick: () => setCapability("fleet"), active: capability === "fleet" },
   ];
 
   return (
     <>
-      {capability === "fleet" ? (
+      {capability === "fleet" && (
         <FeaturePage
           pageLabel="Logistics"
           pageSubtitle={vehiclesError ? `Fleet — Vehicle Registry & Dispatch History — ${vehiclesError}` : "Fleet — Vehicle Registry & Dispatch History"}
@@ -108,16 +109,26 @@ export default function LogisticsPage() {
           center={<FleetWorkspace />}
           right={<FleetInspector />}
         />
-      ) : (
+      )}
+      {capability === "flow" && (
         <FeaturePage
           pageLabel="Logistics"
-          pageSubtitle={mode === "operations" ? "Material & Module Flow" : "Logistics Flow — Point-to-Point Map"}
+          pageSubtitle="Logistics Flow — Point-to-Point Map"
+          extraMenus={extraMenus}
+          kpis={<KpiList kpis={buildKpis(kpis)} />}
+          left={<LogisticsFlowBrowse />}
+          center={<LogisticsFlowMap />}
+          right={<LogisticsFlowInspector />}
+        />
+      )}
+      {capability === "operations" && (
+        <FeaturePage
+          pageLabel="Logistics"
+          pageSubtitle="Material & Module Flow"
           extraMenus={extraMenus}
           kpis={<KpiList kpis={buildKpis(kpis)} />}
           toolbar={
             <LogisticsToolbar
-              mode={mode}
-              onModeChange={setMode}
               onNewMaterial={() => setShowMaterialForm(true)}
               onNewModule={() => setShowModuleForm(true)}
               onNewDispatch={() => setShowDispatchForm(true)}
@@ -125,9 +136,9 @@ export default function LogisticsPage() {
               onMileageRate={() => setShowMileageRateManager(true)}
             />
           }
-          left={mode === "operations" ? <LogisticsBrowse key={browseRefreshKey} /> : <LogisticsFlowBrowse />}
-          center={mode === "operations" ? <LogisticsMap /> : <LogisticsFlowMap />}
-          right={mode === "operations" ? <LogisticsInspector /> : <LogisticsFlowInspector />}
+          left={<LogisticsBrowse key={browseRefreshKey} />}
+          center={<LogisticsMap />}
+          right={<LogisticsInspector />}
         />
       )}
       {showDispatchForm && (

@@ -25,7 +25,7 @@ import { BACKEND_URL } from "@/lib/env";
  * future IFC-sourced glb populating the same `userData` shape works
  * unchanged. The one Blender-specific step (the actual .blend -> glTF
  * conversion) lives entirely in `blender-bridge/`, a sibling service
- * outside this repo — see ManufacturingToolbar for the upload flow.
+ * outside this repo — see pages/manufacturing/ManufacturingPage.tsx for the upload flow.
  */
 /**
  * The committed local default — Manufacturing's original ingested model,
