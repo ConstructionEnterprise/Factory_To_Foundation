@@ -66,7 +66,7 @@ export default function EndToEndReport() {
 
   return (
     <PanelCard
-      title="End-to-End Unit Lifecycle"
+      title="End-to-End Manufactured Unit Lifecycle"
       className="h-full"
       bodyClassName="flex-1 overflow-auto p-5"
       toolbar={
@@ -98,7 +98,14 @@ export default function EndToEndReport() {
       )}
 
       {rows && rows.length > 0 && (
-        <div className="overflow-x-auto">
+        <>
+          {/* Real scope disclosure -- this report's denominator is real Factory-produced units traceable downstream (ProductionOutput -> LogisticsModule -> LogisticsDispatch -> ModuleSequenceEntry), not every real ModuleSequenceEntry that exists (Construction's own Sequencing screen counts that broader population -- e.g. project-wide "5/6 modules complete" -- a real, legitimately different number, not a discrepancy). Stated explicitly so the two real counts are never mistaken for measuring the same thing. */}
+          <p className="mb-3 text-xs" style={{ color: "var(--ff-text-muted)" }}>
+            {rows.length} real Factory production output{rows.length === 1 ? "" : "s"} currently traced across the
+            full operational chain — not every real module in Construction's own Sequencing count, which includes
+            modules with no known Factory production lineage.
+          </p>
+          <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
             <thead>
               <tr style={{ borderBottom: "2px solid var(--ff-panel-border)" }}>
@@ -147,7 +154,8 @@ export default function EndToEndReport() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </PanelCard>
   );
