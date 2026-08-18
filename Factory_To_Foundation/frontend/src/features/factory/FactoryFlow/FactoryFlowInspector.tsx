@@ -1,5 +1,6 @@
 import { PanelCard } from "@/framework/ui";
 
+import { STATUS_LABEL as SEQUENCE_STATUS_LABEL } from "@/features/construction/Sequencing/SequencingPanel";
 import type { FactoryFlow, FactoryFlowStageKey } from "../productionApi";
 
 const STAGE_LABEL: Record<FactoryFlowStageKey, string> = {
@@ -8,6 +9,7 @@ const STAGE_LABEL: Record<FactoryFlowStageKey, string> = {
   manufacturing: "Manufacturing / Assembly",
   production_complete: "Production Complete",
   logistics_handoff: "Logistics Handoff",
+  modular_sequence: "Modular Sequence",
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -85,15 +87,32 @@ function StageDetail({ flow, stage }: { flow: FactoryFlow; stage: FactoryFlowSta
     );
   }
 
-  const s = flow.logisticsHandoff;
-  if (s.lines.length === 0) return <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>No real completed outputs yet to hand off.</p>;
+  if (stage === "logistics_handoff") {
+    const s = flow.logisticsHandoff;
+    if (s.lines.length === 0) return <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>No real completed outputs yet to hand off.</p>;
+    return (
+      <div className="space-y-2">
+        {s.lines.map((line) => (
+          <div key={line.productionOutputId} className="rounded-[0.2rem] p-2" style={{ background: "var(--ff-chrome-bg)" }}>
+            <div className="text-xs font-semibold" style={{ color: "var(--ff-text-primary)" }}>{line.serialNumber}</div>
+            <div className="text-xs" style={{ color: line.status === "handed_off" ? "var(--ff-status-positive)" : "var(--ff-text-muted)" }}>
+              {line.status === "handed_off" ? `✓ Handed off${line.dispatchStatus ? ` (dispatch: ${line.dispatchStatus})` : ""}` : "Not yet in Logistics"}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const s = flow.modularSequence;
+  if (s.lines.length === 0) return <p className="text-xs" style={{ color: "var(--ff-text-muted)" }}>No real completed outputs yet to sequence.</p>;
   return (
     <div className="space-y-2">
       {s.lines.map((line) => (
         <div key={line.productionOutputId} className="rounded-[0.2rem] p-2" style={{ background: "var(--ff-chrome-bg)" }}>
           <div className="text-xs font-semibold" style={{ color: "var(--ff-text-primary)" }}>{line.serialNumber}</div>
-          <div className="text-xs" style={{ color: line.status === "handed_off" ? "var(--ff-status-positive)" : "var(--ff-text-muted)" }}>
-            {line.status === "handed_off" ? `✓ Handed off${line.dispatchStatus ? ` (dispatch: ${line.dispatchStatus})` : ""}` : "Not yet in Logistics"}
+          <div className="text-xs" style={{ color: line.sequenceStatus === "complete" ? "var(--ff-status-positive)" : "var(--ff-text-muted)" }}>
+            {line.sequenceStatus ? `${SEQUENCE_STATUS_LABEL[line.sequenceStatus]}` : "Not yet sequenced"}
           </div>
         </div>
       ))}

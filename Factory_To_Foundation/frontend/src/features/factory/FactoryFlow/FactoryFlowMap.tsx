@@ -8,6 +8,7 @@ const STAGE_ORDER: FactoryFlowStageKey[] = [
   "manufacturing",
   "production_complete",
   "logistics_handoff",
+  "modular_sequence",
 ];
 
 const STAGE_LABEL: Record<FactoryFlowStageKey, string> = {
@@ -16,6 +17,7 @@ const STAGE_LABEL: Record<FactoryFlowStageKey, string> = {
   manufacturing: "Manufacturing / Assembly",
   production_complete: "Production Complete",
   logistics_handoff: "Logistics Handoff",
+  modular_sequence: "Modular Sequence",
 };
 
 type Tone = "positive" | "warning" | "critical" | "neutral";
@@ -53,6 +55,12 @@ function toneForStage(flow: FactoryFlow, stage: FactoryFlowStageKey): Tone {
       if (s === "partial") return "warning";
       return isCurrent ? "critical" : "neutral";
     }
+    case "modular_sequence": {
+      const s = flow.modularSequence.status;
+      if (s === "complete") return "positive";
+      if (s === "partial") return "warning";
+      return isCurrent ? "critical" : "neutral";
+    }
   }
 }
 
@@ -63,12 +71,16 @@ type FactoryFlowMapProps = {
 };
 
 /**
- * Real Factory Flow map (Phase 10, 2026-08-18) -- fixed 5-stage topology,
- * unlike Logistics Flow's own flexible/draggable FlowPoint graph, so this
- * is a pure read projection: Instructions Received -> Materials Received
- * -> Manufacturing/Assembly -> Production Complete -> Logistics Handoff.
- * Every node's real status comes from factoryFlowService.ts's projection
- * over existing Phase 5/8/9 records.
+ * Real Factory Flow map (Phase 10, 2026-08-18; extended 2026-08-18 with a
+ * 6th "Modular Sequence" stage per the real handoff audit,
+ * docs/decisions/2026-08-18-handoff-audit-factory-logistics-transportation-sequence.md) --
+ * fixed 6-stage topology, unlike Logistics Flow's own flexible/draggable
+ * FlowPoint graph, so this is a pure read projection: Instructions
+ * Received -> Materials Received -> Manufacturing/Assembly -> Production
+ * Complete -> Logistics Handoff -> Modular Sequence. Every node's real
+ * status comes from factoryFlowService.ts's projection over existing
+ * Phase 5/8/9 records, reaching one stage further into Construction's
+ * own ModuleSequenceEntry via the shared InventoryItem identity.
  */
 export default function FactoryFlowMap({ flow, selectedStage, onSelectStage }: FactoryFlowMapProps) {
   return (

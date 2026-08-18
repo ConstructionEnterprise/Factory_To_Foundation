@@ -1,3 +1,5 @@
+import type { ModuleSequenceStatus } from "@prisma/client";
+
 import { NotFoundError } from "../lib/httpErrors";
 import * as repo from "../repositories/factoryFlowRepository";
 import { computeMaterialRequirements, type MaterialRequirementReportDto } from "./materialRequirementService";
@@ -7,7 +9,8 @@ export type FactoryFlowStageKey =
   | "materials_received"
   | "manufacturing"
   | "production_complete"
-  | "logistics_handoff";
+  | "logistics_handoff"
+  | "modular_sequence";
 
 export type InstructionsReceivedStageDto = {
   status: "resolved" | "unresolved";
@@ -56,6 +59,18 @@ export type LogisticsHandoffStageDto = {
   lines: LogisticsHandoffLineDto[];
 };
 
+export type ModularSequenceLineDto = {
+  productionOutputId: string;
+  serialNumber: string;
+  sequenceEntryId: string | null;
+  sequenceStatus: ModuleSequenceStatus | null;
+};
+
+export type ModularSequenceStageDto = {
+  status: "not_started" | "partial" | "complete";
+  lines: ModularSequenceLineDto[];
+};
+
 export type FactoryFlowDto = {
   productionRunId: string;
   currentStage: FactoryFlowStageKey;
@@ -64,6 +79,7 @@ export type FactoryFlowDto = {
   manufacturing: ManufacturingStageDto;
   productionComplete: ProductionCompleteStageDto;
   logisticsHandoff: LogisticsHandoffStageDto;
+  modularSequence: ModularSequenceStageDto;
 };
 
 /**
@@ -165,13 +181,43 @@ export async function getFactoryFlow(productionRunId: string): Promise<FactoryFl
     lines: logisticsLines,
   };
 
+  // --- Modular Sequence --- only evaluated against real completed outputs, same real-vs-invented-state posture as Logistics Handoff above. A null sequenceStatus is an honest "not yet sequenced," never inferred from dispatchStatus.
+  const modularSequenceLines: ModularSequenceLineDto[] = completedOutputs.map((o) => {
+    const entry = o.inventoryItem.moduleSequenceEntry;
+    return {
+      productionOutputId: o.id,
+      serialNumber: o.serialNumber,
+      sequenceEntryId: entry?.id ?? null,
+      sequenceStatus: entry?.status ?? null,
+    };
+  });
+  const modularSequence: ModularSequenceStageDto = {
+    status:
+      completedOutputs.length === 0
+        ? "not_started"
+        : modularSequenceLines.every((l) => l.sequenceStatus === "complete")
+          ? "complete"
+          : "partial",
+    lines: modularSequenceLines,
+  };
+
   // --- Current stage: the real, earliest unresolved bottleneck, same "blocked" framing as Sequencing's own effectiveState. ---
   let currentStage: FactoryFlowStageKey;
   if (instructionsReceived.status !== "resolved") currentStage = "instructions_received";
   else if (materialsReceived.status !== "sufficient") currentStage = "materials_received";
   else if (manufacturing.status !== "complete") currentStage = "manufacturing";
   else if (productionComplete.status !== "complete") currentStage = "production_complete";
-  else currentStage = "logistics_handoff";
+  else if (logisticsHandoff.status !== "complete") currentStage = "logistics_handoff";
+  else currentStage = "modular_sequence";
 
-  return { productionRunId, currentStage, instructionsReceived, materialsReceived, manufacturing, productionComplete, logisticsHandoff };
+  return {
+    productionRunId,
+    currentStage,
+    instructionsReceived,
+    materialsReceived,
+    manufacturing,
+    productionComplete,
+    logisticsHandoff,
+    modularSequence,
+  };
 }

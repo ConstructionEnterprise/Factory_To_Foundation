@@ -24,7 +24,8 @@ export const STATUS_TONE: Record<ModuleSequenceStatus, StatusTone> = {
 };
 
 const STATUS_ORDER: ModuleSequenceStatus[] = ["pending", "site_arrival", "site_acceptance", "installation", "placement", "complete"];
-const STATUS_LABEL: Record<ModuleSequenceStatus, string> = {
+/** Exported for FactoryFlowInspector.tsx's Modular Sequence stage detail -- one authoritative status vocabulary, not duplicated per consumer. */
+export const STATUS_LABEL: Record<ModuleSequenceStatus, string> = {
   pending: "Pending",
   site_arrival: "Site Arrival",
   site_acceptance: "Site Acceptance",

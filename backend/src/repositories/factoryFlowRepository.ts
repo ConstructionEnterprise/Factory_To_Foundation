@@ -19,6 +19,7 @@ export function findRunForFlow(productionRunId: string) {
           inventoryItem: {
             include: {
               logisticsModule: { include: { dispatch: true } },
+              moduleSequenceEntry: true,
             },
           },
         },

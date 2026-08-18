@@ -1,5 +1,6 @@
 import { authFetch } from "@/lib/authFetch";
 import { BACKEND_URL } from "@/lib/env";
+import type { ModuleSequenceStatus } from "@/features/construction/Sequencing/moduleSequenceApi";
 
 /**
  * Real API client for Phase 9's ProductionRun/ProductionOutput --
@@ -97,7 +98,8 @@ export type FactoryFlowStageKey =
   | "materials_received"
   | "manufacturing"
   | "production_complete"
-  | "logistics_handoff";
+  | "logistics_handoff"
+  | "modular_sequence";
 
 export type InstructionsReceivedStage = {
   status: "resolved" | "unresolved";
@@ -146,6 +148,18 @@ export type LogisticsHandoffStage = {
   lines: LogisticsHandoffLine[];
 };
 
+export type ModularSequenceLine = {
+  productionOutputId: string;
+  serialNumber: string;
+  sequenceEntryId: string | null;
+  sequenceStatus: ModuleSequenceStatus | null;
+};
+
+export type ModularSequenceStage = {
+  status: "not_started" | "partial" | "complete";
+  lines: ModularSequenceLine[];
+};
+
 export type FactoryFlow = {
   productionRunId: string;
   currentStage: FactoryFlowStageKey;
@@ -154,6 +168,7 @@ export type FactoryFlow = {
   manufacturing: ManufacturingStage;
   productionComplete: ProductionCompleteStage;
   logisticsHandoff: LogisticsHandoffStage;
+  modularSequence: ModularSequenceStage;
 };
 
 export function fetchFactoryFlow(productionRunId: string): Promise<FactoryFlow> {
