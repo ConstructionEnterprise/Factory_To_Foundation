@@ -34,7 +34,7 @@ Record repository paths, commit IDs, commands, exports, screenshots, or test res
 | 2. Local immutable snapshot (git bundles, all 4 repos) | Claude | **Done** | `AI_Dispatch/backups/FF-RECOVERY-v1.0/source-and-infrastructure/` — 4 bundles, `git bundle verify` passed on all, SHA-256 recorded | — |
 | 3/5. Database preservation (logical export) | Claude | **Done, restore-tested** | `AI_Dispatch/backups/FF-RECOVERY-v1.0/databases/` — `ff-postgres-dev-logical-export-20260818.tar.gz` + `RESTORE_TEST_RESULTS.md`. All 63 models reloaded into an isolated schema with exact row-count parity; 0 orphaned FK references across 106 real constraints. Found and fixed 4 real restore-tooling bugs along the way (Prisma adapter ignoring `?schema=`, cascading truncate order, enum-field exclusion, unstringified Json columns) — none affected the export data itself. | **Native RDS snapshot still outstanding** — see IAM gap below. |
 | 5. S3 object export (2 real buckets) | — | **Not started** | — | Blocked on the same IAM gap that blocked bucket listing during recon — see below |
-| 6. Business archive separation (9 real docs) | — | **Classified, not yet physically moved/archived** | `Construction_Enterprises/CE_RECOVERY/BUSINESS_ARCHIVE_CLASSIFICATION.md` | Actual move into a private archive location — deliberately not done yet, routing recommendation only so far |
+| 6. Business archive separation (8 real docs) | Claude | **Done — copied + verified, originals untouched** | `AI_Dispatch/backups/FF-RECOVERY-v1.0/business-archive/` + `BUSINESS_ARCHIVE_MANIFEST.json`, all 8 SHA-256-verified byte-for-byte | Whether to remove the originals from `Factory_Documentation/` is a separate, deliberately deferred decision |
 | 7. GCS creation | — | **Explicitly not authorized yet** | `17_GCS_RECOVERY.md` | Requires the human owner's direct go-ahead (new Google account/project — an "explicit permission required" action) |
 | 8. Full checksums/manifest for everything preserved so far | Claude | **Partial** | Per-artifact `CHECKSUMS.sha256` + `MANIFEST.md` exist for both the source bundles and the DB export; no single top-level manifest tying all of Phase 2's artifacts together yet | — |
 | 9. `15_DEPLOYMENT.md` cold-start instructions | — | **Not started** | — | — |
@@ -81,7 +81,7 @@ This session's own `codex-cli` IAM user was confirmed (via live `AccessDeniedExc
 ## Immediate, ungated next steps
 
 1. ~~Restore-test the logical database export~~ — **Done**, see `RESTORE_TEST_RESULTS.md`.
-2. **Private-copy + checksum the 9 sensitive business documents** — copy (not move) into a new `CE_RECOVERY_PRIVATE/BUSINESS_ARCHIVE/` location outside all four repos, verify byte-for-byte, generate a manifest. Do **not** remove the originals from `Factory_Documentation/` yet — that's a separate decision after the copies are verified.
+2. ~~Private-copy + checksum the sensitive business documents~~ — **Done**, see `AI_Dispatch/backups/FF-RECOVERY-v1.0/business-archive/`.
 3. **`15_DEPLOYMENT.md`** — write real cold-start steps now that `02_ARCHITECTURE.md` + the restore-tested database export exist to ground them.
 4. **Resolve the Logistics Flow navigation discrepancy** per `19_KNOWN_ISSUES.md`'s acceptance condition — still needs the human owner's own direct repro.
 
