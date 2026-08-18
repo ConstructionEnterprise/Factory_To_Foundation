@@ -126,6 +126,7 @@ model User {
   schedules                      Schedule[]
   materialCatalogItems           MaterialCatalogItem[]
   materialInventoryEvents        MaterialInventoryEvent[]
+  payrollAccount                 PayrollAccount?
 
   @@map("user")
 }
@@ -1854,6 +1855,58 @@ model MileageRateConfig {
   createdBy   User?    @relation(fields: [createdById], references: [id])
 
   @@map("mileage_rate_config")
+}
+
+/// Real pay type — HOURLY accounts carry hourlyRate, SALARY accounts carry
+/// annualSalary; the service layer enforces exactly one is set per account.
+enum PayType {
+  HOURLY
+  SALARY
+}
+
+/// Real pay cadence — the same 4 values every US payroll provider offers,
+/// not an invented scale.
+enum PayFrequency {
+  WEEKLY
+  BIWEEKLY
+  SEMIMONTHLY
+  MONTHLY
+}
+
+enum PayrollAccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Real Payroll Account (Administration rebuild, 2026-08-18) — a payroll
+/// profile for an existing real User, never a separately-invented employee
+/// identity. One real account per User (userId is @unique): Administration
+/// creates payroll accounts FROM the same real profiles Permissions already
+/// manages (User/Role), it doesn't stand up a second identity system next
+/// to it. Deliberately scoped to the real pay-profile fields only — no
+/// paycheck/withholding/tax calculation lives here, since this app has no
+/// real tax-table data to compute against; fabricating that math would
+/// present invented numbers as real payroll output.
+model PayrollAccount {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  payType PayType @map("pay_type")
+
+  /// Real dollars/hour — set only when payType is HOURLY.
+  hourlyRate Float? @map("hourly_rate")
+
+  /// Real dollars/year — set only when payType is SALARY.
+  annualSalary Float? @map("annual_salary")
+
+  payFrequency PayFrequency          @map("pay_frequency")
+  status       PayrollAccountStatus  @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("payroll_account")
 }
 
 /// Real chain-of-custody audit trail (Phase 7). Before this, Dispatch had

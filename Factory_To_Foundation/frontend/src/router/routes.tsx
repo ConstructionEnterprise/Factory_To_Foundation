@@ -128,21 +128,6 @@ export const appRoutes: AppRoute[] = [
     element: <SchedulingPage />,
   },
   {
-    path: "/permissions",
-    label: "Permissions",
-    icon: Lock,
-    element: <PermissionsPage />,
-    // A3 — Roles & Permissions/User Management are real RBAC administration
-    // (renamed from Networking in the Permissions Migration — this route
-    // used to live at /networking under module id "networking"; both the
-    // route and the module id were renamed together, atomically, with the
-    // real role_permission rows repointed in the same migration). Same
-    // route-level gating precedent as Administration below (nothing
-    // per-control to hide/disable on this page's own read view; the write
-    // controls inside User Management are separately gated per-action too).
-    requiredPermission: { module: "permissions", action: "read" },
-  },
-  {
     path: "/networking",
     label: "Networking",
     icon: Wifi,
@@ -185,6 +170,24 @@ export const appRoutes: AppRoute[] = [
     label: "Reports",
     icon: FileText,
     element: <ReportsPage />,
+  },
+  {
+    path: "/permissions",
+    label: "Permissions",
+    icon: Lock,
+    element: <PermissionsPage />,
+    // A3 — Roles & Permissions/User Management are real RBAC administration
+    // (renamed from Networking in the Permissions Migration — this route
+    // used to live at /networking under module id "networking"; both the
+    // route and the module id were renamed together, atomically, with the
+    // real role_permission rows repointed in the same migration). Same
+    // route-level gating precedent as Administration below (nothing
+    // per-control to hide/disable on this page's own read view; the write
+    // controls inside User Management are separately gated per-action too).
+    // Ordered directly above Administration (2026-08-18) — Payroll accounts
+    // are created from the real User profiles this page manages, so the two
+    // pages are read in sequence in the sidebar.
+    requiredPermission: { module: "permissions", action: "read" },
   },
   {
     path: "/administration",
