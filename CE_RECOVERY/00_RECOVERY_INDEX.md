@@ -1,9 +1,9 @@
 # CE_RECOVERY Index
 
-**Package status:** Phase 1 (reconnaissance) closed, Phase 2 (preservation) in progress — see status summary below.
+**Package status:** Phase 1 (reconnaissance) closed, Phase 2 (preservation) closed, Cold Start Test executed and passed — see status summary below.
 **Repository:** `Factory_To_Foundation`
 **Created:** 2026-08-17
-**Last major update:** 2026-08-18
+**Last major update:** 2026-08-19
 **Recovery objective:** Preserve the executable history, current implementation record, state, deployment path, and minimum viable reconstruction capability of Factory » Foundation independently of the current AWS and AI-tooling environment.
 
 **See also:** `AI_Dispatch/CE_RECOVERY/CROSS_REPOSITORY_DEPENDENCY_MAP.md` — this repo is one of **four** (`CE_Forge`, `Construction_Enterprises`, `Factory_To_Foundation`, `AI_Dispatch`), and none is independently recoverable to full functionality. That document covers the real filesystem/hardcoded-path coupling to `Construction_Enterprises` and the orchestration relationship with `AI_Dispatch`.
@@ -14,16 +14,16 @@
 
 ```text
 BUILD → FREEZE → DOCUMENT → SNAPSHOT → AWS EXPORT → GCS MIRROR → COLD-START VALIDATION → RECOVERY-READY
-  ✅       ✅        ✅         ✅          ✅ (logical)    ✅ (verified)     ⬜ (procedure written,      ⬜
-                                                                              not yet executed by
-                                                                              a third party)
+  ✅       ✅        ✅         ✅          ✅ (logical)    ✅ (verified)     ✅ (executed & passed,      ✅
+                                                                              2026-08-19)
 ```
 
 ## Phase status summary
 
 - **Phase 1 (reconnaissance): CLOSED.** All four repos inspected with real evidence, cross-repo topology mapped and corrected (see the architecture-correction note above), AWS resources inventoried read-only.
 - **Phase 2 (preservation): CLOSED.** All four repos committed and pushed to GitHub; local git-bundle snapshots (verified, checksummed); logical database export (restore-tested, verified, zero data-integrity defects); business-archive documents copied and verified into a private location (originals untouched); real cold-start deployment procedure written (`15_DEPLOYMENT.md`); **GCS recovery archive created, configured, populated (98 real files, ~4.9 MB), and fully round-trip-verified (full re-download + checksum comparison, zero discrepancies) — see `GCS_INVENTORY.md`.** All three independent-redundancy layers (GitHub / git bundles / GCS) are now real and verified.
-- **Not yet done, deliberately**: native RDS snapshot (blocked on a real IAM gap, exact policy proposed in `20_NEXT_ACTIONS.md`), S3 object-level export (same IAM gap), client-side encryption of the GCS archive (real, disclosed gap — see `17_GCS_RECOVERY.md`), a third-party Cold Start Test.
+- **Cold Start Test: EXECUTED AND PASSED, 2026-08-19.** Real GCS download into an isolated environment with no access to any existing local checkout; MVP Recovery target achieved (Postgres → backend → frontend, real restored data, confirmed via API and a live logged-in browser session); 5 real defects found in the package and fixed in the same pass, including reconstructing a previously-deleted, unpreserved restore-loader script (`backend/scripts/cold-start-restore.ts`, now committed). Full detail: `19_KNOWN_ISSUES.md`, `15_DEPLOYMENT.md` §21.
+- **Not yet done, deliberately**: native RDS snapshot (blocked on a real IAM gap, exact policy proposed in `20_NEXT_ACTIONS.md`), S3 object-level export (same IAM gap), client-side encryption of the GCS archive (real, disclosed gap — see `17_GCS_RECOVERY.md`).
 
 ## Canonical documents
 
@@ -46,7 +46,7 @@ Two distinct statuses are used deliberately, per explicit instruction — do not
 | `17_GCS_RECOVERY.md` | Recovery archive and retrieval | **VERIFIED ARTIFACT** — real archive exists at `gs://ai-dispatch-504810-ff-recovery/CE_RECOVERY/`, uploaded and fully round-trip-verified; see `GCS_INVENTORY.md` for the complete breakdown |
 | `GCS_INVENTORY.md` | Real GCS archive inventory | **VERIFIED ARTIFACT** — 98 files, ~4.9 MB, full verification evidence |
 | `18_ENVIRONMENT_VARIABLES.md` | Redacted secrets and configuration inventory | **TEMPLATE / NOT YET CONSOLIDATED** — real variable names exist correctly in `01_CURRENT_STATE.md` and `15_DEPLOYMENT.md`; no single inventory with owner/rotation-method per variable exists yet |
-| `19_KNOWN_ISSUES.md` | Recovery-impacting defects | **VERIFIED ARTIFACT** — 2 real entries, one still disputed pending the human owner's own repro |
+| `19_KNOWN_ISSUES.md` | Recovery-impacting defects | **VERIFIED ARTIFACT** — 3 real entries: the Logistics Flow deep-link bug (still disputed, pending the human owner's own repro), the test-suite absence, and the 2026-08-19 Cold Start Test (5 defects found and fixed) |
 | `20_NEXT_ACTIONS.md` | Concrete remaining work | **VERIFIED ARTIFACT, actively maintained** — real punch list, updated each session |
 
 ## Required archive layers
@@ -60,6 +60,8 @@ Two distinct statuses are used deliberately, per explicit instruction — do not
 ## Cold-start acceptance test
 
 A technically competent person must be able to reconstruct the MVP Recovery target using only the repository, this directory, database backup, GCS recovery package, redacted environment-variable inventory, and deployment instructions. Any unanswered question becomes a recovery defect.
+
+**Executed 2026-08-19 — PASSED.** See `19_KNOWN_ISSUES.md`'s "Cold Start Test" entry and `15_DEPLOYMENT.md` §21 for full evidence.
 
 ## Integrity record
 

@@ -1,8 +1,8 @@
 # Deployment — Cold-Start Recovery Procedure
 
-**Status:** Draft — real, evidence-grounded procedure. Not yet executed end-to-end by a person other than the AI sessions that assembled it (that execution is the Cold Start Test itself — see `20_NEXT_ACTIONS.md`).
+**Status:** VERIFIED ARTIFACT — executed end-to-end as a real Cold Start Test 2026-08-19 (see step 21). 5 real defects found by that execution are corrected in this revision.
 **Package:** `CE_RECOVERY`
-**Last reviewed:** 2026-08-18
+**Last reviewed:** 2026-08-19
 
 ## Purpose
 
@@ -63,7 +63,7 @@ Real per-service setup (`02_ARCHITECTURE.md`):
 
 | Service | Setup | Port |
 |---|---|---|
-| `backend` | `npm install`, configure `.env` (see step 7), `npx prisma migrate deploy`, `npm run dev` | 4310 |
+| `backend` | `npm install`, configure `.env` (see step 7), `npx prisma migrate deploy`, `npm run dev` | 4300 |
 | `Factory_To_Foundation/frontend` | `npm install`, `npm run dev` (dev) or `npm run build` (production static assets) | 5173 (dev) |
 | `factory-runtime` | `npm install`, requires `Construction_Enterprises` present at its hardcoded path (step 8) if `FACTORY_RUNTIME_MODE=active` | 4103 |
 | `blender-bridge` | `npm install`, requires real AWS S3 credentials | 4200 |
@@ -71,15 +71,21 @@ Real per-service setup (`02_ARCHITECTURE.md`):
 
 **No automated test suite exists** (confirmed, zero `*.test.ts`/`*.spec.ts` files anywhere) — `npm run typecheck` (backend) and `tsc -b` (frontend) are the real minimum verification available; do not expect `npm test` to exist.
 
+**Correction (2026-08-19, Cold Start Test):** this table originally listed the backend's port as 4310. That was wrong — confirmed live during the Cold Start Test both from `backend/src/server.ts`'s own default (`PORT ?? 4300`) and from every consumer that references it (`factory-runtime/.env.example`, `blender-bridge/.env.example`, `frontend/.env.example` all point `BACKEND_URL`/`VITE_BACKEND_URL` at 4300). The real port is **4300**.
+
 ## 6. Restore PostgreSQL **[LOCAL or AWS]**
 
 Real, restore-tested procedure (full detail: `AI_Dispatch/backups/FF-RECOVERY-v1.0/databases/RESTORE_TEST_RESULTS.md`):
 
 1. Stand up a target Postgres instance (RDS or otherwise).
 2. Run `npx prisma migrate deploy` from `backend/` against it — applies all 38 real migrations in order.
-3. Load the real logical export (`ff-postgres-dev-logical-export-20260818.tar.gz`, 63 real models) via a script that reads each `<Model>.json` and inserts it — **do not use Prisma's typed client's `?schema=` URL parameter for a non-default schema; it is confirmed broken in this project's Prisma/adapter version (see `RESTORE_TEST_RESULTS.md` for the exact bug and workaround)**. Use raw `pg.Client` with an explicit `SET search_path` instead if targeting anything other than `public`.
-4. If reloading into a fresh, empty target (not a shared schema), the two-phase truncate-then-insert discipline documented in the restore test is not strictly required — it existed specifically to handle a shared, non-empty target safely. A genuinely fresh database only needs the insert phase.
-5. **This restore procedure has been verified**: all 63 models, exact row-count parity, zero orphaned FK references across 106 real constraints, 2026-08-18.
+3. Load the real logical export (`ff-postgres-dev-logical-export-20260818.tar.gz`, 63 real models) via **`backend/scripts/cold-start-restore.ts`** (`EXPORT_DIR=<export dir> DATABASE_URL=... npx tsx scripts/cold-start-restore.ts`) — **do not use Prisma's typed client's `?schema=` URL parameter for a non-default schema; it is confirmed broken in this project's Prisma/adapter version (see `RESTORE_TEST_RESULTS.md` for the exact bug and workaround)**. This script uses raw `pg.Client` with an explicit `SET search_path` instead.
+4. If reloading into a fresh, empty target (not a shared schema), the two-phase truncate-then-insert discipline documented in the restore test is not strictly required for cascade-safety — it existed specifically to handle a shared, non-empty target safely. A genuinely fresh database only needs the insert phase for that specific concern. **This does not mean insert order is unconstrained even on a fresh target** — see the self-referencing-FK note below.
+5. **This restore procedure has been verified twice now**: the original 2026-08-18 run (sandbox schema, script since discarded) and independently again during the 2026-08-19 Cold Start Test (a genuinely fresh, from-scratch local Postgres instance, using the reconstructed script below). Both runs: all 63 models, exact row-count parity, zero orphaned FK references across 106 real constraints.
+
+**Real gap found and closed, 2026-08-19:** the script used for the 2026-08-18 restore test was a "temporary script" that was deliberately deleted afterward per that session's own cleanup discipline (see `RESTORE_TEST_RESULTS.md` step 5) — it was never preserved anywhere in this recovery package. The Cold Start Test hit this directly: step 3 above could not actually be executed by "a technically competent person" using only the package, because the only artifact describing *how* was prose, not a runnable script. **This has been fixed**: the loader has been rewritten from that prose description and committed as `backend/scripts/cold-start-restore.ts` — a real, reusable, checked-in artifact, not a future action item.
+
+**A fifth real restore-tooling bug was found and fixed while reconstructing the script**, beyond the four already documented in `RESTORE_TEST_RESULTS.md`: **self-referencing foreign keys break table-level insert ordering.** `ConstructionTreeNode.parentId` and `NetworkDevice.uplinkDeviceId` both reference their own table — a topological sort at the *table* level (parents before children) can't resolve a row that references a sibling row in the same table's own insert batch, in whatever order the export happens to list them. **Fix applied in the script**: for any column identified (from Postgres's own `information_schema`, not the Prisma schema) as a self-referencing FK, insert the row with that column NULLed out, then run a second UPDATE pass per table to patch in the real value once every row in that table exists. Verified against real data: 66 patched rows in `ConstructionTreeNode`, 28 in `NetworkDevice`, zero FK violations after.
 
 **Native RDS-snapshot restoration is UNAVAILABLE/UNKNOWN** — the IAM credential used throughout this recovery effort lacks `rds:CreateDBSnapshot`; only the logical export form has been produced and tested. See `20_NEXT_ACTIONS.md` for the exact minimal IAM policy needed to close this gap.
 
@@ -87,11 +93,11 @@ Real, restore-tested procedure (full detail: `AI_Dispatch/backups/FF-RECOVERY-v1
 
 Real variable names (no values — see `01_CURRENT_STATE.md` and each repo's own `.env.example`):
 
-- `backend`: `DATABASE_URL`, `JWT_SECRET`, `ALLOWED_ORIGIN`, `TWIN_BRIDGE_URL`, `FF_TARGET_ENV`
+- `backend`: `DATABASE_URL`, `JWT_SECRET`, `ALLOWED_ORIGIN`, `TWIN_BRIDGE_URL`, `FF_TARGET_ENV`, plus `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_REGION`/`S3_BUCKET_NAME` — **correction, 2026-08-19: these four are not optional.** `backend/src/lib/s3.ts` calls `requireEnv()` on `S3_BUCKET_NAME` and `AWS_REGION` at module-load time, so the process crashes on startup without them, even if no S3 feature is ever exercised. Confirmed live during the Cold Start Test: the backend would not boot until placeholder values were added. Real deployments need real values; a local/demo recovery that doesn't need working S3 can use any non-empty placeholder string.
 - `factory-runtime`: `JWT_SECRET`, `BACKEND_URL`, `ALLOWED_ORIGIN`, `FACTORY_RUNTIME_MODE`, `FACTORY_RUNTIME_PORT`
 - `blender-bridge`: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ALLOWED_ORIGIN`, `JWT_SECRET`, `BACKEND_URL`
 - `CE_Forge`: `FF_BASE_URL`, `FF_REQUIRED_ENVIRONMENT`, `FF_QA_*_PASSWORD` (per-role QA credentials)
-- Frontend: **no `.env.example` at all** — no server-side secrets, static build.
+- Frontend: **correction, 2026-08-19 — this was wrong.** `Factory_To_Foundation/frontend/.env.example` does exist (`VITE_BACKEND_URL`, `VITE_TWIN_BRIDGE_URL`, `VITE_BLENDER_BRIDGE_URL`), and there's a separate `frontend/.env.production` too. No server-side secrets either way — still a static build — but the earlier claim that no `.env.example` exists at all was never actually checked.
 
 A complete redacted inventory with owner/rotation-method per variable is **not yet written** — `18_ENVIRONMENT_VARIABLES.md` is still a template. See Known Limitations.
 
@@ -152,9 +158,18 @@ The **MVP Recovery target** (per `02_ARCHITECTURE.md`): Postgres → backend →
 ## 20. Known limitations (honest, current as of this document)
 
 - `18_ENVIRONMENT_VARIABLES.md` is still a template — variable *names* are scattered correctly across `01_CURRENT_STATE.md` and this document, but no single consolidated redacted inventory with owner/rotation-method exists yet.
-- `Construction_Enterprises`'s Python dependencies are captured (`PIP_FREEZE.txt`) but not yet turned into a real pinned `requirements.txt`, and no clean-environment install has been tested.
+- `Construction_Enterprises`'s Python dependencies are captured (`PIP_FREEZE.txt`) but not yet turned into a real pinned `requirements.txt`, and no clean-environment install has been tested. Not exercised by the 2026-08-19 Cold Start Test — the MVP Recovery target is explicitly separable from twin reconstruction (see step 3), and the test respected that.
 - Native RDS-snapshot / S3-object-level export are both blocked on a real IAM gap (exact policy proposed in `20_NEXT_ACTIONS.md`, not yet applied).
-- n8n's live workflow state cannot currently be freshly exported from this machine — the bounded attempt to start it failed silently and was not investigated further, per explicit instruction not to let this become a debugging rabbit hole during recovery.
+- n8n's live workflow state cannot currently be freshly exported from this machine — the bounded attempt to start it failed silently and was not investigated further, per explicit instruction not to let this become a debugging rabbit hole during recovery. Not exercised by the Cold Start Test (n8n/`AI_Dispatch` reconstruction is optional relative to the MVP target).
 - `ff-twinbridge-nlb`'s real purpose is unconfirmed.
-- The hardcoded `C:\Users\jchap\...` paths (step 8) are real, load-bearing technical debt with no environment-variable override today.
-- This procedure has **not** been executed end-to-end by anyone/anything other than the AI sessions that wrote it — the real Cold Start Test (a technically competent person following only this package) is still outstanding.
+- The hardcoded `C:\Users\jchap\...` paths (step 8) are real, load-bearing technical debt with no environment-variable override today. Not exercised (same reason as the twin/Python item above).
+
+## 21. Cold Start Test — executed and passed, 2026-08-19
+
+This procedure **has now been executed end-to-end**, independently of the AI sessions that wrote it, per Step 18 of `21_FORWARDABLE_AI_EXECUTION_PLAN.md`. Full detail, defects found, and evidence: see the new entry in `19_KNOWN_ISSUES.md` ("Cold Start Test — executed 2026-08-19"). Summary:
+
+- Ran from a real download of the GCS archive (`gs://ai-dispatch-504810-ff-recovery/CE_RECOVERY/`) into an isolated directory with no access to any existing local checkout — not from files already on the machine.
+- All 97 archive files and all 4 git bundles passed SHA-256 verification; all four bundle HEAD commits matched `01_SOURCE/MANIFEST.md` exactly.
+- MVP Recovery target achieved for real: fresh local Postgres → `prisma migrate deploy` (38/38 migrations) → real data restored via the reconstructed loader (2,194 rows, 63/63 models, 0 orphaned FKs) → backend → frontend, logged in, rendering real project data (Stonepine Residences, Cedarwood Flats, Garden Lofts, Skyline Towers) through the actual UI.
+- 5 real defects found in this package during the test; all 5 fixed in this revision (port, frontend `.env.example` claim, S3-env-var-required-at-startup, the deleted restore script, the self-referencing-FK bug) — see steps 5–7 above and `19_KNOWN_ISSUES.md`.
+- Twin/`Construction_Enterprises` reconstruction and `AI_Dispatch`/n8n reconstruction were **not** exercised — both are explicitly optional relative to the MVP target (steps 3 and 10), not a gap in this test's coverage.

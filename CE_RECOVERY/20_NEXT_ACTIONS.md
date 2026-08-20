@@ -2,7 +2,7 @@
 
 **Status:** Draft — real, evidence-based entries below.
 **Package:** `CE_RECOVERY`
-**Last reviewed:** 2026-08-18
+**Last reviewed:** 2026-08-19
 
 ## Purpose
 
@@ -37,8 +37,8 @@ Record repository paths, commit IDs, commands, exports, screenshots, or test res
 | 6. Business archive separation (8 real docs) | Claude | **Done — copied + verified, originals untouched** | `AI_Dispatch/backups/FF-RECOVERY-v1.0/business-archive/` + `BUSINESS_ARCHIVE_MANIFEST.json`, all 8 SHA-256-verified byte-for-byte | Whether to remove the originals from `Factory_Documentation/` is a separate, deliberately deferred decision |
 | 7. GCS creation | — | **Explicitly not authorized yet** | `17_GCS_RECOVERY.md` | Requires the human owner's direct go-ahead (new Google account/project — an "explicit permission required" action) |
 | 8. Full checksums/manifest for everything preserved so far | Claude | **Partial** | Per-artifact `CHECKSUMS.sha256` + `MANIFEST.md` exist for both the source bundles and the DB export; no single top-level manifest tying all of Phase 2's artifacts together yet | — |
-| 9. `15_DEPLOYMENT.md` cold-start instructions | — | **Not started** | — | — |
-| 10. Recovery validation (Cold Start Test) | — | **Not started, blocked on above** | — | — |
+| 9. `15_DEPLOYMENT.md` cold-start instructions | Claude | **Done** | `15_DEPLOYMENT.md` — real 21-step procedure, corrected against the 2026-08-19 Cold Start Test's own findings | — |
+| 10. Recovery validation (Cold Start Test) | Claude | **Done, passed** | `19_KNOWN_ISSUES.md`'s "Cold Start Test — executed 2026-08-19" entry; `15_DEPLOYMENT.md` §21. Real GCS download, isolated environment, MVP Recovery target achieved, 5 defects found and fixed (incl. reconstructing the deleted restore-loader script as `backend/scripts/cold-start-restore.ts`) | **Met** |
 
 ## Real IAM gap blocking the native database/object-storage export forms
 
@@ -92,6 +92,15 @@ This session's own `codex-cli` IAM user was confirmed (via live `AccessDeniedExc
 
 ## Recovery notes
 
-- Minimum viable recovery target: proposed in `01_CURRENT_STATE.md`/`02_ARCHITECTURE.md`, not yet formally confirmed with the human owner.
+- Minimum viable recovery target: proposed in `01_CURRENT_STATE.md`/`02_ARCHITECTURE.md`, achieved and demonstrated live by the 2026-08-19 Cold Start Test.
 - AWS/GCP/third-party dependencies: AWS only for this repo; `AI_Dispatch` has its own separate real SaaS profile (Manus/Slack/Google Docs).
-- Cold-start instruction: still not written — see Immediate Next Steps above.
+- Cold-start instruction: written (`15_DEPLOYMENT.md`) and now validated end-to-end — see the Cold Start Test entry above.
+
+## Remaining open items (as of 2026-08-19)
+
+Only genuinely open items left in this package:
+- Native RDS snapshot + S3 object-level export — IAM-gated, policy proposed above, needs the human owner to apply it.
+- Client-side encryption on the GCS archive — not applied, disclosed (`17_GCS_RECOVERY.md`).
+- `18_ENVIRONMENT_VARIABLES.md` — still a template; real variable names exist scattered in `01_CURRENT_STATE.md`/`15_DEPLOYMENT.md` but no single consolidated redacted inventory.
+- Logistics Flow → Operations deep-link bug — disputed, needs the human owner's own repro (see `19_KNOWN_ISSUES.md`).
+- Twin/`Construction_Enterprises` and `AI_Dispatch`/n8n reconstruction — real, valuable, but explicitly separable extensions beyond the MVP target; not exercised by the Cold Start Test.

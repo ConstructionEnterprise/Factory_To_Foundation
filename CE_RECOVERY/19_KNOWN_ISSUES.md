@@ -2,7 +2,7 @@
 
 **Status:** Draft — real, evidence-based entries below. Verify against the repository before relying on this document for anything beyond its own stated evidence.
 **Package:** `CE_RECOVERY`
-**Last reviewed:** 2026-08-18
+**Last reviewed:** 2026-08-19
 
 ## Purpose
 
@@ -66,6 +66,38 @@ Record repository paths, commit IDs, commands, exports, screenshots, or test res
 **Next action:** Not in scope for the recovery sprint itself (the plan's Non-negotiable Rule 2 prohibits broad new work during recovery) — but the *absence* should be explicitly written into `15_DEPLOYMENT.md`'s Cold-Start instructions so a recovering engineer knows to fall back to manual `curl`/browser verification, not assume `npm test` exists.
 
 **Acceptance condition:** N/A for this recovery sprint — acceptance is simply that this gap is disclosed, not silently discovered during a cold start.
+
+---
+
+## Issue: Cold Start Test — executed 2026-08-19 (RECOVERY VERIFIED, 5 defects found and fixed)
+
+**Affected component and file path:** The recovery package as a whole — `15_DEPLOYMENT.md`, `backend/scripts/` (new file: `cold-start-restore.ts`), `backend/.env.example`-adjacent claims.
+
+**Reproduction steps:** Downloaded the real GCS archive (`gs://ai-dispatch-504810-ff-recovery/CE_RECOVERY/`) into an isolated directory (`C:\ColdStartTest-FF-RECOVERY-v1.0`) with no access to any existing local checkout of any of the four repos. Verified all 97 files against `FULL_ARCHIVE_CHECKSUMS.sha256` and all 4 bundles against `01_SOURCE/CHECKSUMS.sha256`. Cloned all four repos from bundle alone; confirmed HEAD commits matched `01_SOURCE/MANIFEST.md` exactly. Installed PostgreSQL 18 binaries (no installer, no admin rights required) fresh on this machine — the "no local Postgres/Docker" gap from `RESTORE_TEST_RESULTS.md` was real and reproduced independently before being worked around this way, at the human owner's explicit direction. Ran `prisma migrate deploy` (38/38 migrations) against a genuinely fresh database, then restored the logical export, then started `backend` and `frontend`, created a real test user, logged in through the actual UI, and confirmed real restored data rendering (Construction Sites: Stonepine Residences, Cedarwood Flats, Garden Lofts, Skyline Towers; Analytics dashboard; Logistics dispatches).
+
+**Observed result:** **MVP Recovery target achieved** — Postgres → backend → frontend, serving real Construction/Logistics/Analytics data, confirmed both via direct API calls (`/construction-sites`, `/analytics/dashboards`, `/logistics-dispatches`) and visually in a real logged-in browser session. `/health` returned `{"status":"ok"}`; `/system/ready` correctly reported `ready: false` / `"twin bridge unreachable"` — accurate, since twin reconstruction was correctly not attempted (out of MVP scope per step 3).
+
+Five real defects were found in the process, all fixed in this same pass (not deferred):
+
+1. **`15_DEPLOYMENT.md`'s service table listed the backend port as 4310.** Real value, confirmed from `backend/src/server.ts` and every consumer's `.env.example`: **4300**. Fixed.
+2. **`15_DEPLOYMENT.md` claimed `Factory_To_Foundation/frontend` has no `.env.example` at all.** False — it exists, with real `VITE_BACKEND_URL`/`VITE_TWIN_BRIDGE_URL`/`VITE_BLENDER_BRIDGE_URL` values; a separate `.env.production` also exists. The original claim was never actually checked. Fixed.
+3. **The backend hard-crashes at startup without `S3_BUCKET_NAME`/`AWS_REGION`** (`backend/src/lib/s3.ts`'s `requireEnv()`, called at module-load time) — not previously disclosed as a boot-blocking requirement, only implied to matter for upload features. A local/demo recovery needs placeholder values even if S3 itself is never used. Fixed (documented in `15_DEPLOYMENT.md` step 7).
+4. **The actual restore-test loader script no longer existed anywhere** — `RESTORE_TEST_RESULTS.md` (2026-08-18) documented four real bugs it had to work around, but the script itself was a "temporary script" deleted after that one run, and was never committed or archived. A person following this package alone could not have executed step 6 of `15_DEPLOYMENT.md` — the prose described what to do, but there was nothing to run. **Fixed**: rewritten from the prose description and committed as `backend/scripts/cold-start-restore.ts`, a real, reusable, checked-in artifact.
+5. **A fifth restore-tooling bug, not present in the original four**, found while rewriting the loader: **self-referencing foreign keys break table-level insert ordering.** `ConstructionTreeNode.parentId` and `NetworkDevice.uplinkDeviceId` each reference their own table; a row can reference a sibling row from the same table's own insert batch, in whatever order the export lists them, regardless of whether the overall table-to-table order is otherwise correct. Table-level topological sort (used for the other 61 models) cannot resolve this. **Fixed** in `cold-start-restore.ts`: self-referencing FK columns (detected from Postgres's own `information_schema`, not the Prisma schema) are loaded NULL first, then patched via a second UPDATE pass once every row in that table exists. Verified against real data: 66 patched rows in `ConstructionTreeNode`, 28 in `NetworkDevice`, zero FK violations after.
+
+**Expected result:** A technically competent person, given only the recovery package, can determine how to install dependencies, restore the database, start the application, and reach a working MVP — per Step 18's acceptance criteria in `21_FORWARDABLE_AI_EXECUTION_PLAN.md`.
+
+**Impact on recovery or income:** This closes the last major open item from `20_NEXT_ACTIONS.md` (item 10) and the last item in `00_RECOVERY_INDEX.md`'s "not yet done" list. The recovery package's core promise — reconstructability from the archive alone — is now demonstrated, not just asserted.
+
+**Last-known-stable commit:** N/A — this is a validation pass, not a regression.
+
+**Workaround, if any:** N/A — all five defects found were fixed directly rather than worked around.
+
+**Next action:** None required for the MVP target. Optional, explicitly separable extensions not exercised by this test: twin/`Construction_Enterprises` reconstruction, `AI_Dispatch`/n8n reconstruction, native RDS snapshot / S3 object export (still IAM-gated), client-side GCS encryption.
+
+**Acceptance condition:** Met — see Observed result above. Test artifacts (isolated Postgres instance, cloned repos, running dev servers) were torn down after validation; the durable output is the fixed documentation plus the newly-preserved `cold-start-restore.ts`.
+
+---
 
 ## Recovery notes
 
